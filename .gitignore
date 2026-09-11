@@ -1,0 +1,28 @@
+# Java / Maven (backend)
+backend/target/
+*.class
+*.jar
+*.war
+
+# Node (frontend)
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Env / secrets (API URLs, session/token config, local DB credentials, etc.)
+.env
+.env.*.local
+.env.local
+backend/src/main/resources/application-local.properties
+DB_details.py
+
+# Python venv
+.venv/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
