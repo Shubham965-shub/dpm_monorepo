@@ -1,6 +1,7 @@
 package com.strides.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.eq;
@@ -11,7 +12,6 @@ import com.strides.model.RootCauseTotal;
 import com.strides.repository.AggTwHumanErrorSeverityRepository;
 import com.strides.repository.AggTwRootCauseDistributionRepository;
 import com.strides.service.kpi.KpiCardResponse;
-import com.strides.service.kpi.KpiStatus;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -43,54 +43,20 @@ class QmsServiceTest {
     }
 
     @Test
-    void humanErrorSeverity_anyCritical_isRed() {
+    void humanErrorSeverity_overallEntry_hasNoStatus_thresholdsRemoved() {
         when(humanErrorSeverityRepository.find(eq("KRSG"), eq("monthly"), any(), any()))
                 .thenReturn(List.of(
                         new AggTwHumanErrorSeverityRow("monthly", PERIOD, "KRSG", "Critical", 1),
-                        new AggTwHumanErrorSeverityRow("monthly", PERIOD, "KRSG", "Major", 0)));
-
-        var result = service.getHumanErrorSeverity("KRSG", "monthly", PERIOD, PERIOD.plusMonths(1));
-
-        assertEquals(KpiStatus.RED, overallOf(result).status());
-    }
-
-    @Test
-    void humanErrorSeverity_twoOrMoreMajor_isRedEvenWithNoCritical() {
-        when(humanErrorSeverityRepository.find(eq("KRSG"), eq("monthly"), any(), any()))
-                .thenReturn(List.of(
-                        new AggTwHumanErrorSeverityRow("monthly", PERIOD, "KRSG", "Critical", 0),
                         new AggTwHumanErrorSeverityRow("monthly", PERIOD, "KRSG", "Major", 2)));
 
         var result = service.getHumanErrorSeverity("KRSG", "monthly", PERIOD, PERIOD.plusMonths(1));
 
-        assertEquals(KpiStatus.RED, overallOf(result).status());
-    }
-
-    @Test
-    void humanErrorSeverity_exactlyOneMajorNoCritical_isAmber() {
-        when(humanErrorSeverityRepository.find(eq("KRSG"), eq("monthly"), any(), any()))
-                .thenReturn(List.of(
-                        new AggTwHumanErrorSeverityRow("monthly", PERIOD, "KRSG", "Critical", 0),
-                        new AggTwHumanErrorSeverityRow("monthly", PERIOD, "KRSG", "Major", 1)));
-
-        var result = service.getHumanErrorSeverity("KRSG", "monthly", PERIOD, PERIOD.plusMonths(1));
-
-        assertEquals(KpiStatus.AMBER, overallOf(result).status());
-    }
-
-    @Test
-    void humanErrorSeverity_noCriticalOrMajor_isGreen() {
-        when(humanErrorSeverityRepository.find(eq("KRSG"), eq("monthly"), any(), any()))
-                .thenReturn(List.of(new AggTwHumanErrorSeverityRow("monthly", PERIOD, "KRSG", "Minor", 5)));
-
-        var result = service.getHumanErrorSeverity("KRSG", "monthly", PERIOD, PERIOD.plusMonths(1));
-
-        assertEquals(KpiStatus.GREEN, overallOf(result).status());
+        assertNull(overallOf(result).status());
     }
 
     @Test
     void rootCauseBreakdown_computesSharePercentageOfTotal() {
-        // 20 of 50 total is 40% -> above the 30% amber line, but at/below 50% -> AMBER, not RED.
+        // 20 of 50 total is 40%.
         when(rootCauseDistributionRepository.findTotals(eq("KRSG"), anySet(), eq("monthly"), any(), any()))
                 .thenReturn(List.of(new RootCauseTotal(PERIOD, "monthly", 20, 10, 5, 5, 5, 5, 0, 0, 0, 0, 50)));
 
@@ -101,6 +67,6 @@ class QmsServiceTest {
                 .findFirst()
                 .orElseThrow();
         assertEquals(BigDecimal.valueOf(40.00).setScale(2), instrumentShare.value());
-        assertEquals(KpiStatus.AMBER, instrumentShare.status());
+        assertNull(instrumentShare.status());
     }
 }

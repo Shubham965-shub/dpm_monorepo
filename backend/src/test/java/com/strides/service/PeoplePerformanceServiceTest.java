@@ -1,13 +1,13 @@
 package com.strides.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 import com.strides.model.AggCwTrainingCompletionRateRow;
 import com.strides.repository.AggCwTrainingCompletionRateRepository;
-import com.strides.service.kpi.KpiStatus;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -41,11 +41,11 @@ class PeoplePerformanceServiceTest {
 
         // 8 on-time / (8 + 2) = 80.00%, not diluted by the 100 not-yet-due assignments.
         assertEquals(BigDecimal.valueOf(80.00).setScale(2), result.get(0).value());
-        assertEquals(KpiStatus.RED, result.get(0).status());
+        assertNull(result.get(0).status());
     }
 
     @Test
-    void trainingCompletionRate_allOnTime_isGreen() {
+    void trainingCompletionRate_allOnTime_hasNoStatus_thresholdsRemoved() {
         LocalDate period = LocalDate.of(2026, 8, 1);
         when(trainingCompletionRateRepository.find(eq("KRSG"), eq("monthly"), any(), any()))
                 .thenReturn(List.of(new AggCwTrainingCompletionRateRow("monthly", period, "KRSG", "Completed On Time", 10)));
@@ -53,6 +53,6 @@ class PeoplePerformanceServiceTest {
         var result = service.getTrainingCompletionRate("KRSG", "monthly", period, period.plusMonths(1));
 
         assertEquals(BigDecimal.valueOf(100.00).setScale(2), result.get(0).value());
-        assertEquals(KpiStatus.GREEN, result.get(0).status());
+        assertNull(result.get(0).status());
     }
 }

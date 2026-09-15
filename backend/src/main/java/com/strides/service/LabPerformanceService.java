@@ -7,7 +7,6 @@ import com.strides.repository.AggLimsSlaAdherenceRepository;
 import com.strides.repository.AggLimsTestsPerAnalystRepository;
 import com.strides.repository.AggLimsTurnAroundTimeRepository;
 import com.strides.service.kpi.KpiCardResponse;
-import com.strides.service.kpi.KpiZoneRule;
 import com.strides.service.kpi.PeriodCombiner;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -18,9 +17,6 @@ import java.util.Set;
 
 @ApplicationScoped
 public class LabPerformanceService {
-
-    // SLA Adherence: red <90%, amber 90-94.9%, green >=95% (from the KPI catalogue).
-    private static final KpiZoneRule SLA_ADHERENCE_RULE = KpiZoneRule.higherIsBetter(90, 95);
 
     @Inject
     AggLimsTurnAroundTimeRepository turnAroundTimeRepository;
@@ -42,14 +38,14 @@ public class LabPerformanceService {
     public List<KpiCardResponse> getSampleTat(String siteName, String sampleType, String grain, LocalDate from, LocalDate to) {
         Set<String> selected = PeriodCombiner.parseSelection(sampleType);
         List<PeriodTotal> totals = turnAroundTimeRepository.findTotals(siteName, selected, grain, from, to);
-        return PeriodCombiner.fromTotals(totals, 1, "sample-tat", "Sample TAT", "days", null);
+        return PeriodCombiner.fromTotals(totals, 1, "sample-tat", "Sample TAT", "days");
     }
 
     /** sampleCategory: comma-separated RM/IP/FP/Stability to combine, or null/blank for ALL. */
     public List<KpiCardResponse> getSlaAdherence(String siteName, String sampleCategory, String grain, LocalDate from, LocalDate to) {
         Set<String> selected = PeriodCombiner.parseSelection(sampleCategory);
         List<PeriodTotal> totals = slaAdherenceRepository.findTotals(siteName, selected, grain, from, to);
-        return PeriodCombiner.fromTotals(totals, 100, "sla-adherence", "SLA Adherence", "%", SLA_ADHERENCE_RULE);
+        return PeriodCombiner.fromTotals(totals, 100, "sla-adherence", "SLA Adherence", "%");
     }
 
     /**
@@ -78,7 +74,7 @@ public class LabPerformanceService {
     public List<KpiCardResponse> getTestsPerAnalyst(String siteName, String sampleCategory, String grain, LocalDate from, LocalDate to) {
         Set<String> selected = PeriodCombiner.parseSelection(sampleCategory);
         List<PeriodTotal> totals = testsPerAnalystRepository.findTotals(siteName, selected, grain, from, to);
-        return PeriodCombiner.fromTotals(totals, 1, "tests-per-analyst", "Tests per Analyst per Day", "tests/analyst", null);
+        return PeriodCombiner.fromTotals(totals, 1, "tests-per-analyst", "Tests per Analyst per Day", "tests/analyst");
     }
 
     /**

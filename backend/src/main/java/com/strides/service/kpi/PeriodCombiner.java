@@ -32,24 +32,22 @@ public final class PeriodCombiner {
 
     /** multiplier is 100 for percentages (numerator/denominator * 100), 1 for plain ratios (days, tests/analyst). */
     public static List<KpiCardResponse> fromTotals(List<PeriodTotal> totals, double multiplier,
-            String kpiId, String name, String unit, KpiZoneRule rule) {
+            String kpiId, String name, String unit) {
         return totals.stream()
                 .map(t -> {
                     BigDecimal value = t.denominator() == 0 ? null
                             : BigDecimal.valueOf(t.numerator() * multiplier / t.denominator()).setScale(2, RoundingMode.HALF_UP);
-                    return new KpiCardResponse(kpiId, name, value, unit,
-                            KpiStatusEvaluator.evaluate(value, rule), t.grain(), t.periodStart());
+                    return new KpiCardResponse(kpiId, name, value, unit, null, t.grain(), t.periodStart());
                 })
                 .toList();
     }
 
-    /** Plain-count KPIs (no numerator/denominator ratio) - rule may be null if the catalogue's threshold doesn't apply here. */
-    public static List<KpiCardResponse> fromSums(List<PeriodSum> sums, String kpiId, String name, String unit, KpiZoneRule rule) {
+    /** Plain-count KPIs (no numerator/denominator ratio). */
+    public static List<KpiCardResponse> fromSums(List<PeriodSum> sums, String kpiId, String name, String unit) {
         return sums.stream()
                 .map(s -> {
                     BigDecimal value = BigDecimal.valueOf(s.total());
-                    return new KpiCardResponse(kpiId, name, value, unit,
-                            KpiStatusEvaluator.evaluate(value, rule), s.grain(), s.periodStart());
+                    return new KpiCardResponse(kpiId, name, value, unit, null, s.grain(), s.periodStart());
                 })
                 .toList();
     }

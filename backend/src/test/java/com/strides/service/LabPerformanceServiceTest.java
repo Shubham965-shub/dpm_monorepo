@@ -13,7 +13,6 @@ import com.strides.model.PeriodTotal;
 import com.strides.repository.AggLimsPrioritySampleComplianceRepository;
 import com.strides.repository.AggLimsSlaAdherenceRepository;
 import com.strides.repository.AggLimsTurnAroundTimeRepository;
-import com.strides.service.kpi.KpiStatus;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -54,7 +53,7 @@ class LabPerformanceServiceTest {
     }
 
     @Test
-    void getSlaAdherence_belowNinety_isRed() {
+    void getSlaAdherence_hasNoStatus_thresholdsRemoved() {
         when(slaAdherenceRepository.findTotals(eq("KRSG"), anySet(), eq("monthly"), any(), any()))
                 .thenReturn(List.of(new PeriodTotal(LocalDate.of(2026, 8, 1), "monthly", 49, 100)));
 
@@ -62,7 +61,7 @@ class LabPerformanceServiceTest {
                 LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31));
 
         assertEquals(BigDecimal.valueOf(49.00).setScale(2), result.get(0).value());
-        assertEquals(KpiStatus.RED, result.get(0).status());
+        assertNull(result.get(0).status());
     }
 
     @Test

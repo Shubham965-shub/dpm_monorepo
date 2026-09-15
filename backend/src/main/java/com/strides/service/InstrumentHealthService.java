@@ -6,8 +6,6 @@ import com.strides.repository.AggLimsInstrumentFailureRateRepository;
 import com.strides.repository.AggLimsInstrumentUtilizationRepository;
 import com.strides.repository.AggLimsQualificationCycleTimeRepository;
 import com.strides.service.kpi.KpiCardResponse;
-import com.strides.service.kpi.KpiStatusEvaluator;
-import com.strides.service.kpi.KpiZoneRule;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.time.LocalDate;
@@ -15,19 +13,6 @@ import java.util.List;
 
 @ApplicationScoped
 public class InstrumentHealthService {
-
-    // HPLC/GC/Dissolution Utilization %: green 70-90, amber 55-69 or 91-95, red <55 or >95.
-    private static final KpiZoneRule UTILIZATION_RULE = KpiZoneRule.optimalBand(55, 70, 90, 95);
-    // Instrument Availability %: red <90, amber 90-94.9, green >=95.
-    private static final KpiZoneRule AVAILABILITY_RULE = KpiZoneRule.higherIsBetter(90, 95);
-    // Instrument Downtime %: red >10, amber 5.1-10, green <=5.
-    private static final KpiZoneRule DOWNTIME_RULE = KpiZoneRule.higherIsWorse(10, 5);
-    // Calibration Compliance %: red <95, amber 95-99.9, green 100.
-    private static final KpiZoneRule CALIBRATION_RULE = KpiZoneRule.higherIsBetter(95, 100);
-    // PM Adherence %: red <85, amber 85-94.9, green >=95.
-    private static final KpiZoneRule PM_ADHERENCE_RULE = KpiZoneRule.higherIsBetter(85, 95);
-    // Qualification Cycle Time: red >45 days, amber 31-45, green <=30.
-    private static final KpiZoneRule QUALIFICATION_CYCLE_RULE = KpiZoneRule.higherIsWorse(45, 30);
 
     @Inject
     AggLimsInstrumentUtilizationRepository utilizationRepository;
@@ -44,8 +29,7 @@ public class InstrumentHealthService {
         return utilizationRepository.find(siteName, instGroup, grain, from, to).stream()
                 .map(row -> new KpiCardResponse(
                         instGroup.toLowerCase() + "-utilization", instGroup + " Utilization %", row.utilizationPct(), "%",
-                        KpiStatusEvaluator.evaluate(row.utilizationPct(), UTILIZATION_RULE),
-                        row.grain(), row.periodStart()))
+                        null, row.grain(), row.periodStart()))
                 .toList();
     }
 
@@ -53,8 +37,7 @@ public class InstrumentHealthService {
         return utilizationRepository.find(siteName, instGroup, grain, from, to).stream()
                 .map(row -> new KpiCardResponse(
                         "instrument-availability", "Instrument Availability %", row.availabilityPct(), "%",
-                        KpiStatusEvaluator.evaluate(row.availabilityPct(), AVAILABILITY_RULE),
-                        row.grain(), row.periodStart()))
+                        null, row.grain(), row.periodStart()))
                 .toList();
     }
 
@@ -62,8 +45,7 @@ public class InstrumentHealthService {
         return utilizationRepository.find(siteName, instGroup, grain, from, to).stream()
                 .map(row -> new KpiCardResponse(
                         "instrument-downtime", "Instrument Downtime %", row.downtimePct(), "%",
-                        KpiStatusEvaluator.evaluate(row.downtimePct(), DOWNTIME_RULE),
-                        row.grain(), row.periodStart()))
+                        null, row.grain(), row.periodStart()))
                 .toList();
     }
 
@@ -71,8 +53,7 @@ public class InstrumentHealthService {
         return calPmComplianceRepository.find(siteName, "Calibration", grain, from, to).stream()
                 .map(row -> new KpiCardResponse(
                         "calibration-compliance", "Calibration Compliance %", row.compliancePct(), "%",
-                        KpiStatusEvaluator.evaluate(row.compliancePct(), CALIBRATION_RULE),
-                        row.grain(), row.periodStart()))
+                        null, row.grain(), row.periodStart()))
                 .toList();
     }
 
@@ -80,15 +61,10 @@ public class InstrumentHealthService {
         return calPmComplianceRepository.find(siteName, "PM", grain, from, to).stream()
                 .map(row -> new KpiCardResponse(
                         "pm-adherence", "PM Adherence %", row.compliancePct(), "%",
-                        KpiStatusEvaluator.evaluate(row.compliancePct(), PM_ADHERENCE_RULE),
-                        row.grain(), row.periodStart()))
+                        null, row.grain(), row.periodStart()))
                 .toList();
     }
 
-    /**
-     * Catalogue thresholds are "per instrument per month"; this table's breakdown_frequency is
-     * count/day_count (no instrument-count column) - a genuine unit mismatch, status left null.
-     */
     public List<KpiCardResponse> getBreakdownFrequency(String siteName, String grain, LocalDate from, LocalDate to) {
         return breakdownsFrequencyRepository.find(siteName, grain, from, to).stream()
                 .map(row -> new KpiCardResponse(
@@ -97,7 +73,6 @@ public class InstrumentHealthService {
                 .toList();
     }
 
-    /** Column is named failure_rate (not _pct) with an unconfirmed scale - status left null. */
     public List<KpiCardResponse> getInstrumentFailureRate(String siteName, String grain, LocalDate from, LocalDate to) {
         return failureRateRepository.find(siteName, grain, from, to).stream()
                 .map(row -> new KpiCardResponse(
@@ -115,8 +90,7 @@ public class InstrumentHealthService {
         return qualificationCycleTimeRepository.find(siteName, grain, from, to).stream()
                 .map(row -> new KpiCardResponse(
                         "qualification-cycle-time", "Qualification Cycle Time", row.avgDays(), "days",
-                        KpiStatusEvaluator.evaluate(row.avgDays(), QUALIFICATION_CYCLE_RULE),
-                        row.grain(), row.periodStart()))
+                        null, row.grain(), row.periodStart()))
                 .toList();
     }
 }

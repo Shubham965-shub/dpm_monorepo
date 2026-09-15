@@ -6,8 +6,6 @@ import com.strides.repository.AggLimsRepeatAnalysisRateRepository;
 import com.strides.repository.AggLimsReviewerProductivityIndexRepository;
 import com.strides.repository.AggLimsRightFirstTimeRepository;
 import com.strides.service.kpi.KpiCardResponse;
-import com.strides.service.kpi.KpiStatusEvaluator;
-import com.strides.service.kpi.KpiZoneRule;
 import com.strides.service.kpi.PeriodCombiner;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -22,13 +20,6 @@ import java.util.stream.Collectors;
 
 @ApplicationScoped
 public class PeoplePerformanceService {
-
-    // Repeat Analysis Rate: red >5%, amber 2.1-5%, green <=2%.
-    private static final KpiZoneRule REPEAT_ANALYSIS_RULE = KpiZoneRule.higherIsWorse(5, 2);
-    // RFT Documentation: red <95%, amber 95-97.9%, green >=98%.
-    private static final KpiZoneRule RFT_RULE = KpiZoneRule.higherIsBetter(95, 98);
-    // Training Completion Rate: red <90%, amber 90-99.9%, green 100%.
-    private static final KpiZoneRule TRAINING_COMPLETION_RULE = KpiZoneRule.higherIsBetter(90, 100);
 
     private static final String COMPLETED_ON_TIME = "Completed On Time";
     private static final String PENDING_NOT_YET_DUE = "Pending - Not Yet Due";
@@ -46,7 +37,7 @@ public class PeoplePerformanceService {
     public List<KpiCardResponse> getRepeatAnalysisRate(String siteName, String sampleType, String grain, LocalDate from, LocalDate to) {
         Set<String> selected = PeriodCombiner.parseSelection(sampleType);
         var totals = repeatAnalysisRateRepository.findTotals(siteName, selected, grain, from, to);
-        return PeriodCombiner.fromTotals(totals, 100, "repeat-analysis-rate", "Repeat Analysis Rate", "%", REPEAT_ANALYSIS_RULE);
+        return PeriodCombiner.fromTotals(totals, 100, "repeat-analysis-rate", "Repeat Analysis Rate", "%");
     }
 
     /** Reviewer Productivity's threshold is "% of target" - no target column exists, status left null. */
@@ -63,7 +54,7 @@ public class PeoplePerformanceService {
     public List<KpiCardResponse> getRightFirstTime(String siteName, String sampleType, String grain, LocalDate from, LocalDate to) {
         Set<String> selected = PeriodCombiner.parseSelection(sampleType);
         var totals = rightFirstTimeRepository.findTotals(siteName, selected, grain, from, to);
-        return PeriodCombiner.fromTotals(totals, 100, "rft-documentation", "Right First Time (RFT) Documentation", "%", RFT_RULE);
+        return PeriodCombiner.fromTotals(totals, 100, "rft-documentation", "Right First Time (RFT) Documentation", "%");
     }
 
     /**
@@ -93,8 +84,7 @@ public class PeoplePerformanceService {
                     String grainValue = rows.get(0).grain();
                     return new KpiCardResponse(
                             "training-completion-rate", "Training Completion Rate", pct, "%",
-                            KpiStatusEvaluator.evaluate(pct, TRAINING_COMPLETION_RULE),
-                            grainValue, periodStart);
+                            null, grainValue, periodStart);
                 })
                 .sorted(Comparator.comparing(KpiCardResponse::periodStart))
                 .toList();

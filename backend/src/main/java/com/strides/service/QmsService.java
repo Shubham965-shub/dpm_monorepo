@@ -21,9 +21,6 @@ import com.strides.repository.AggTwRepeatFailureRateRepository;
 import com.strides.repository.AggTwRootCauseDistributionRepository;
 import com.strides.repository.AggTwValidOosRateRepository;
 import com.strides.service.kpi.KpiCardResponse;
-import com.strides.service.kpi.KpiStatus;
-import com.strides.service.kpi.KpiStatusEvaluator;
-import com.strides.service.kpi.KpiZoneRule;
 import com.strides.service.kpi.PeriodCombiner;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -40,21 +37,6 @@ import java.util.stream.Stream;
 
 @ApplicationScoped
 public class QmsService {
-
-    // Repeat Failure Rate: red >5%, amber 2.1-5%, green <=2%.
-    private static final KpiZoneRule REPEAT_FAILURE_RULE = KpiZoneRule.higherIsWorse(5, 2);
-    // Investigation Closure TAT: red >45 days, amber 31-45, green <=30.
-    private static final KpiZoneRule CLOSURE_TAT_RULE = KpiZoneRule.higherIsWorse(45, 30);
-    // CAPA Effectiveness: red <75%, amber 75-89.9%, green >=90%.
-    private static final KpiZoneRule CAPA_EFFECTIVENESS_RULE = KpiZoneRule.higherIsBetter(75, 90);
-    // CAPA Recurrence Rate: red >10%, amber 5.1-10%, green <=5%.
-    private static final KpiZoneRule CAPA_RECURRENCE_RULE = KpiZoneRule.higherIsWorse(10, 5);
-    // Root-cause Pareto (single dimension): red if that category is >50% of total, amber 30-50%.
-    private static final KpiZoneRule ROOT_CAUSE_PARETO_RULE = KpiZoneRule.higherIsWorse(50, 30);
-    // Consolidated root-cause heatmap: red if any cell >35% of total, amber 20-35%.
-    private static final KpiZoneRule ROOT_CAUSE_CONSOLIDATED_RULE = KpiZoneRule.higherIsWorse(35, 20);
-    // Human Error by Product Pareto: red if top product >40% of total errors, amber 20-40%.
-    private static final KpiZoneRule HUMAN_ERROR_BY_PRODUCT_RULE = KpiZoneRule.higherIsWorse(40, 20);
 
     @Inject
     AggTwInvalidOosRateRepository invalidOosRateRepository;
@@ -130,13 +112,13 @@ public class QmsService {
     public List<KpiCardResponse> getOosTrend(String site, String rootCauseBucket, String grain, LocalDate from, LocalDate to) {
         Set<String> selected = PeriodCombiner.parseSelection(rootCauseBucket);
         var totals = oosTrendRepository.findTotals(site, selected, grain, from, to);
-        return PeriodCombiner.fromSums(totals, "oos-trend", "OOS Trend", "count", null);
+        return PeriodCombiner.fromSums(totals, "oos-trend", "OOS Trend", "count");
     }
 
     public List<KpiCardResponse> getOotTrend(String site, String rootCauseBucket, String grain, LocalDate from, LocalDate to) {
         Set<String> selected = PeriodCombiner.parseSelection(rootCauseBucket);
         var totals = ootTrendRepository.findTotals(site, selected, grain, from, to);
-        return PeriodCombiner.fromSums(totals, "oot-trend", "OOT Trend", "count", null);
+        return PeriodCombiner.fromSums(totals, "oot-trend", "OOT Trend", "count");
     }
 
     /**
@@ -148,7 +130,7 @@ public class QmsService {
     public List<KpiCardResponse> getDeviations(String site, String rootCauseBucket, String grain, LocalDate from, LocalDate to) {
         Set<String> selected = PeriodCombiner.parseSelection(rootCauseBucket);
         var totals = deviationsRepository.findTotals(site, selected, grain, from, to);
-        return PeriodCombiner.fromSums(totals, "deviations", "Deviations", "count", null);
+        return PeriodCombiner.fromSums(totals, "deviations", "Deviations", "count");
     }
 
     /**
@@ -159,7 +141,7 @@ public class QmsService {
     public List<KpiCardResponse> getInvestigationClosureTat(String site, String respDept, String grain, LocalDate from, LocalDate to) {
         Set<String> selected = PeriodCombiner.parseSelection(respDept);
         var totals = investigationClosureTatRepository.findTotals(site, selected, grain, from, to);
-        return PeriodCombiner.fromTotals(totals, 1, "investigation-closure-tat", "Investigation Closure TAT", "days", CLOSURE_TAT_RULE);
+        return PeriodCombiner.fromTotals(totals, 1, "investigation-closure-tat", "Investigation Closure TAT", "days");
     }
 
     /**
@@ -169,27 +151,27 @@ public class QmsService {
     public List<KpiCardResponse> getRciBeyondTimeline(String site, String respDept, String grain, LocalDate from, LocalDate to) {
         Set<String> selected = PeriodCombiner.parseSelection(respDept);
         var totals = rciBeyondTimelineRepository.findTotals(site, selected, grain, from, to);
-        return PeriodCombiner.fromSums(totals, "rci-beyond-timeline", "RCIs Beyond Timeline", "count", null);
+        return PeriodCombiner.fromSums(totals, "rci-beyond-timeline", "RCIs Beyond Timeline", "count");
     }
 
     /** recordType: comma-separated list (OOS, Deviation) to combine, or null/blank for ALL. */
     public List<KpiCardResponse> getRepeatFailureRate(String site, String recordType, String grain, LocalDate from, LocalDate to) {
         Set<String> selected = PeriodCombiner.parseSelection(recordType);
         var totals = repeatFailureRateRepository.findTotals(site, selected, grain, from, to);
-        return PeriodCombiner.fromTotals(totals, 100, "repeat-failure-rate", "Repeat Failure Rate", "%", REPEAT_FAILURE_RULE);
+        return PeriodCombiner.fromTotals(totals, 100, "repeat-failure-rate", "Repeat Failure Rate", "%");
     }
 
     /** recordType: comma-separated list (Deviation, Out Of Specification, Out of Trend) to combine, or null/blank for ALL. */
     public List<KpiCardResponse> getRootCauseBreakdown(String site, String recordType, String grain, LocalDate from, LocalDate to) {
-        return rootCauseShares(site, recordType, grain, from, to, ROOT_CAUSE_PARETO_RULE, "root-cause-by-");
+        return rootCauseShares(site, recordType, grain, from, to, "root-cause-by-");
     }
 
     public List<KpiCardResponse> getConsolidatedRootCause(String site, String recordType, String grain, LocalDate from, LocalDate to) {
-        return rootCauseShares(site, recordType, grain, from, to, ROOT_CAUSE_CONSOLIDATED_RULE, "root-cause-consolidated-");
+        return rootCauseShares(site, recordType, grain, from, to, "root-cause-consolidated-");
     }
 
     private List<KpiCardResponse> rootCauseShares(String site, String recordType, String grain, LocalDate from,
-            LocalDate to, KpiZoneRule rule, String kpiIdPrefix) {
+            LocalDate to, String kpiIdPrefix) {
         Set<String> selected = PeriodCombiner.parseSelection(recordType);
         return rootCauseDistributionRepository.findTotals(site, selected, grain, from, to).stream()
                 .flatMap(total -> dimensionCounts(total).entrySet().stream().map(dimension -> {
@@ -198,8 +180,7 @@ public class QmsService {
                     return new KpiCardResponse(
                             kpiIdPrefix + dimension.getKey().toLowerCase().replace(' ', '-'),
                             "Root Cause: " + dimension.getKey(), share, "%",
-                            KpiStatusEvaluator.evaluate(share, rule),
-                            total.grain(), total.periodStart());
+                            null, total.grain(), total.periodStart());
                 }))
                 .toList();
     }
@@ -249,15 +230,14 @@ public class QmsService {
     public List<KpiCardResponse> getCapaEffectiveness(String site, String originatedFrom, String grain, LocalDate from, LocalDate to) {
         Set<String> selected = PeriodCombiner.parseSelection(originatedFrom);
         var totals = capaEffectivenessRepository.findTotals(site, selected, grain, from, to);
-        return PeriodCombiner.fromTotals(totals, 100, "capa-effectiveness", "CAPA Effectiveness", "%", CAPA_EFFECTIVENESS_RULE);
+        return PeriodCombiner.fromTotals(totals, 100, "capa-effectiveness", "CAPA Effectiveness", "%");
     }
 
     public List<KpiCardResponse> getCapaRecurrenceRate(String site, String grain, LocalDate from, LocalDate to) {
         return capaRecurrenceRateRepository.find(site, grain, from, to).stream()
                 .map(row -> new KpiCardResponse(
                         "capa-recurrence-rate", "CAPA Recurrence Rate", row.recurrencePct(), "%",
-                        KpiStatusEvaluator.evaluate(row.recurrencePct(), CAPA_RECURRENCE_RULE),
-                        row.grain(), row.periodStart()))
+                        null, row.grain(), row.periodStart()))
                 .toList();
     }
 
@@ -285,10 +265,7 @@ public class QmsService {
                 .toList();
     }
 
-    /**
-     * Per-classification raw counts, plus one synthesized "Overall" entry per period applying the
-     * catalogue's combinational rule (>=1 critical or >=2 major -> red; 1 major, 0 critical -> amber).
-     */
+    /** Per-classification raw counts, plus one "Overall" entry per period totaling all severities. */
     public List<KpiCardResponse> getHumanErrorSeverity(String site, String grain, LocalDate from, LocalDate to) {
         List<AggTwHumanErrorSeverityRow> rows = humanErrorSeverityRepository.find(site, grain, from, to);
 
@@ -303,27 +280,15 @@ public class QmsService {
                 rows.stream().collect(Collectors.groupingBy(AggTwHumanErrorSeverityRow::periodStart));
         List<KpiCardResponse> overall = byPeriod.entrySet().stream()
                 .map(entry -> {
-                    long critical = countOf(entry.getValue(), "Critical");
-                    long major = countOf(entry.getValue(), "Major");
-                    KpiStatus status = (critical >= 1 || major >= 2) ? KpiStatus.RED
-                            : (major == 1) ? KpiStatus.AMBER
-                            : KpiStatus.GREEN;
                     String grainValue = entry.getValue().get(0).grain();
                     return new KpiCardResponse(
                             "human-error-severity-overall", "Human Error Severity (Overall)",
-                            null, "status", status, grainValue, entry.getKey());
+                            null, "status", null, grainValue, entry.getKey());
                 })
                 .sorted(Comparator.comparing(KpiCardResponse::periodStart))
                 .toList();
 
         return Stream.concat(perClassification.stream(), overall.stream()).toList();
-    }
-
-    private static long countOf(List<AggTwHumanErrorSeverityRow> rows, String classification) {
-        return rows.stream()
-                .filter(r -> classification.equals(r.finalClassification()))
-                .mapToLong(AggTwHumanErrorSeverityRow::humanErrorCount)
-                .sum();
     }
 
     /**
@@ -351,8 +316,7 @@ public class QmsService {
                             : BigDecimal.valueOf(row.humanErrorCount() * 100.0 / total).setScale(2, RoundingMode.HALF_UP);
                     return new KpiCardResponse(
                             "human-error-by-product", "Human Error by Product (" + row.materialDescription() + ")",
-                            share, "%", KpiStatusEvaluator.evaluate(share, HUMAN_ERROR_BY_PRODUCT_RULE),
-                            row.grain(), row.periodStart());
+                            share, "%", null, row.grain(), row.periodStart());
                 })
                 .toList();
     }
@@ -370,6 +334,6 @@ public class QmsService {
     public List<KpiCardResponse> getProductWiseFailure(String site, String materialType, String grain, LocalDate from, LocalDate to) {
         Set<String> selected = PeriodCombiner.parseSelection(materialType);
         var totals = productWiseFailureRepository.findTotals(site, selected, grain, from, to);
-        return PeriodCombiner.fromSums(totals, "product-wise-failure", "Product-wise Failure", "count", null);
+        return PeriodCombiner.fromSums(totals, "product-wise-failure", "Product-wise Failure", "count");
     }
 }
