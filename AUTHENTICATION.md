@@ -185,7 +185,10 @@ Set in `AuthController.refreshCookie()`:
 - **`httpOnly`** — JavaScript can never read this cookie, even via XSS. It can only be sent by
   the browser automatically.
 - **`Secure`** — only transmitted over HTTPS (disabled in `%dev`/`%test` profiles so local http
-  dev still works).
+  dev still works; for a packaged/containerized `prod`-profile run tested over plain http, set
+  `AUTH_COOKIE_SECURE=false` - see `backend/README.md`). This one is easy to get wrong silently:
+  browsers just drop a `Secure` cookie sent over http with no error, so "login works but reload
+  logs you out" with no visible cause is the symptom if this is misconfigured.
 - **`SameSite=Strict`** — the browser won't attach this cookie to cross-site requests at all,
   which is the main defense against CSRF here. This assumes the frontend and backend are
   deployed under the same registrable domain in production; if they ever end up on genuinely

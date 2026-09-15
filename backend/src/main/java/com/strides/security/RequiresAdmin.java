@@ -7,9 +7,9 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Requires User.isAdmin() on the current user - see AuthenticationFilter. Deliberately separate
- * from the org-hierarchy Role enum (CXO/HOD/Manager/...), which only categorizes users today and
- * gates nothing.
+ * Requires the ADMIN role on the current user (checked as roles.contains(Role.ADMIN)) - see
+ * AuthenticationFilter. The other five Role values (CXO/HOD/MANAGER/SUPERVISOR/ANALYST) only
+ * categorize users today and gate nothing.
  */
 @NameBinding
 @Retention(RetentionPolicy.RUNTIME)
