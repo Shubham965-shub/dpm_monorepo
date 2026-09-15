@@ -33,7 +33,10 @@ The app requires a valid access token on every endpoint except `POST /api/auth/l
 ### Required env vars
 - `JWT_SECRET` - signs access tokens. No default; the app fails to start without it (same pattern as `DB_JDBC_URL`). Use a random value >= 32 bytes.
 - `CORS_ORIGINS` - comma-separated allowed origin(s) for the credentialed (cookie) frontend flow. Defaults to `http://localhost:5173` (the local Vite dev server). **Never wildcard** - the refresh-token cookie requires `Access-Control-Allow-Credentials: true`, which browsers refuse to pair with a wildcard origin, and a permissive origin-reflection config would defeat the point of scoping this at all.
-- `ADMIN_BOOTSTRAP_EMAIL` / `ADMIN_BOOTSTRAP_PASSWORD` - optional. If both are set **and** the `users` table is empty, one `Admin`-role account is created on startup (see `AdminBootstrap`). Unset these once an admin account exists; further user creation goes through `POST /api/users` (admin-only, generates a one-time temp password per account - see `UsersController`).
+- `ADMIN_BOOTSTRAP_EMAIL` / `ADMIN_BOOTSTRAP_PASSWORD` - optional. If both are set **and** the `users` table is empty, one `ADMIN`-role account is created on startup (see `AdminBootstrap`). Unset these once an admin account exists; further user creation goes through `POST /api/users` (admin-only, generates a one-time temp password per account - see `UsersController`).
+
+### Roles: a fixed enum, not a database catalogue
+`Role.java` defines exactly six values: `CXO`, `HOD`, `MANAGER`, `SUPERVISOR`, `ANALYST`, `ADMIN`. A user can hold more than one. Only `ADMIN` gates anything today (`@RequiresAdmin` on `UsersController`, enforced by `AuthenticationFilter`, checked as `roles.contains(ADMIN)`) - the other five currently just categorize users; there's no per-role KPI-endpoint restriction yet. New roles are added by editing the enum (and the `user_roles.role` CHECK constraint below) and redeploying - deliberately not DB-driven, unlike a fuller RBAC catalogue.
 
 ### Required schema (created manually - no Flyway/migration tool in this repo)
 `quarkus.hibernate-orm.schema-management.strategy=validate` means Hibernate never creates or alters these tables itself - it only validates the JPA entity mappings against whatever already exists, so a mismatch fails loudly at startup. Create these against the `dpm` database before first run:
@@ -55,28 +58,12 @@ CREATE TABLE users (
 );
 CREATE UNIQUE INDEX ix_users_email ON users (lower(email));
 
-CREATE TABLE roles (
-    id uuid PRIMARY KEY,
-    name varchar(80) NOT NULL UNIQUE,
-    description text
-);
-
-CREATE TABLE permissions (
-    id uuid PRIMARY KEY,
-    code varchar(120) NOT NULL UNIQUE,
-    description text
-);
-
+-- role is a plain string, CHECK-constrained to Role.java's exact enum values - not a foreign key
+-- to a roles table, since roles aren't database rows here.
 CREATE TABLE user_roles (
     user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    role_id uuid NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
-    PRIMARY KEY (user_id, role_id)
-);
-
-CREATE TABLE role_permissions (
-    role_id uuid NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
-    permission_id uuid NOT NULL REFERENCES permissions(id) ON DELETE CASCADE,
-    PRIMARY KEY (role_id, permission_id)
+    role varchar(20) NOT NULL CHECK (role IN ('CXO','HOD','MANAGER','SUPERVISOR','ANALYST','ADMIN')),
+    PRIMARY KEY (user_id, role)
 );
 
 -- Opaque refresh tokens - never stored raw, only their SHA-256 hash (see RefreshTokenService).
@@ -92,7 +79,7 @@ CREATE TABLE refresh_tokens (
 CREATE INDEX ix_refresh_tokens_user_id ON refresh_tokens (user_id);
 ```
 
-`AdminBootstrap` creates its own `Admin` role + `admin:*` permission row on first startup if `ADMIN_BOOTSTRAP_EMAIL`/`PASSWORD` are set - no seed data required beyond the tables above.
+`AdminBootstrap` assigns its own account the `ADMIN` role on first startup if `ADMIN_BOOTSTRAP_EMAIL`/`PASSWORD` are set - no seed data required beyond the tables above.
 
 ### Filter syntax: one exception
 Every filterable endpoint uses a single comma-separated query param (e.g. `?sampleType=RM,IP`) — **except** `GET /api/qms/human-error-by-product`, which uses **repeated params** instead (`?material=A&material=B`). This is deliberate: `material` values are free-text product names that routinely contain commas themselves (e.g. `"TenoDF,Lami & Dolute Tabs 300/300/50mg"`), so a comma-joined string would be ambiguous. Repeated params sidestep that entirely.
@@ -112,15 +99,23 @@ Every filterable endpoint uses a single comma-separated query param (e.g. `?samp
 - **Training Completion Rate has no department-name or training-type filter** — `agg_cw_training_completion_rate` only has `grain, period_start, site, assignment_status, assignment_count`. `assignment_status` exists but is already consumed internally to compute the ratio, not exposed as a separate filter.
 - **Product-wise Failure has no product/material-name filter** — `agg_tw_product_wise_failure` only has `grain, period_start, site, material_type, disposition, failure_count, batch_count` (confirmed live against the database schema; the table is also currently empty, per above). `material_type` (FG/SFG) is already filterable; there's no material-description/product-name column to filter on, unlike Human Error by Product's `material_description`.
 
-## Running the application in dev mode
+## Running locally
 
-You can run your application in dev mode that enables live coding using:
+**Recommended: `./run-docker.sh`** (from `backend/`) — builds the jar, builds a Docker image, and runs it via OrbStack/Docker at `http://localhost:8080`. This has been the reliable path in practice: direct JVM connections to the remote Azure Postgres over this network have intermittently reset after the first query (cause not fully diagnosed - something about how the network path handles long-lived JVM sockets); routing through a container's network has not shown that issue. The script auto-detects and patches around a corporate TLS-inspecting proxy (e.g. Zscaler) if Maven can't otherwise resolve dependencies (`PKIX path building failed` errors) - one-time, cached in `.devtools/` (gitignored).
 
 ```shell script
-./mvnw quarkus:dev
+./run-docker.sh
+# ...
+docker logs -f dpm-backend   # tail logs
+docker stop dpm-backend      # stop
 ```
 
-> **_NOTE:_**  Quarkus now ships with a Dev UI, which is available in dev mode only at <http://localhost:8080/q/dev/>.
+**Alternative: `./mvnw quarkus:dev`** (live coding / Dev UI at <http://localhost:8080/q/dev/>) - works the same way, just hasn't been as connection-stable here. If you hit the same intermittent DB "Connection reset" symptom, prefer the Docker path above. If Maven itself fails to resolve dependencies with a `PKIX path building failed` error (a corporate proxy your JVM doesn't trust, even though `curl`/your browser does), either run `./run-docker.sh` once first (it patches this automatically) and reuse its `.devtools/cacerts-with-zscaler`, or point `MAVEN_OPTS` at a patched trust store yourself:
+
+```shell script
+export MAVEN_OPTS="-Djavax.net.ssl.trustStore=$(pwd)/.devtools/cacerts-with-zscaler -Djavax.net.ssl.trustStorePassword=changeit"
+./mvnw quarkus:dev
+```
 
 ## Packaging and running the application
 

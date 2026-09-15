@@ -11,7 +11,6 @@ import com.strides.domain.Role;
 import com.strides.domain.User;
 import com.strides.dto.UsersDtos.CreateUserRequest;
 import com.strides.dto.UsersDtos.UpdateUserRequest;
-import com.strides.repository.RoleRepository;
 import com.strides.repository.UserRepository;
 import com.strides.security.PasswordHasher;
 import com.strides.security.RefreshTokenService;
@@ -33,8 +32,6 @@ class UserAdminServiceTest {
     @Mock
     UserRepository users;
     @Mock
-    RoleRepository roles;
-    @Mock
     PasswordHasher hasher;
     @Mock
     TempPasswordGenerator tempPasswords;
@@ -43,13 +40,6 @@ class UserAdminServiceTest {
 
     @InjectMocks
     UserAdminService service;
-
-    private static Role adminRole() {
-        Role r = new Role();
-        r.setId(UUID.randomUUID());
-        r.setName("Admin");
-        return r;
-    }
 
     private static User withRoles(UUID id, Role... assignedRoles) {
         User u = new User();
@@ -99,8 +89,7 @@ class UserAdminServiceTest {
     @Test
     void updateUser_selfRemovesOwnAdminRole_isRejected() {
         UUID id = UUID.randomUUID();
-        Role admin = adminRole();
-        User self = withRoles(id, admin);
+        User self = withRoles(id, Role.ADMIN);
         when(users.findByIdWithRoles(id)).thenReturn(Optional.of(self));
         var req = new UpdateUserRequest(null, null, null, null, null, null, List.of());
 
@@ -114,7 +103,7 @@ class UserAdminServiceTest {
     void updateUser_deactivatingAnotherUser_isAllowed() {
         UUID actorId = UUID.randomUUID();
         UUID targetId = UUID.randomUUID();
-        User actor = withRoles(actorId, adminRole());
+        User actor = withRoles(actorId, Role.ADMIN);
         User target = withRoles(targetId);
         when(users.findByIdWithRoles(targetId)).thenReturn(Optional.of(target));
         var req = new UpdateUserRequest(null, null, null, null, null, false, null);
@@ -138,5 +127,29 @@ class UserAdminServiceTest {
         // A refresh token issued before this reset must not outlive it - otherwise a stolen
         // session survives the exact remediation meant to kill it.
         verify(refreshTokens).revokeAllActiveForUser(id);
+    }
+
+    @Test
+    void createUser_unknownRoleName_isRejected() {
+        when(users.emailExists(anyString())).thenReturn(false);
+        var req = new CreateUserRequest("new@strides.com", "New User", null, null, null,
+                null, List.of("SUPERVISOR", "NOT_A_REAL_ROLE"));
+
+        WebApplicationException ex = assertThrows(WebApplicationException.class, () -> service.createUser(req));
+
+        assertEquals(400, ex.getResponse().getStatus());
+    }
+
+    @Test
+    void createUser_roleNameMatchingIsCaseInsensitive() {
+        when(users.emailExists(anyString())).thenReturn(false);
+        when(tempPasswords.generate()).thenReturn("Temp9Pass2Word");
+        when(hasher.hash(anyString())).thenReturn("bcrypt-hash");
+        var req = new CreateUserRequest("new@strides.com", "New User", null, null, null,
+                null, List.of("supervisor", "Analyst"));
+
+        var response = service.createUser(req);
+
+        assertEquals(List.of("ANALYST", "SUPERVISOR"), response.user().roles());
     }
 }

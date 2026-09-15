@@ -1,15 +1,17 @@
 package com.strides.domain;
 
+import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.JoinTable;
-import jakarta.persistence.ManyToMany;
 import jakarta.persistence.Table;
 import java.time.OffsetDateTime;
-import java.util.HashSet;
+import java.util.EnumSet;
 import java.util.Set;
 import java.util.UUID;
 
@@ -51,12 +53,15 @@ public class User {
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
 
-    @ManyToMany(fetch = FetchType.LAZY)
-    @JoinTable(
-            name = "user_roles",
-            joinColumns = @JoinColumn(name = "user_id"),
-            inverseJoinColumns = @JoinColumn(name = "role_id"))
-    private Set<Role> roles = new HashSet<>();
+    // Fixed, code-level Role enum, not a joined entity - see Role.java. A user can hold more than
+    // one (e.g. both MANAGER and ANALYST). ADMIN is what gates UsersController (@RequiresAdmin,
+    // checked as roles.contains(ADMIN)) - the other five currently just categorize users. Eager:
+    // it's a handful of enum values, not worth a second query or lazy-proxy complexity.
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"))
+    @Column(name = "role", nullable = false)
+    @Enumerated(EnumType.STRING)
+    private Set<Role> roles = EnumSet.noneOf(Role.class);
 
     public UUID getId() {
         return id;

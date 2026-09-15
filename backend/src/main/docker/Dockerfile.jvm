@@ -1,0 +1,15 @@
+# Standard Quarkus fast-jar image. Build the app first (./mvnw package -DskipTests), then:
+#   docker build -f src/main/docker/Dockerfile.jvm -t dpm-backend:local .
+# from the backend/ directory (the build context needs target/quarkus-app/ to exist).
+FROM eclipse-temurin:21-jre-alpine
+
+WORKDIR /app
+
+COPY target/quarkus-app/lib/ /app/lib/
+COPY target/quarkus-app/*.jar /app/
+COPY target/quarkus-app/app/ /app/app/
+COPY target/quarkus-app/quarkus/ /app/quarkus/
+
+EXPOSE 8080
+
+ENTRYPOINT ["java", "-jar", "/app/quarkus-run.jar"]

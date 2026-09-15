@@ -7,7 +7,7 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
-/** Admin-only user-management payloads (see UsersController, gated by admin:*). */
+/** Admin-only user-management payloads (see UsersController, gated by @RequiresAdmin). */
 public final class UsersDtos {
 
     private UsersDtos() {
@@ -24,9 +24,6 @@ public final class UsersDtos {
             boolean isActive,
             OffsetDateTime lastLoginAt,
             List<String> roles) {
-    }
-
-    public record RolePublic(UUID id, String name, String description) {
     }
 
     /** No password field - the server generates a one-time temp password and returns it once. */

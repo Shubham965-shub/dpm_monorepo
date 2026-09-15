@@ -1,7 +1,5 @@
 package com.strides.service;
 
-import com.strides.domain.Permission;
-import com.strides.domain.Role;
 import com.strides.domain.User;
 import com.strides.dto.AuthDtos.UserPublic;
 import com.strides.repository.UserRepository;
@@ -78,20 +76,11 @@ public class AuthService {
 
     public static UserPublic toPublic(User user) {
         return new UserPublic(user.getId(), user.getEmail(), user.getFullName(), user.getDisplayName(),
-                user.getTitle(), user.getDepartment(), user.isActive(), roleNames(user), permissionCodes(user));
+                user.getTitle(), user.getDepartment(), user.isActive(), roleNames(user));
     }
 
     private static List<String> roleNames(User user) {
-        return user.getRoles().stream().map(Role::getName).sorted().toList();
-    }
-
-    private static List<String> permissionCodes(User user) {
-        return user.getRoles().stream()
-                .flatMap(r -> r.getPermissions().stream())
-                .map(Permission::getCode)
-                .distinct()
-                .sorted()
-                .toList();
+        return user.getRoles().stream().map(Enum::name).sorted().toList();
     }
 
     private static WebApplicationException tooManyRequests(String message) {

@@ -24,10 +24,9 @@ public final class AuthDtos {
     }
 
     /**
-     * `permissions` is the flattened set of permission codes across the user's roles - the same set
-     * AuthenticationFilter checks @RequiresPermission against. Lets the frontend decide whether to
-     * fire a permission-gated request at all, without needing role-name knowledge of what each role
-     * can do.
+     * `roles` is the fixed Role enum's names (e.g. "ADMIN", "MANAGER") - the frontend can check
+     * `roles.includes('ADMIN')` to decide whether to show the admin UI, since AuthenticationFilter
+     * checks the exact same thing server-side for every admin-only endpoint.
      */
     public record UserPublic(
             UUID id,
@@ -37,7 +36,6 @@ public final class AuthDtos {
             String title,
             String department,
             boolean isActive,
-            List<String> roles,
-            List<String> permissions) {
+            List<String> roles) {
     }
 }

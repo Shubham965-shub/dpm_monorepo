@@ -46,8 +46,8 @@ killed server-side the instant something looks wrong.
 
 There is no self-service "change my password" endpoint — deliberately. A user cannot regenerate
 their own password; only an admin can, via `POST /api/users/{id}/reset-password`
-(`UsersController`, gated by the class-level `@RequiresPermission("admin:*")`, enforced by
-`AuthenticationFilter`). That call:
+(`UsersController`, gated by the class-level `@RequiresAdmin` — the user must hold the `ADMIN`
+role, enforced by `AuthenticationFilter`). That call:
 
 - Generates a new one-time temp password (`TempPasswordGenerator`) and returns it once in the
   response — the admin relays it to the user out-of-band (there's no email infrastructure here).
@@ -61,7 +61,7 @@ their own password; only an admin can, via `POST /api/users/{id}/reset-password`
 `backend/src/main/java/com/strides/security/JwtService.java`
 
 A JWT is three base64 parts joined by dots: `header.payload.signature`. The payload here is
-deliberately minimal — just `sub` (the user's UUID), `iat`, `exp`. No roles, no permissions.
+deliberately minimal — just `sub` (the user's UUID), `iat`, `exp`. No roles.
 
 **Signing** (`HS256`): the header+payload bytes are HMAC-SHA256'd using `JWT_SECRET` as the key.
 That hash *is* the signature. Nobody can produce a valid signature without the secret, so nobody
@@ -72,11 +72,11 @@ encrypted, so it never contains anything sensitive).
 checks `exp` against now, throws if either fails. Pure computation, no database round-trip — this
 is what makes JWTs cheap to check on every single API call.
 
-**Why no roles/permissions in the token**: even after the signature check passes, the filter
-*still* does a fresh DB lookup (`users.findByIdWithRoles(userId)`) to get the user's current
-`is_active` flag and permissions, because a JWT is a snapshot — if an admin deactivates the
-account 2 minutes after the token was issued, the token has no way to know that; it's still
-"valid" for its remaining lifetime. Since authorization is always re-derived from the database
+**Why no roles in the token**: even after the signature check passes, the filter *still* does a
+fresh DB lookup (`users.findByIdWithRoles(userId)`) to get the user's current `is_active` flag
+and roles, because a JWT is a snapshot — if an admin deactivates the account (or strips their
+`ADMIN` role) 2 minutes after the token was issued, the token has no way to know that; it's still
+"valid" for its remaining lifetime. Since the `ADMIN` check is always re-derived from the database
 live, embedding roles in the token would just be unused, potentially-stale data along for the
 ride.
 
@@ -138,9 +138,9 @@ else requires a valid Bearer token, full stop. This is what actually makes every
 endpoint protected — not a change to those files themselves, just this one filter sitting in
 front of all of them.
 
-If a method or class carries `@RequiresPermission("some:code")`, the filter additionally checks
-that the user's flattened permission set (computed fresh from their current roles, not from the
-token) contains that code or the wildcard `admin:*`.
+If a method or class carries `@RequiresAdmin`, the filter additionally checks
+`user.getRoles().contains(Role.ADMIN)` — computed fresh from the database each request, never
+trusted from the token.
 
 ## Login rate limiting
 
@@ -160,16 +160,24 @@ failed a login, tracking a failure count and an optional lockout timestamp:
   behind a load balancer, each instance would count independently. Acceptable for the current
   single-instance deployment; would need moving to a shared store (DB or Redis) if that changes.
 
-## Roles & permissions (RBAC)
+## Roles — a fixed enum, not a database catalogue
 
-Two-level: a `User` has one or more `Role`s (e.g. "Admin"), each `Role` has one or more
-`Permission`s (e.g. `admin:*`, or a narrower code like `audit:read`). A user's *effective*
-permissions are the union of every permission across every role they hold — computed fresh from
-the database on each request, never cached or trusted from the token.
+`backend/src/main/java/com/strides/domain/Role.java`
 
-`@RequiresPermission` (a JAX-RS `@NameBinding` annotation) is currently applied to
-`UsersController` (class-level, `admin:*`) — every other existing endpoint just requires *any*
-authenticated, active user, with no fine-grained permission catalogue defined for them yet.
+Six fixed values: `CXO`, `HOD`, `MANAGER`, `SUPERVISOR`, `ANALYST`, `ADMIN`. A user can hold more
+than one — `User.roles` is a `Set<Role>`, mapped via `@ElementCollection` to the `user_roles`
+table (`user_id`, `role` — a plain string, CHECK-constrained to those six values, not a foreign
+key to a separate roles table, since roles aren't database rows here).
+
+This is a deliberate departure from a fuller DB-driven RBAC design (roles/permissions/
+role_permissions tables, arbitrary admin-creatable role names, per-endpoint permission codes) —
+new roles are added by editing the enum and redeploying, not via an admin UI or a migration.
+
+**Only `ADMIN` gates anything today.** `@RequiresAdmin` (a JAX-RS `@NameBinding` annotation) is
+applied to `UsersController` (class-level) — every other existing endpoint just requires *any*
+authenticated, active user, regardless of which of the six roles they hold. `CXO`/`HOD`/`MANAGER`/
+`SUPERVISOR`/`ANALYST` currently only categorize users (shown in `UserPublic.roles`, assignable by
+an admin) — there's no per-role KPI-endpoint restriction yet.
 
 ## Cookie security attributes
 

@@ -1,6 +1,5 @@
 package com.strides.security;
 
-import com.strides.domain.Permission;
 import com.strides.domain.Role;
 import com.strides.domain.User;
 import com.strides.repository.UserRepository;
@@ -15,16 +14,14 @@ import jakarta.ws.rs.container.ResourceInfo;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.Provider;
-import java.lang.reflect.Method;
 import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 /**
- * Authenticates the bearer access token and enforces @RequiresPermission on every request except
- * an explicit allowlist. Default-deny: any endpoint not in PUBLIC_PATHS requires a valid,
- * unexpired token for an active user - this is what actually makes auth "required" across the
- * app, not just available infrastructure.
+ * Authenticates the bearer access token and enforces @RequiresAdmin on every request except an
+ * explicit allowlist. Default-deny: any endpoint not in PUBLIC_PATHS requires a valid, unexpired
+ * token for an active user - this is what actually makes auth "required" across the app, not just
+ * available infrastructure.
  */
 @Provider
 @Priority(Priorities.AUTHENTICATION)
@@ -81,30 +78,17 @@ public class AuthenticationFilter implements ContainerRequestFilter {
         }
         currentUser.set(user);
 
-        RequiresPermission required = requiredPermission();
-        if (required != null) {
-            Set<String> perms = permissionCodes(user);
-            if (!perms.contains(required.value()) && !perms.contains("admin:*")) {
-                abort(ctx, Response.Status.FORBIDDEN, "Insufficient permission");
-            }
+        if (requiresAdmin() && !user.getRoles().contains(Role.ADMIN)) {
+            abort(ctx, Response.Status.FORBIDDEN, "Admin role required");
         }
     }
 
-    private RequiresPermission requiredPermission() {
-        Method method = resourceInfo.getResourceMethod();
-        if (method == null) {
-            return null;
+    private boolean requiresAdmin() {
+        var method = resourceInfo.getResourceMethod();
+        if (method != null && method.isAnnotationPresent(RequiresAdmin.class)) {
+            return true;
         }
-        RequiresPermission onMethod = method.getAnnotation(RequiresPermission.class);
-        return onMethod != null ? onMethod : resourceInfo.getResourceClass().getAnnotation(RequiresPermission.class);
-    }
-
-    private static Set<String> permissionCodes(User user) {
-        return user.getRoles().stream()
-                .map(Role::getPermissions)
-                .flatMap(Set::stream)
-                .map(Permission::getCode)
-                .collect(Collectors.toSet());
+        return resourceInfo.getResourceClass().isAnnotationPresent(RequiresAdmin.class);
     }
 
     private static void abort(ContainerRequestContext ctx, Response.Status status, String message) {

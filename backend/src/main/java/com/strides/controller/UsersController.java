@@ -2,12 +2,11 @@ package com.strides.controller;
 
 import com.strides.dto.UsersDtos.CreateUserRequest;
 import com.strides.dto.UsersDtos.CreateUserResponse;
-import com.strides.dto.UsersDtos.RolePublic;
 import com.strides.dto.UsersDtos.TempPasswordResponse;
 import com.strides.dto.UsersDtos.UpdateUserRequest;
 import com.strides.dto.UsersDtos.UserAdmin;
 import com.strides.security.CurrentUser;
-import com.strides.security.RequiresPermission;
+import com.strides.security.RequiresAdmin;
 import com.strides.service.UserAdminService;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.Consumes;
@@ -24,13 +23,13 @@ import java.util.UUID;
 
 /**
  * Admin-only user management: create/update/activate-deactivate/reset-password. Class-level
- * @RequiresPermission means every endpoint here is protected even if a future addition forgets to
+ * @RequiresAdmin means every endpoint here is protected even if a future addition forgets to
  * annotate it individually - enforced by AuthenticationFilter.
  */
 @Path("/api/users")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
-@RequiresPermission("admin:*")
+@RequiresAdmin
 public class UsersController {
 
     private final UserAdminService service;
@@ -46,9 +45,10 @@ public class UsersController {
         return service.listUsers();
     }
 
+    /** The fixed set of assignable role names, for the admin UI's role picklist. */
     @GET
     @Path("/roles")
-    public List<RolePublic> listRoles() {
+    public List<String> listRoles() {
         return service.listRoles();
     }
 

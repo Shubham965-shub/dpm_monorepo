@@ -4,10 +4,8 @@ import com.strides.domain.Role;
 import com.strides.domain.User;
 import com.strides.dto.UsersDtos.CreateUserRequest;
 import com.strides.dto.UsersDtos.CreateUserResponse;
-import com.strides.dto.UsersDtos.RolePublic;
 import com.strides.dto.UsersDtos.UpdateUserRequest;
 import com.strides.dto.UsersDtos.UserAdmin;
-import com.strides.repository.RoleRepository;
 import com.strides.repository.UserRepository;
 import com.strides.security.PasswordHasher;
 import com.strides.security.RefreshTokenService;
@@ -19,28 +17,27 @@ import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
-/** Admin-only user CRUD - every endpoint calling into this is gated by @RequiresPermission("admin:*"). */
+/** Admin-only user CRUD - every endpoint calling into this is gated by @RequiresAdmin. */
 @ApplicationScoped
 public class UserAdminService {
 
-    private static final String ADMIN_ROLE_NAME = "Admin";
-
     private final UserRepository users;
-    private final RoleRepository roles;
     private final PasswordHasher hasher;
     private final TempPasswordGenerator tempPasswords;
     private final RefreshTokenService refreshTokens;
 
-    public UserAdminService(UserRepository users, RoleRepository roles, PasswordHasher hasher,
+    public UserAdminService(UserRepository users, PasswordHasher hasher,
             TempPasswordGenerator tempPasswords, RefreshTokenService refreshTokens) {
         this.users = users;
-        this.roles = roles;
         this.hasher = hasher;
         this.tempPasswords = tempPasswords;
         this.refreshTokens = refreshTokens;
@@ -51,10 +48,9 @@ public class UserAdminService {
         return users.listAllWithRoles().stream().map(UserAdminService::toUserAdmin).toList();
     }
 
-    public List<RolePublic> listRoles() {
-        return roles.listAllOrdered().stream()
-                .map(r -> new RolePublic(r.getId(), r.getName(), r.getDescription()))
-                .toList();
+    /** The fixed set of assignable role names - not a DB query, just the Role enum's values. */
+    public List<String> listRoles() {
+        return Arrays.stream(Role.values()).map(Enum::name).toList();
     }
 
     @Transactional
@@ -67,7 +63,7 @@ public class UserAdminService {
         if (employeeCode != null && users.employeeCodeExists(employeeCode)) {
             throw conflict("Employee code already in use");
         }
-        List<Role> assignedRoles = resolveRoles(req.roleNames());
+        Set<Role> assignedRoles = resolveRoles(req.roleNames());
 
         String tempPassword = tempPasswords.generate();
         User user = new User();
@@ -109,9 +105,9 @@ public class UserAdminService {
         }
 
         if (req.roleNames() != null) {
-            List<Role> newRoles = resolveRoles(req.roleNames());
-            boolean hadAdmin = existing.getRoles().stream().anyMatch(r -> r.getName().equals(ADMIN_ROLE_NAME));
-            boolean keepsAdmin = newRoles.stream().anyMatch(r -> r.getName().equals(ADMIN_ROLE_NAME));
+            Set<Role> newRoles = resolveRoles(req.roleNames());
+            boolean hadAdmin = existing.getRoles().contains(Role.ADMIN);
+            boolean keepsAdmin = newRoles.contains(Role.ADMIN);
             if (self && hadAdmin && !keepsAdmin) {
                 throw badRequest("You cannot remove your own Admin role");
             }
@@ -152,21 +148,28 @@ public class UserAdminService {
     static UserAdmin toUserAdmin(User u) {
         return new UserAdmin(u.getId(), u.getEmail(), u.getFullName(), u.getDisplayName(), u.getTitle(),
                 u.getDepartment(), u.getEmployeeCode(), u.isActive(), u.getLastLoginAt(),
-                u.getRoles().stream().map(Role::getName).sorted().toList());
+                u.getRoles().stream().map(Enum::name).sorted().toList());
     }
 
-    private List<Role> resolveRoles(List<String> roleNames) {
-        List<String> requested = roleNames == null ? List.of() : roleNames.stream().distinct().toList();
-        if (requested.isEmpty()) {
-            return List.of();
+    /** Case-insensitive match against the fixed Role enum - not a DB lookup, so no ordering/dedup query needed. */
+    private static Set<Role> resolveRoles(List<String> roleNames) {
+        if (roleNames == null || roleNames.isEmpty()) {
+            return EnumSet.noneOf(Role.class);
         }
-        List<Role> found = roles.findByNames(requested);
-        if (found.size() != requested.size()) {
-            Set<String> foundNames = found.stream().map(Role::getName).collect(Collectors.toSet());
-            String missing = requested.stream().filter(n -> !foundNames.contains(n)).collect(Collectors.joining(", "));
-            throw badRequest("Unknown role(s): " + missing);
+        Set<Role> resolved = EnumSet.noneOf(Role.class);
+        List<String> unknown = new ArrayList<>();
+        for (String name : roleNames) {
+            try {
+                resolved.add(Role.valueOf(name.trim().toUpperCase(Locale.ROOT)));
+            }
+            catch (IllegalArgumentException e) {
+                unknown.add(name);
+            }
         }
-        return found;
+        if (!unknown.isEmpty()) {
+            throw badRequest("Unknown role(s): " + String.join(", ", unknown));
+        }
+        return resolved;
     }
 
     private static String blankToNull(String s) {

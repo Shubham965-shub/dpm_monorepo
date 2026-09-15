@@ -9,8 +9,9 @@ export const userPublicSchema = z.object({
   title: z.string().nullable(),
   department: z.string().nullable(),
   isActive: z.boolean(),
+  // Fixed backend enum: 'CXO' | 'HOD' | 'MANAGER' | 'SUPERVISOR' | 'ANALYST' | 'ADMIN'. A user can
+  // hold more than one. Only 'ADMIN' gates anything server-side today.
   roles: z.array(z.string()),
-  permissions: z.array(z.string()),
 })
 export type UserPublic = z.infer<typeof userPublicSchema>
 

@@ -1,5 +1,9 @@
 #Maven
 target/
+
+# Machine-local dev tooling (e.g. a patched JDK trust store for corporate TLS-inspecting
+# proxies) - environment-specific, never shared/committed. See backend/README.md.
+.devtools/
 pom.xml.tag
 pom.xml.releaseBackup
 pom.xml.versionsBackup

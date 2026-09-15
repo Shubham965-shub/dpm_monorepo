@@ -10,22 +10,21 @@ import java.util.UUID;
 @ApplicationScoped
 public class UserRepository implements PanacheRepositoryBase<User, UUID> {
 
-    private static final String FETCH_ROLES =
-            "SELECT DISTINCT u FROM User u LEFT JOIN FETCH u.roles r LEFT JOIN FETCH r.permissions ";
+    // roles is an eager @ElementCollection (see User.java) - always populated on load, no JOIN
+    // FETCH needed. Method names keep the "WithRoles" suffix for call-site clarity even though
+    // that's now just "load a user" - roles come along for free either way.
 
     /** Case-insensitive on both sides: safe as long as no two accounts differ only by email case. */
     public Optional<User> findByEmailWithRoles(String email) {
-        return find(FETCH_ROLES + "WHERE lower(u.email) = lower(?1)", email).list().stream().findFirst();
+        return find("lower(email) = lower(?1)", email).firstResultOptional();
     }
 
     public Optional<User> findByIdWithRoles(UUID id) {
-        return find(FETCH_ROLES + "WHERE u.id = ?1", id).list().stream().findFirst();
+        return findByIdOptional(id);
     }
 
-    private static final String FETCH_ROLES_ONLY = "SELECT DISTINCT u FROM User u LEFT JOIN FETCH u.roles ";
-
     public List<User> listAllWithRoles() {
-        return find(FETCH_ROLES_ONLY + "ORDER BY u.fullName").list();
+        return find("ORDER BY fullName").list();
     }
 
     public boolean emailExists(String email) {
