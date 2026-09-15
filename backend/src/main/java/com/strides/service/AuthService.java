@@ -76,22 +76,6 @@ public class AuthService {
         }
     }
 
-    @Transactional
-    public void changePassword(User currentUser, String currentPassword, String newPassword) {
-        // Re-fetch the managed entity: currentUser (from CurrentUser) was loaded in the filter's own
-        // transaction and may be detached here.
-        User user = users.findById(currentUser.getId());
-        if (!hasher.verify(currentPassword, user.getPasswordHash())) {
-            throw new NotAuthorizedException("Current password is incorrect", "Bearer");
-        }
-        user.setPasswordHash(hasher.hash(newPassword));
-        user.setUpdatedAt(OffsetDateTime.now());
-        // Otherwise a refresh token issued before this change stays valid for its full remaining
-        // TTL, regardless of the password change - defeats "someone else might know my password"
-        // as an incident response. This also signs the current session out; that's intentional.
-        refreshTokens.revokeAllActiveForUser(user.getId());
-    }
-
     public static UserPublic toPublic(User user) {
         return new UserPublic(user.getId(), user.getEmail(), user.getFullName(), user.getDisplayName(),
                 user.getTitle(), user.getDepartment(), user.isActive(), roleNames(user), permissionCodes(user));

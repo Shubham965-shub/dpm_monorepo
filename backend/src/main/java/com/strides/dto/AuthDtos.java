@@ -2,7 +2,6 @@ package com.strides.dto;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
 import java.util.List;
 import java.util.UUID;
 
@@ -40,12 +39,5 @@ public final class AuthDtos {
             boolean isActive,
             List<String> roles,
             List<String> permissions) {
-    }
-
-    // NIST 800-63B baseline: >=8 characters, no arbitrary complexity rules that just push users
-    // toward predictable patterns.
-    public record ChangePasswordRequest(
-            @NotBlank String currentPassword,
-            @NotBlank @Size(min = 8, max = 255) String newPassword) {
     }
 }

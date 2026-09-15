@@ -1,7 +1,6 @@
 package com.strides.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -138,32 +137,5 @@ class AuthServiceTest {
         when(refreshTokens.rotate("bad")).thenReturn(Optional.empty());
 
         assertTrue(service.refresh("bad").isEmpty());
-    }
-
-    @Test
-    void changePassword_wrongCurrentPassword_throwsWithoutMutating() {
-        User user = activeUser("qc@strides.com", "old-hash");
-        when(users.findById(user.getId())).thenReturn(user);
-        when(hasher.verify("wrong-current", "old-hash")).thenReturn(false);
-
-        assertThrows(NotAuthorizedException.class,
-                () -> service.changePassword(user, "wrong-current", "new-password"));
-        assertEquals("old-hash", user.getPasswordHash());
-    }
-
-    @Test
-    void changePassword_correctCurrent_updatesHash() {
-        User user = activeUser("qc@strides.com", "old-hash");
-        when(users.findById(user.getId())).thenReturn(user);
-        when(hasher.verify("old-password", "old-hash")).thenReturn(true);
-        when(hasher.hash("new-password")).thenReturn("new-hash");
-
-        service.changePassword(user, "old-password", "new-password");
-
-        assertEquals("new-hash", user.getPasswordHash());
-        assertNotNull(user.getUpdatedAt());
-        // A refresh token issued before the change must not outlive it - otherwise a stolen
-        // session survives the exact remediation meant to kill it.
-        verify(refreshTokens).revokeAllActiveForUser(user.getId());
     }
 }

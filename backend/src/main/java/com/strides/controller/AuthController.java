@@ -1,6 +1,5 @@
 package com.strides.controller;
 
-import com.strides.dto.AuthDtos.ChangePasswordRequest;
 import com.strides.dto.AuthDtos.LoginRequest;
 import com.strides.dto.AuthDtos.RefreshResponse;
 import com.strides.dto.AuthDtos.TokenResponse;
@@ -77,13 +76,6 @@ public class AuthController {
     public Response logout(@CookieParam(REFRESH_COOKIE_NAME) Cookie refreshCookie) {
         auth.logout(refreshCookie != null ? refreshCookie.getValue() : null);
         return Response.noContent().cookie(refreshCookie("", 0)).build();
-    }
-
-    @POST
-    @Path("/change-password")
-    public Response changePassword(@Valid ChangePasswordRequest request) {
-        auth.changePassword(currentUser.get(), request.currentPassword(), request.newPassword());
-        return Response.noContent().build();
     }
 
     @GET

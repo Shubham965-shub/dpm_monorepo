@@ -42,6 +42,20 @@ killed server-side the instant something looks wrong.
   failed login takes about the same time either way — timing can't be used to enumerate which
   emails are registered.
 
+## Password changes are admin-only
+
+There is no self-service "change my password" endpoint — deliberately. A user cannot regenerate
+their own password; only an admin can, via `POST /api/users/{id}/reset-password`
+(`UsersController`, gated by the class-level `@RequiresPermission("admin:*")`, enforced by
+`AuthenticationFilter`). That call:
+
+- Generates a new one-time temp password (`TempPasswordGenerator`) and returns it once in the
+  response — the admin relays it to the user out-of-band (there's no email infrastructure here).
+- Hashes it with bcrypt before it ever touches the database (see above — same as any password).
+- Immediately revokes every active refresh token for that user (`UserAdminService.resetPassword`
+  → `RefreshTokenService.revokeAllActiveForUser`), so a compromised session doesn't survive the
+  reset that was meant to shut it down.
+
 ## Access tokens — JWT
 
 `backend/src/main/java/com/strides/security/JwtService.java`
@@ -83,12 +97,13 @@ lookup, which is exactly the point: **because it's DB-backed, it can be revoked*
   different parties both had a copy, which shouldn't happen in normal use — every other active
   refresh token for that user gets revoked too (`revokeAllActiveForUser`), forcing a real
   re-login everywhere. This is the strongest signal available that a token was stolen.
-- **Also revoked on password change/reset**: `AuthService.changePassword()` and
-  `UserAdminService.resetPassword()` both call `revokeAllActiveForUser()` after updating the
-  password hash. Without this, a refresh token issued before the change would stay valid for its
-  full remaining 7-day TTL regardless — defeating the entire point of a password change as an
-  incident response ("someone else might know my password"). This also means changing your own
-  password signs you out everywhere, including your current session — intentional.
+- **Also revoked on admin password reset**: `UserAdminService.resetPassword()` calls
+  `revokeAllActiveForUser()` right after updating the password hash. Without this, a refresh
+  token issued before the reset would stay valid for its full remaining 7-day TTL regardless —
+  defeating the entire point of a password reset as an incident response ("someone else might
+  know this password"). This signs the user out everywhere, on every device, immediately.
+  **There is no self-service password change** — only an admin can reset a user's password (see
+  "Password changes are admin-only" below).
 
 ## The full round trip
 
