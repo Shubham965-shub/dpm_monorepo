@@ -15,12 +15,16 @@ export const userPublicSchema = z.object({
 })
 export type UserPublic = z.infer<typeof userPublicSchema>
 
+// No cookie - both tokens travel in the response body (see backend AuthController) and the
+// client persists them itself (session.ts, localStorage).
 export const loginResponseSchema = z.object({
   accessToken: z.string(),
+  refreshToken: z.string(),
   tokenType: z.string(),
   user: userPublicSchema,
 })
 
 export const refreshResponseSchema = z.object({
   accessToken: z.string(),
+  refreshToken: z.string(),
 })

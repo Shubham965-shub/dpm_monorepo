@@ -7,20 +7,29 @@ not operations.
 
 ## The big picture
 
-Two different kinds of token, doing two different jobs:
+Two different kinds of token, doing two different jobs. Both travel as plain bearer tokens — no
+cookies anywhere, since this app is deployed inside a VNet over plain http, where a cookie's
+`Secure` attribute (required for a browser to ever send it) could never be satisfied:
 
 | | Access token | Refresh token |
 |---|---|---|
 | **What it is** | A JWT (signed, self-contained) | 32 random bytes (meaningless on its own) |
 | **Lifetime** | 15 minutes | 7 days |
-| **Where it lives** | Browser memory only (`frontend/src/lib/session.ts`) | httpOnly cookie, `Path=/api/auth` |
-| **Sent how** | `Authorization: Bearer <jwt>` header, on every API call | Automatically by the browser, only to `/api/auth/*` |
+| **Where it lives** | `localStorage` (`frontend/src/lib/session.ts`) | `localStorage`, alongside it |
+| **Sent how** | `Authorization: Bearer <jwt>` header, on every API call | In the JSON request body, only to `/api/auth/refresh` and `/api/auth/logout` |
 | **Can it be revoked?** | No — it's just math, valid until it naturally expires | Yes — it's a database row that can be marked revoked |
 | **Checked how** | Verify the signature (no DB hit) | Look up its hash in `refresh_tokens` (DB hit) |
 
 The short-lived, unrevocable one is used constantly but does little damage if it leaks (15 min
-window). The long-lived one sits mostly idle in a cookie JavaScript can't even read, and can be
-killed server-side the instant something looks wrong.
+window). The long-lived one is mostly idle, and can be killed server-side the instant something
+looks wrong.
+
+**Trade-off worth naming**: an httpOnly cookie would keep the refresh token invisible to page
+JavaScript, so an XSS bug couldn't steal it. `localStorage` doesn't have that property — any JS
+running on the page (including injected JS from an XSS bug) can read it. This is a real, accepted
+trade-off for this app's actual deployment target (internal VNet, not the public internet), not
+an oversight — see "Password storage" and "Refresh tokens" below for what still limits the blast
+radius of a stolen token even without cookie isolation.
 
 ## Password storage — bcrypt + salt
 
@@ -88,8 +97,9 @@ Not a JWT at all — just `SecureRandom` bytes, base64url-encoded. Meaningless w
 lookup, which is exactly the point: **because it's DB-backed, it can be revoked**, unlike a JWT.
 
 - **Issuing**: only the token's **SHA-256 hash** is written to `refresh_tokens.token_hash`. The
-  raw value goes to the browser (as the cookie) and is never stored anywhere. Even full DB read
-  access wouldn't let someone reconstruct a working token.
+  raw value goes to the client (in the JSON response body, then stored in `localStorage`) and is
+  never stored anywhere server-side. Even full DB read access wouldn't let someone reconstruct a
+  working token.
 - **Rotation**: every time `/api/auth/refresh` is called, the presented token is immediately
   marked `revoked_at = now()` and a brand new one is issued and linked via `replaced_by_id`. A
   refresh token is meant to be used exactly once.
@@ -103,30 +113,30 @@ lookup, which is exactly the point: **because it's DB-backed, it can be revoked*
   defeating the entire point of a password reset as an incident response ("someone else might
   know this password"). This signs the user out everywhere, on every device, immediately.
   **There is no self-service password change** — only an admin can reset a user's password (see
-  "Password changes are admin-only" below).
+  "Password changes are admin-only" above).
 
 ## The full round trip
 
 1. **Login** (`POST /api/auth/login`) — `AuthService.login()` checks the rate limiter, verifies
-   the password, then issues both tokens: a 15-min JWT in the JSON response body, and a 7-day
-   refresh token as an httpOnly `Set-Cookie` (`AuthController.refreshCookie()`).
+   the password, then issues both tokens: a 15-min JWT and a 7-day refresh token, both in the
+   JSON response body. The frontend (`useAuth.tsx`) stores both in `localStorage`.
 2. **Normal API calls** — `frontend/src/lib/apiClient.ts`'s request interceptor attaches the
    access token as a Bearer header. Fast, no DB hit for the signature check itself.
 3. **15 minutes later, the access token expires** — the next call gets a `401`. The response
-   interceptor catches exactly this case and calls `POST /api/auth/refresh` — note: no
-   Authorization header on this call, just the httpOnly cookie, sent automatically by the browser.
-4. Backend rotates the refresh token (see above), returns a new 15-min JWT + a new cookie. The
-   original request that 401'd is automatically retried with the fresh token — invisible to the
-   user.
-5. This repeats silently every 15 minutes for up to 7 days of continued use. After that, the
-   refresh token itself expires and a real login is required again.
-6. **Page reload**: the access token lived only in JS memory (`session.ts`), so it's gone. On
-   mount, `frontend/src/hooks/useAuth.tsx`'s `restoreSession()` immediately calls
-   `/api/auth/refresh` once — if the httpOnly cookie is still valid, this silently re-establishes
-   the session without the user noticing a reload happened at all. If it fails (expired/no
-   cookie), they land on the login page.
+   interceptor catches exactly this case, reads the refresh token out of `localStorage`, and
+   calls `POST /api/auth/refresh` with it in the request body.
+4. Backend rotates the refresh token (see above), returns a new 15-min JWT + a new refresh token.
+   The frontend overwrites both in `localStorage`; the original request that 401'd is
+   automatically retried with the fresh access token — invisible to the user.
+5. This repeats every 15 minutes for up to 7 days of continued use. After that, the refresh
+   token itself expires and a real login is required again.
+6. **Page reload**: `localStorage` survives a reload (unlike the in-memory design a cookie-based
+   setup would use), so `useAuth.tsx`'s `restoreSession()` reads the stored refresh token and
+   spends it once via `/api/auth/refresh` to get a live access token and confirm the session is
+   still valid, before rendering anything. If there's no stored token, it skips straight to the
+   login page without a wasted network call.
 7. **Logout** (`POST /api/auth/logout`) — revokes the refresh token server-side (not just
-   discarding it client-side) and clears the cookie (`Max-Age=0`).
+   discarding it client-side) and the frontend clears both tokens from `localStorage`.
 
 ## Default-deny enforcement
 
@@ -179,26 +189,10 @@ authenticated, active user, regardless of which of the six roles they hold. `CXO
 `SUPERVISOR`/`ANALYST` currently only categorize users (shown in `UserPublic.roles`, assignable by
 an admin) — there's no per-role KPI-endpoint restriction yet.
 
-## Cookie security attributes
-
-Set in `AuthController.refreshCookie()`:
-- **`httpOnly`** — JavaScript can never read this cookie, even via XSS. It can only be sent by
-  the browser automatically.
-- **`Secure`** — only transmitted over HTTPS (disabled in `%dev`/`%test` profiles so local http
-  dev still works; for a packaged/containerized `prod`-profile run tested over plain http, set
-  `AUTH_COOKIE_SECURE=false` - see `backend/README.md`). This one is easy to get wrong silently:
-  browsers just drop a `Secure` cookie sent over http with no error, so "login works but reload
-  logs you out" with no visible cause is the symptom if this is misconfigured.
-- **`SameSite=Strict`** — the browser won't attach this cookie to cross-site requests at all,
-  which is the main defense against CSRF here. This assumes the frontend and backend are
-  deployed under the same registrable domain in production; if they ever end up on genuinely
-  different domains, this would need revisiting (`SameSite=None; Secure` plus a real CSRF token).
-- **`Path=/api/auth`** — scoped so the cookie is never even sent on ordinary KPI-endpoint
-  requests, only to the auth endpoints that actually need it.
-
 ## CORS
 
-`quarkus.http.cors.origins` is an explicit allowlisted origin (`CORS_ORIGINS` env var), never a
-wildcard. This is a hard requirement once cookies are involved: `Access-Control-Allow-Credentials:
-true` (needed for the refresh cookie to work cross-origin during local dev, where the frontend
-runs on a different port than the backend) cannot legally be paired with a wildcard origin.
+`quarkus.http.cors.origins` is an explicit allowlisted origin (`CORS_ORIGINS` env var). No
+cookies or credentials are involved anywhere in this flow (bearer tokens only, sent via the
+`Authorization` header and request bodies) — so unlike a cookie-based design, there's no
+wildcard+credentials restriction to work around here; the origin allowlist is just ordinary
+CORS hygiene, not a security load-bearing requirement the way it would be with cookies.

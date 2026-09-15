@@ -1,12 +1,10 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios'
 import type { ZodType } from 'zod'
-import { getAccessToken, setAccessToken } from './session'
+import { clearSession, getAccessToken, getRefreshToken, setAccessToken, setRefreshToken } from './session'
 import { refreshResponseSchema } from './authSchemas'
 
-// withCredentials so the backend's httpOnly refresh-token cookie is sent automatically.
 export const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
-  withCredentials: true,
 })
 
 apiClient.interceptors.request.use((config) => {
@@ -18,15 +16,16 @@ apiClient.interceptors.request.use((config) => {
 let refreshInFlight: Promise<string> | null = null
 
 async function refreshAccessToken(): Promise<string> {
+  const refreshToken = getRefreshToken()
+  if (!refreshToken) {
+    throw new Error('No refresh token available')
+  }
   // Plain axios (not apiClient) so a failed refresh can't recurse back into this same interceptor.
-  const { data } = await axios.post(
-    `${import.meta.env.VITE_API_URL}/api/auth/refresh`,
-    {},
-    { withCredentials: true },
-  )
-  const { accessToken } = refreshResponseSchema.parse(data)
-  setAccessToken(accessToken)
-  return accessToken
+  const { data } = await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/refresh`, { refreshToken })
+  const parsed = refreshResponseSchema.parse(data)
+  setAccessToken(parsed.accessToken)
+  setRefreshToken(parsed.refreshToken)
+  return parsed.accessToken
 }
 
 apiClient.interceptors.response.use(
@@ -38,13 +37,17 @@ apiClient.interceptors.response.use(
     }
 
     config._retried = true
-    refreshInFlight ??= refreshAccessToken().finally(() => {
-      refreshInFlight = null
-    })
-
-    const token = await refreshInFlight
-    config.headers.Authorization = `Bearer ${token}`
-    return apiClient(config)
+    try {
+      refreshInFlight ??= refreshAccessToken().finally(() => {
+        refreshInFlight = null
+      })
+      const token = await refreshInFlight
+      config.headers.Authorization = `Bearer ${token}`
+      return apiClient(config)
+    } catch (refreshError) {
+      clearSession()
+      throw refreshError
+    }
   },
 )
 

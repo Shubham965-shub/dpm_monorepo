@@ -1,7 +1,7 @@
 import { createContext, useContext, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiClient, getValidated, postValidated } from '@/lib/apiClient'
-import { setAccessToken } from '@/lib/session'
+import { clearSession, getRefreshToken, setAccessToken, setRefreshToken } from '@/lib/session'
 import {
   loginResponseSchema,
   refreshResponseSchema,
@@ -12,17 +12,22 @@ import {
 const SESSION_QUERY_KEY = ['auth', 'session'] as const
 
 /**
- * The access token is in-memory only (session.ts), so a fresh page load never has one - this is
- * the one silent /auth/refresh call that checks whether the httpOnly refresh cookie still proves
- * a valid session, without ever persisting the access token itself across reloads.
+ * Both tokens live in localStorage (session.ts), so a fresh page load already has whatever was
+ * last stored there - if a refresh token is present, spend it once to get a live access token and
+ * confirm the session is still valid; if not, there was never a session to restore.
  */
 async function restoreSession(): Promise<UserPublic | null> {
+  const refreshToken = getRefreshToken()
+  if (!refreshToken) {
+    return null
+  }
   try {
-    const { accessToken } = await postValidated(refreshResponseSchema, '/api/auth/refresh')
-    setAccessToken(accessToken)
+    const response = await postValidated(refreshResponseSchema, '/api/auth/refresh', { refreshToken })
+    setAccessToken(response.accessToken)
+    setRefreshToken(response.refreshToken)
     return await getValidated(userPublicSchema, '/api/auth/me')
   } catch {
-    setAccessToken(null)
+    clearSession()
     return null
   }
 }
@@ -52,6 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       postValidated(loginResponseSchema, '/api/auth/login', { email, password }),
     onSuccess: (response) => {
       setAccessToken(response.accessToken)
+      setRefreshToken(response.refreshToken)
       // Wipe the whole cache, not just the session entry: any other query cached under the
       // previous session (or a prior user, on a shared machine) must not leak into this one.
       queryClient.clear()
@@ -60,9 +66,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   })
 
   const logoutMutation = useMutation({
-    mutationFn: () => apiClient.post('/api/auth/logout'),
+    mutationFn: async () => {
+      const refreshToken = getRefreshToken()
+      if (refreshToken) {
+        await apiClient.post('/api/auth/logout', { refreshToken })
+      }
+    },
     onSettled: () => {
-      setAccessToken(null)
+      clearSession()
       queryClient.clear()
       queryClient.setQueryData(SESSION_QUERY_KEY, null)
     },

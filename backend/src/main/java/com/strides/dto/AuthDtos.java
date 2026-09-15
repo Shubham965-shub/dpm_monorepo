@@ -14,13 +14,22 @@ public final class AuthDtos {
     public record LoginRequest(@NotBlank @Email String email, @NotBlank String password) {
     }
 
-    public record TokenResponse(String accessToken, String tokenType, UserPublic user) {
-        public TokenResponse(String accessToken, UserPublic user) {
-            this(accessToken, "bearer", user);
+    /**
+     * refreshToken travels in the response body, not a cookie - this app runs inside a VNet over
+     * plain http, where a cookie's Secure attribute (required for it to ever be sent) can't be
+     * satisfied. The client is responsible for storing it (localStorage) and sending it back
+     * explicitly on /refresh and /logout via RefreshTokenRequest.
+     */
+    public record TokenResponse(String accessToken, String refreshToken, String tokenType, UserPublic user) {
+        public TokenResponse(String accessToken, String refreshToken, UserPublic user) {
+            this(accessToken, refreshToken, "bearer", user);
         }
     }
 
-    public record RefreshResponse(String accessToken) {
+    public record RefreshTokenRequest(@NotBlank String refreshToken) {
+    }
+
+    public record RefreshResponse(String accessToken, String refreshToken) {
     }
 
     /**
