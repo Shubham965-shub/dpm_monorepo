@@ -1,6 +1,7 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios'
 import type { ZodType } from 'zod'
 import { getAccessToken, setAccessToken } from './session'
+import { refreshResponseSchema } from './authSchemas'
 
 // withCredentials so the backend's httpOnly refresh-token cookie is sent automatically.
 export const apiClient = axios.create({
@@ -17,15 +18,15 @@ apiClient.interceptors.request.use((config) => {
 let refreshInFlight: Promise<string> | null = null
 
 async function refreshAccessToken(): Promise<string> {
-  // TODO: point at the real refresh endpoint once the backend implements it
-  // (e.g. POST /auth/refresh, reading the refresh token from its httpOnly cookie).
-  const { data } = await axios.post<{ accessToken: string }>(
-    `${import.meta.env.VITE_API_URL}/auth/refresh`,
+  // Plain axios (not apiClient) so a failed refresh can't recurse back into this same interceptor.
+  const { data } = await axios.post(
+    `${import.meta.env.VITE_API_URL}/api/auth/refresh`,
     {},
     { withCredentials: true },
   )
-  setAccessToken(data.accessToken)
-  return data.accessToken
+  const { accessToken } = refreshResponseSchema.parse(data)
+  setAccessToken(accessToken)
+  return accessToken
 }
 
 apiClient.interceptors.response.use(
@@ -51,5 +52,10 @@ apiClient.interceptors.response.use(
 // contract break fails loudly here instead of producing bad UI state downstream.
 export async function getValidated<T>(schema: ZodType<T>, url: string) {
   const { data } = await apiClient.get(url)
+  return schema.parse(data)
+}
+
+export async function postValidated<T>(schema: ZodType<T>, url: string, body?: unknown) {
+  const { data } = await apiClient.post(url, body)
   return schema.parse(data)
 }
