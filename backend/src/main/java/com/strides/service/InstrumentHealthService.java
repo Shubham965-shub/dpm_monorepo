@@ -1,11 +1,11 @@
 package com.strides.service;
 
+import com.strides.dto.KpiCardResponse;
 import com.strides.repository.AggLimsBreakdownsFrequencyRepository;
 import com.strides.repository.AggLimsCalPmComplianceRepository;
 import com.strides.repository.AggLimsInstrumentFailureRateRepository;
 import com.strides.repository.AggLimsInstrumentUtilizationRepository;
 import com.strides.repository.AggLimsQualificationCycleTimeRepository;
-import com.strides.service.kpi.KpiCardResponse;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.time.LocalDate;

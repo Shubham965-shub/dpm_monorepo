@@ -7,11 +7,11 @@ import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
+import com.strides.dto.KpiCardResponse;
 import com.strides.model.AggTwHumanErrorSeverityRow;
 import com.strides.model.RootCauseTotal;
 import com.strides.repository.AggTwHumanErrorSeverityRepository;
 import com.strides.repository.AggTwRootCauseDistributionRepository;
-import com.strides.service.kpi.KpiCardResponse;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;

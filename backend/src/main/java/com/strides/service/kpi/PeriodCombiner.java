@@ -1,5 +1,6 @@
 package com.strides.service.kpi;
 
+import com.strides.dto.KpiCardResponse;
 import com.strides.model.PeriodSum;
 import com.strides.model.PeriodTotal;
 import java.math.BigDecimal;

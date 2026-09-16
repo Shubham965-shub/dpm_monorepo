@@ -1,5 +1,6 @@
 package com.strides.service;
 
+import com.strides.dto.KpiCardResponse;
 import com.strides.model.AggTwHumanErrorByProductRow;
 import com.strides.model.AggTwHumanErrorSeverityRow;
 import com.strides.model.RootCauseTotal;
@@ -20,7 +21,6 @@ import com.strides.repository.AggTwRciBeyondTimelineRepository;
 import com.strides.repository.AggTwRepeatFailureRateRepository;
 import com.strides.repository.AggTwRootCauseDistributionRepository;
 import com.strides.repository.AggTwValidOosRateRepository;
-import com.strides.service.kpi.KpiCardResponse;
 import com.strides.service.kpi.PeriodCombiner;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;

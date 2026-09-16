@@ -1,4 +1,4 @@
-package com.strides.service.kpi;
+package com.strides.dto;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;

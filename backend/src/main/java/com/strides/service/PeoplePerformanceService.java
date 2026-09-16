@@ -1,11 +1,11 @@
 package com.strides.service;
 
+import com.strides.dto.KpiCardResponse;
 import com.strides.model.AggCwTrainingCompletionRateRow;
 import com.strides.repository.AggCwTrainingCompletionRateRepository;
 import com.strides.repository.AggLimsRepeatAnalysisRateRepository;
 import com.strides.repository.AggLimsReviewerProductivityIndexRepository;
 import com.strides.repository.AggLimsRightFirstTimeRepository;
-import com.strides.service.kpi.KpiCardResponse;
 import com.strides.service.kpi.PeriodCombiner;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;

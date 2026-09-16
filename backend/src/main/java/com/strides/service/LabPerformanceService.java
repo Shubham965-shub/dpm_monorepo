@@ -1,12 +1,12 @@
 package com.strides.service;
 
+import com.strides.dto.KpiCardResponse;
 import com.strides.model.PeriodTotal;
 import com.strides.repository.AggChrmHplcSequenceAndInjectionsRepository;
 import com.strides.repository.AggLimsPrioritySampleComplianceRepository;
 import com.strides.repository.AggLimsSlaAdherenceRepository;
 import com.strides.repository.AggLimsTestsPerAnalystRepository;
 import com.strides.repository.AggLimsTurnAroundTimeRepository;
-import com.strides.service.kpi.KpiCardResponse;
 import com.strides.service.kpi.PeriodCombiner;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
