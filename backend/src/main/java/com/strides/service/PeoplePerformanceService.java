@@ -59,14 +59,17 @@ public class PeoplePerformanceService {
 
     /**
      * Computed per the DAX definition: on-time completions / everything not-yet-due, per period.
-     * KNOWN GAP: no department-name or training-type filter is possible - agg_cw_training_completion_rate
-     * only has grain, period_start, site, assignment_status, assignment_count. assignment_status
-     * exists but is already consumed internally to compute the ratio itself, not exposed as a
-     * separate external filter.
+     * department/trainingType: each an independent comma-separated combine filter, or null/blank
+     * for ALL (both are now real columns, confirmed live, closing the previous gap).
+     * assignment_status is still consumed internally to compute the ratio itself, not exposed as
+     * a separate external filter.
      */
-    public List<KpiCardResponse> getTrainingCompletionRate(String site, String grain, LocalDate from, LocalDate to) {
+    public List<KpiCardResponse> getTrainingCompletionRate(String site, String department, String trainingType,
+            String grain, LocalDate from, LocalDate to) {
         Map<LocalDate, List<AggCwTrainingCompletionRateRow>> byPeriod =
-                trainingCompletionRateRepository.find(site, grain, from, to).stream()
+                trainingCompletionRateRepository.find(site,
+                        PeriodCombiner.parseSelection(department), PeriodCombiner.parseSelection(trainingType),
+                        grain, from, to).stream()
                         .collect(Collectors.groupingBy(AggCwTrainingCompletionRateRow::periodStart));
 
         return byPeriod.entrySet().stream()

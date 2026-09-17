@@ -65,26 +65,25 @@ public class LabPerformanceService {
     }
 
     /**
-     * sampleCategory: comma-separated RM/IP/FP/Stability to combine, or null/blank for ALL.
-     * Tests/Analyst/Day's threshold is "% of daily norm" - no norm column exists, status left null.
-     * KNOWN GAP: no per-analyst/emp-code filter is possible - agg_lims_tests_per_analyst has no
-     * analyst identity column at all (matches the catalogue's own note: LIMS has no way to
-     * identify the currently assigned analyst). analyst_days is a headcount, not an identity.
+     * sampleCategory/analyst: each an independent comma-separated combine filter, or null/blank
+     * for ALL. Tests/Analyst/Day's threshold is "% of daily norm" - no norm column exists, status
+     * left null. analyst is now a real identity column (confirmed live), closing the previous gap.
      */
-    public List<KpiCardResponse> getTestsPerAnalyst(String siteName, String sampleCategory, String grain, LocalDate from, LocalDate to) {
-        Set<String> selected = PeriodCombiner.parseSelection(sampleCategory);
-        List<PeriodTotal> totals = testsPerAnalystRepository.findTotals(siteName, selected, grain, from, to);
+    public List<KpiCardResponse> getTestsPerAnalyst(String siteName, String sampleCategory, String analyst,
+            String grain, LocalDate from, LocalDate to) {
+        List<PeriodTotal> totals = testsPerAnalystRepository.findTotals(siteName,
+                PeriodCombiner.parseSelection(sampleCategory), PeriodCombiner.parseSelection(analyst), grain, from, to);
         return PeriodCombiner.fromTotals(totals, 1, "tests-per-analyst", "Tests per Analyst per Day", "tests/analyst");
     }
 
     /**
      * HPLC per-analyst KPIs' thresholds are "% of plan" - no plan column exists, status left null.
-     * KNOWN GAP: no injection-status filter is possible - agg_chrm_hplc_sequence_and_injections
-     * has no status column at all (grain, period_start, site, injection_count, sequence_count,
-     * analyst_days, injections_per_analyst, sequences_per_analyst - confirmed live, nothing else).
+     * injectionStatus: comma-separated list to combine, or null/blank for the table's own
+     * pre-combined 'All' total (see AggChrmHplcSequenceAndInjectionsRepository).
      */
-    public List<KpiCardResponse> getHplcSequencesPerAnalyst(String site, String grain, LocalDate from, LocalDate to) {
-        return hplcRepository.find(site, grain, from, to).stream()
+    public List<KpiCardResponse> getHplcSequencesPerAnalyst(String site, String injectionStatus, String grain, LocalDate from, LocalDate to) {
+        Set<String> selected = PeriodCombiner.parseSelection(injectionStatus);
+        return hplcRepository.findTotals(site, selected, grain, from, to).stream()
                 .map(row -> new KpiCardResponse(
                         "hplc-sequences-per-analyst", "HPLC Sequences Executed per Analyst",
                         row.sequencesPerAnalyst(), "sequences/analyst", null,
@@ -92,8 +91,9 @@ public class LabPerformanceService {
                 .toList();
     }
 
-    public List<KpiCardResponse> getHplcInjectionsPerAnalyst(String site, String grain, LocalDate from, LocalDate to) {
-        return hplcRepository.find(site, grain, from, to).stream()
+    public List<KpiCardResponse> getHplcInjectionsPerAnalyst(String site, String injectionStatus, String grain, LocalDate from, LocalDate to) {
+        Set<String> selected = PeriodCombiner.parseSelection(injectionStatus);
+        return hplcRepository.findTotals(site, selected, grain, from, to).stream()
                 .map(row -> new KpiCardResponse(
                         "hplc-injections-per-analyst", "HPLC Samples Injected per Analyst",
                         row.injectionsPerAnalyst(), "injections/analyst", null,

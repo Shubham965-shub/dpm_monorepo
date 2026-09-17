@@ -41,22 +41,22 @@ public class LabPerformanceController {
 
     @GET
     @Path("/tests-per-analyst")
-    public List<KpiCardResponse> testsPerAnalyst(@BeanParam KpiParams.WithSampleCategory p) {
-        return service.getTestsPerAnalyst(p.site, p.sampleCategory, RequiredParams.require(p.grain, "grain"),
+    public List<KpiCardResponse> testsPerAnalyst(@BeanParam KpiParams.WithSampleCategoryAndAnalyst p) {
+        return service.getTestsPerAnalyst(p.site, p.sampleCategory, p.analyst, RequiredParams.require(p.grain, "grain"),
                 RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
     }
 
     @GET
     @Path("/hplc-sequences-per-analyst")
-    public List<KpiCardResponse> hplcSequencesPerAnalyst(@BeanParam KpiParams.DateRange p) {
-        return service.getHplcSequencesPerAnalyst(p.site,
+    public List<KpiCardResponse> hplcSequencesPerAnalyst(@BeanParam KpiParams.WithInjectionStatus p) {
+        return service.getHplcSequencesPerAnalyst(p.site, p.injectionStatus,
                 RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
     }
 
     @GET
     @Path("/hplc-injections-per-analyst")
-    public List<KpiCardResponse> hplcInjectionsPerAnalyst(@BeanParam KpiParams.DateRange p) {
-        return service.getHplcInjectionsPerAnalyst(p.site,
+    public List<KpiCardResponse> hplcInjectionsPerAnalyst(@BeanParam KpiParams.WithInjectionStatus p) {
+        return service.getHplcInjectionsPerAnalyst(p.site, p.injectionStatus,
                 RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
     }
 }

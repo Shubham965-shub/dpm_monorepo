@@ -20,8 +20,8 @@ public class QmsController {
 
     @GET
     @Path("/invalid-oos-rate")
-    public List<KpiCardResponse> invalidOosRate(@BeanParam KpiParams.DateRange p) {
-        return service.getInvalidOosRate(p.site,
+    public List<KpiCardResponse> invalidOosRate(@BeanParam KpiParams.WithSampleCategory p) {
+        return service.getInvalidOosRate(p.site, p.sampleCategory,
                 RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
     }
 
@@ -48,22 +48,23 @@ public class QmsController {
 
     @GET
     @Path("/deviations")
-    public List<KpiCardResponse> deviations(@BeanParam KpiParams.WithRootCauseBucket p) {
-        return service.getDeviations(p.site, p.rootCauseBucket,
+    public List<KpiCardResponse> deviations(@BeanParam KpiParams.Deviations p) {
+        return service.getDeviations(p.site, p.rootCauseBucket, p.respDept, p.level,
+                p.initialClassification, p.finalClassification, p.recurringByCause,
                 RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
     }
 
     @GET
     @Path("/investigation-closure-tat")
     public List<KpiCardResponse> investigationClosureTat(@BeanParam KpiParams.WithRespDept p) {
-        return service.getInvestigationClosureTat(p.site, p.respDept,
+        return service.getInvestigationClosureTat(p.site, p.respDept, p.initiatedThrough,
                 RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
     }
 
     @GET
     @Path("/rci-beyond-timeline")
     public List<KpiCardResponse> rciBeyondTimeline(@BeanParam KpiParams.WithRespDept p) {
-        return service.getRciBeyondTimeline(p.site, p.respDept, RequiredParams.require(p.grain, "grain"),
+        return service.getRciBeyondTimeline(p.site, p.respDept, p.initiatedThrough, RequiredParams.require(p.grain, "grain"),
                 RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
     }
 
@@ -146,8 +147,8 @@ public class QmsController {
 
     @GET
     @Path("/product-wise-failure")
-    public List<KpiCardResponse> productWiseFailure(@BeanParam KpiParams.WithMaterialType p) {
-        return service.getProductWiseFailure(p.site, p.materialType,
+    public List<KpiCardResponse> productWiseFailure(@BeanParam KpiParams.WithMaterialTypeAndProduct p) {
+        return service.getProductWiseFailure(p.site, p.materialType, p.product,
                 RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
     }
 }

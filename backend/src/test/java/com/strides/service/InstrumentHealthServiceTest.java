@@ -3,6 +3,7 @@ package com.strides.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
@@ -10,7 +11,7 @@ import com.strides.model.AggLimsBreakdownsFrequencyRow;
 import com.strides.model.AggLimsCalPmComplianceRow;
 import com.strides.model.AggLimsInstrumentFailureRateRow;
 import com.strides.model.AggLimsInstrumentUtilizationRow;
-import com.strides.model.AggLimsQualificationCycleTimeRow;
+import com.strides.model.PeriodTotal;
 import com.strides.repository.AggLimsBreakdownsFrequencyRepository;
 import com.strides.repository.AggLimsCalPmComplianceRepository;
 import com.strides.repository.AggLimsInstrumentFailureRateRepository;
@@ -137,14 +138,14 @@ class InstrumentHealthServiceTest {
     }
 
     @Test
-    void getQualificationCycleTime_mapsAvgDaysWithNoStatus_thresholdNeedsADesignationColumnThatDoesntExist() {
-        when(qualificationCycleTimeRepository.find(eq("KRSG"), eq("monthly"), any(), any()))
-                .thenReturn(List.of(new AggLimsQualificationCycleTimeRow("monthly", PERIOD_START, "KRSG", 4, 48, BigDecimal.valueOf(12.00), 5, 20)));
+    void getQualificationCycleTime_combinesWeightedAverage_hasNoStatus_thresholdNeedsADesignationColumnThatDoesntEvaluateAgainstOne() {
+        when(qualificationCycleTimeRepository.findTotals(eq("KRSG"), anySet(), eq("monthly"), any(), any()))
+                .thenReturn(List.of(new PeriodTotal(PERIOD_START, "monthly", 48, 4)));
 
-        var result = service.getQualificationCycleTime("KRSG", "monthly", FROM, TO);
+        var result = service.getQualificationCycleTime("KRSG", null, "monthly", FROM, TO);
 
         assertEquals("qualification-cycle-time", result.get(0).kpiId());
-        assertEquals(BigDecimal.valueOf(12.00), result.get(0).value());
+        assertEquals(BigDecimal.valueOf(12.00).setScale(2), result.get(0).value());
         assertEquals("days", result.get(0).unit());
         assertNull(result.get(0).status());
     }

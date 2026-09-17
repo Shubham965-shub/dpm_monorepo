@@ -76,25 +76,24 @@ public class QmsService {
     /**
      * invalid_oos_rate is a per-1000-tests figure (see the source DAX); catalogue thresholds are
      * percent-of-tests, and the two aren't directly comparable without confirming the scale.
-     * KNOWN GAP: no sample_type/sample_category filter is possible - agg_tw_invalid_oos_rate has
-     * neither column (only oos_count/test_count/test_count_filtered, already fully aggregated).
-     * It does carry a separate test_count_filtered/invalid_oos_rate_filtered pair, but the
-     * filtering criteria behind that isn't documented anywhere available here, so it's not
-     * exposed as a stand-in for a sample-type filter.
+     * sampleCategory: comma-separated list to combine, or null/blank for the table's own
+     * pre-combined 'All' total (see AggTwInvalidOosRateRepository). It does carry a separate
+     * test_count_filtered/invalid_oos_rate_filtered pair, but the filtering criteria behind that
+     * isn't documented anywhere available here, so it's not exposed as a stand-in.
      */
-    public List<KpiCardResponse> getInvalidOosRate(String siteName, String grain, LocalDate from, LocalDate to) {
-        return invalidOosRateRepository.find(siteName, grain, from, to).stream()
-                .map(row -> new KpiCardResponse(
-                        "invalid-oos-rate", "Invalid OOS Rate", row.invalidOosRate(), "per 1000 tests",
-                        null, row.grain(), row.periodStart()))
-                .toList();
+    public List<KpiCardResponse> getInvalidOosRate(String siteName, String sampleCategory, String grain, LocalDate from, LocalDate to) {
+        Set<String> selected = PeriodCombiner.parseSelection(sampleCategory);
+        var totals = invalidOosRateRepository.findTotals(siteName, selected, grain, from, to);
+        return PeriodCombiner.fromTotals(totals, 1000, "invalid-oos-rate", "Invalid OOS Rate", "per 1000 tests");
     }
 
     /**
      * Same per-1000 vs percent scale caveat as Invalid OOS Rate.
-     * KNOWN GAP: no productType/eventType/batchCategory/test/sampleType filter is possible -
-     * agg_tw_valid_oos_rate only has grain, period_start, site_name, oos_count, test_count,
-     * valid_oos_rate. None of those 5 dimensions exist as columns; it's already fully aggregated.
+     * KNOWN GAP: no productType/eventType filter is possible even though both columns now exist -
+     * every non-'All' breakdown row has a NULL test_count (confirmed live), so there's no
+     * denominator to recompute a rate from a chosen subset of either dimension. See
+     * AggTwValidOosRateRepository for how the unfiltered ('All','All') total is still returned
+     * correctly. batchCategory/test/sampleType still don't exist as columns at all.
      */
     public List<KpiCardResponse> getConfirmedOosRate(String siteName, String grain, LocalDate from, LocalDate to) {
         return validOosRateRepository.find(siteName, grain, from, to).stream()
@@ -123,34 +122,46 @@ public class QmsService {
 
     /**
      * Catalogue threshold is "% of monthly baseline"; no baseline window is defined - raw counts only.
-     * KNOWN GAP: no respDept/level/initialClassification/finalClassification/recurring-by-cause
-     * filter is possible - agg_tw_deviations only has grain, period_start, site, root_cause_bucket
-     * (already filterable), dev_count_bucket, dev_count. None of those 5 dimensions exist as columns.
+     * respDept/level/initialClassification/finalClassification/recurringByCause: each an
+     * independent comma-separated combine filter, or null/blank for ALL - same convention as
+     * rootCauseBucket. All 5 columns are a true partition (no "All" catch-all row), so combining
+     * any subset is a plain SUM in Postgres.
      */
-    public List<KpiCardResponse> getDeviations(String site, String rootCauseBucket, String grain, LocalDate from, LocalDate to) {
-        Set<String> selected = PeriodCombiner.parseSelection(rootCauseBucket);
-        var totals = deviationsRepository.findTotals(site, selected, grain, from, to);
+    public List<KpiCardResponse> getDeviations(String site, String rootCauseBucket, String respDept, String level,
+            String initialClassification, String finalClassification, String recurringByCause,
+            String grain, LocalDate from, LocalDate to) {
+        var totals = deviationsRepository.findTotals(site,
+                PeriodCombiner.parseSelection(rootCauseBucket),
+                PeriodCombiner.parseSelection(respDept),
+                PeriodCombiner.parseSelection(level),
+                PeriodCombiner.parseSelection(initialClassification),
+                PeriodCombiner.parseSelection(finalClassification),
+                PeriodCombiner.parseSelection(recurringByCause),
+                grain, from, to);
         return PeriodCombiner.fromSums(totals, "deviations", "Deviations", "count");
     }
 
     /**
      * respDept: comma-separated list to combine, or null/blank for ALL. Weighted avg computed in Postgres.
-     * KNOWN GAP: no "initiated through" filter is possible - agg_tw_investigation_closure_tat has
-     * no such column (only grain, period_start, site, resp_dept, record_count, and the TAT stats).
+     * initiatedThrough: comma-separated list of initiated_through_slice values to combine, or
+     * null/blank for the table's own pre-combined 'All' total (see AggTwInvestigationClosureTatRepository).
      */
-    public List<KpiCardResponse> getInvestigationClosureTat(String site, String respDept, String grain, LocalDate from, LocalDate to) {
-        Set<String> selected = PeriodCombiner.parseSelection(respDept);
-        var totals = investigationClosureTatRepository.findTotals(site, selected, grain, from, to);
+    public List<KpiCardResponse> getInvestigationClosureTat(String site, String respDept, String initiatedThrough,
+            String grain, LocalDate from, LocalDate to) {
+        var totals = investigationClosureTatRepository.findTotals(site,
+                PeriodCombiner.parseSelection(respDept), PeriodCombiner.parseSelection(initiatedThrough), grain, from, to);
         return PeriodCombiner.fromTotals(totals, 1, "investigation-closure-tat", "Investigation Closure TAT", "days");
     }
 
     /**
-     * respDept: comma-separated list to combine, or null/blank for ALL.
-     * No total-RCI-count column to compute a percentage against - raw combined overdue count only.
+     * respDept/initiatedThrough: each an independent comma-separated combine filter, or
+     * null/blank for ALL. No total-RCI-count column to compute a percentage against - raw
+     * combined overdue count only.
      */
-    public List<KpiCardResponse> getRciBeyondTimeline(String site, String respDept, String grain, LocalDate from, LocalDate to) {
-        Set<String> selected = PeriodCombiner.parseSelection(respDept);
-        var totals = rciBeyondTimelineRepository.findTotals(site, selected, grain, from, to);
+    public List<KpiCardResponse> getRciBeyondTimeline(String site, String respDept, String initiatedThrough,
+            String grain, LocalDate from, LocalDate to) {
+        var totals = rciBeyondTimelineRepository.findTotals(site,
+                PeriodCombiner.parseSelection(respDept), PeriodCombiner.parseSelection(initiatedThrough), grain, from, to);
         return PeriodCombiner.fromSums(totals, "rci-beyond-timeline", "RCIs Beyond Timeline", "count");
     }
 
@@ -178,7 +189,7 @@ public class QmsService {
                     BigDecimal share = total.totalCount() == 0 ? null
                             : BigDecimal.valueOf(dimension.getValue() * 100.0 / total.totalCount()).setScale(2, RoundingMode.HALF_UP);
                     return new KpiCardResponse(
-                            kpiIdPrefix + dimension.getKey().toLowerCase().replace(' ', '-'),
+                            kpiIdPrefix + dimension.getKey().toLowerCase().replaceAll("[^a-z0-9]+", "-"),
                             "Root Cause: " + dimension.getKey(), share, "%",
                             null, total.grain(), total.periodStart());
                 }))
@@ -197,6 +208,10 @@ public class QmsService {
         dimensions.put("Data Integrity", total.byDataIntegrity());
         dimensions.put("Vendor", total.byVendor());
         dimensions.put("Utility", total.byUtility());
+        dimensions.put("BMR/BPR", total.byBmrBpr());
+        dimensions.put("Equipment", total.byEquipment());
+        dimensions.put("Facility", total.byFacility());
+        dimensions.put("Medical Product", total.byMedicalProduct());
         return dimensions;
     }
 
@@ -244,10 +259,13 @@ public class QmsService {
     /**
      * human_error_rate / repeat_human_error_rate are per-1000-tests figures; catalogue thresholds
      * are percent-of-tests - not directly comparable without confirming the scale.
-     * KNOWN GAP (applies to both this and getRepeatHumanErrorRate below): no recurring/batch
-     * category/test/sample type/failure category filter is possible - agg_tw_human_error_rate
-     * only has grain, period_start, site, human_error_count, recurring_count, test_count, and the
-     * two rate columns. recurring_count is a raw aggregate, not a filterable category.
+     * KNOWN GAP (applies to both this and getRepeatHumanErrorRate below): no failure-category
+     * filter is possible even though failure_category_slice now exists - every non-'All'
+     * breakdown row has a NULL test_count (confirmed live), so there's no denominator to
+     * recompute a rate from a chosen subset. See AggTwHumanErrorRateRepository for how the
+     * unfiltered 'All' total is still returned correctly. recurring/batch category/test/sample
+     * type still don't exist as columns at all; recurring_count remains a raw aggregate, not a
+     * filterable category.
      */
     public List<KpiCardResponse> getHumanErrorRate(String site, String grain, LocalDate from, LocalDate to) {
         return humanErrorRateRepository.find(site, grain, from, to).stream()
@@ -330,10 +348,15 @@ public class QmsService {
                 .toList();
     }
 
-    /** materialType: comma-separated list to combine, or null/blank for ALL. */
-    public List<KpiCardResponse> getProductWiseFailure(String site, String materialType, String grain, LocalDate from, LocalDate to) {
+    /**
+     * materialType: comma-separated list to combine, or null/blank for ALL.
+     * product: repeated params (?product=A&product=B) of product_slice values to combine, or
+     * empty/null for the table's own pre-combined 'All' total (see AggTwProductWiseFailureRepository).
+     */
+    public List<KpiCardResponse> getProductWiseFailure(String site, String materialType, List<String> product,
+            String grain, LocalDate from, LocalDate to) {
         Set<String> selected = PeriodCombiner.parseSelection(materialType);
-        var totals = productWiseFailureRepository.findTotals(site, selected, grain, from, to);
+        var totals = productWiseFailureRepository.findTotals(site, selected, product, grain, from, to);
         return PeriodCombiner.fromSums(totals, "product-wise-failure", "Product-wise Failure", "count");
     }
 }

@@ -6,10 +6,12 @@ import com.strides.repository.AggLimsCalPmComplianceRepository;
 import com.strides.repository.AggLimsInstrumentFailureRateRepository;
 import com.strides.repository.AggLimsInstrumentUtilizationRepository;
 import com.strides.repository.AggLimsQualificationCycleTimeRepository;
+import com.strides.service.kpi.PeriodCombiner;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
 
 @ApplicationScoped
 public class InstrumentHealthService {
@@ -81,16 +83,10 @@ public class InstrumentHealthService {
                 .toList();
     }
 
-    /**
-     * KNOWN GAP: no designation filter is possible - agg_lims_qualification_cycle_time only has
-     * grain, period_start, site_name, operator_count (a headcount, not an identity/role column),
-     * sum_days, avg_days, min_days, max_days.
-     */
-    public List<KpiCardResponse> getQualificationCycleTime(String siteName, String grain, LocalDate from, LocalDate to) {
-        return qualificationCycleTimeRepository.find(siteName, grain, from, to).stream()
-                .map(row -> new KpiCardResponse(
-                        "qualification-cycle-time", "Qualification Cycle Time", row.avgDays(), "days",
-                        null, row.grain(), row.periodStart()))
-                .toList();
+    /** designation: comma-separated list to combine, or null/blank for ALL (designation is now a real identity/role column, confirmed live). */
+    public List<KpiCardResponse> getQualificationCycleTime(String siteName, String designation, String grain, LocalDate from, LocalDate to) {
+        Set<String> selected = PeriodCombiner.parseSelection(designation);
+        var totals = qualificationCycleTimeRepository.findTotals(siteName, selected, grain, from, to);
+        return PeriodCombiner.fromTotals(totals, 1, "qualification-cycle-time", "Qualification Cycle Time", "days");
     }
 }

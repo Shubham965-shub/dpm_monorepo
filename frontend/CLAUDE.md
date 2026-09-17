@@ -18,9 +18,16 @@ Tailwind CSS (v4, via `@tailwindcss/vite`) + shadcn/ui (`src/components/ui`, gen
 Prefer: derived values computed during render, event handlers, and TanStack Query for anything that fetches data. Reach for `useEffect` only for genuine synchronization with something outside React (subscriptions, non-React DOM APIs, imperative third-party libs) — not for data fetching or derived state.
 
 ## Session / auth (timed session + refresh tokens)
-- Access token lives in memory only (`src/lib/session.ts`) — never `localStorage`/`sessionStorage`.
-- Refresh token is expected as an httpOnly cookie set by the backend; `apiClient` sends `withCredentials: true` and retries once via a refresh call on a `401`.
-- **No backend auth exists yet** (`/auth/login`, `/auth/refresh` are not implemented). The interceptor scaffold is in place, but **actual access/refresh token TTLs are a TODO** — ask before picking numbers when the real auth endpoints are built.
+- Both the access and refresh tokens live in `localStorage` (`src/lib/session.ts`) — no cookies. The
+  backend runs inside a VNet over plain http, where a cookie's `Secure` attribute (required for a
+  browser to ever send it) can't be satisfied; see `backend/README.md`'s Authentication section for
+  the full tradeoff this accepts vs. an httpOnly cookie.
+- `apiClient` attaches the access token as an `Authorization: Bearer` header on every request and
+  retries once via `/api/auth/refresh` on a `401` (see `apiClient.ts`).
+- Backend auth is implemented (`POST /api/auth/login`, `/refresh`, `/logout` - see `AuthController`).
+  Token TTLs are fixed server-side: 15-minute access token, 7-day refresh token
+  (`auth.jwt.access-token-expire-minutes` / `auth.refresh-token-expire-days` in
+  `application.properties`) - not a frontend concern.
 
 ## Testing
 Pure functions only (e.g. `src/lib/format.ts` + `format.test.ts` via Vitest, `npm run test`) — no component/DOM testing required by default.

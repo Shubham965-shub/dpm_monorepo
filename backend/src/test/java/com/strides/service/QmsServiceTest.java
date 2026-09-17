@@ -58,7 +58,7 @@ class QmsServiceTest {
     void rootCauseBreakdown_computesSharePercentageOfTotal() {
         // 20 of 50 total is 40%.
         when(rootCauseDistributionRepository.findTotals(eq("KRSG"), anySet(), eq("monthly"), any(), any()))
-                .thenReturn(List.of(new RootCauseTotal(PERIOD, "monthly", 20, 10, 5, 5, 5, 5, 0, 0, 0, 0, 50)));
+                .thenReturn(List.of(new RootCauseTotal(PERIOD, "monthly", 20, 10, 5, 5, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 50)));
 
         var result = service.getRootCauseBreakdown("KRSG", "Deviation", "monthly", PERIOD, PERIOD.plusMonths(1));
 

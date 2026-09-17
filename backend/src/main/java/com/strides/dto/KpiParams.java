@@ -45,14 +45,55 @@ public final class KpiParams {
         public String sampleCategory;
     }
 
+    /** analyst: comma-separated list of analyst codes to combine, or null/blank for ALL. */
+    public static class WithSampleCategoryAndAnalyst extends WithSampleCategory {
+        @QueryParam("analyst")
+        public String analyst;
+    }
+
+    public static class WithInjectionStatus extends DateRange {
+        @QueryParam("injectionStatus")
+        public String injectionStatus;
+    }
+
+    public static class WithDesignation extends DateRange {
+        @QueryParam("designation")
+        public String designation;
+    }
+
+    /** department/trainingType: comma-separated combine filters, each independent, or null/blank for ALL. */
+    public static class WithDepartmentAndTrainingType extends DateRange {
+        @QueryParam("department")
+        public String department;
+        @QueryParam("trainingType")
+        public String trainingType;
+    }
+
     public static class WithRootCauseBucket extends DateRange {
         @QueryParam("rootCauseBucket")
         public String rootCauseBucket;
     }
 
+    /** respDept: comma-separated combine filter. initiatedThrough: comma-separated combine filter, shared by investigation-closure-tat and rci-beyond-timeline. */
     public static class WithRespDept extends DateRange {
         @QueryParam("respDept")
         public String respDept;
+        @QueryParam("initiatedThrough")
+        public String initiatedThrough;
+    }
+
+    /** All five extra dimensions on agg_tw_deviations, each a comma-separated combine filter, or null/blank for ALL. */
+    public static class Deviations extends WithRootCauseBucket {
+        @QueryParam("respDept")
+        public String respDept;
+        @QueryParam("level")
+        public String level;
+        @QueryParam("initialClassification")
+        public String initialClassification;
+        @QueryParam("finalClassification")
+        public String finalClassification;
+        @QueryParam("recurringByCause")
+        public String recurringByCause;
     }
 
     public static class WithRecordType extends DateRange {
@@ -68,6 +109,16 @@ public final class KpiParams {
     public static class WithMaterialType extends DateRange {
         @QueryParam("materialType")
         public String materialType;
+    }
+
+    /**
+     * product: repeated params (?product=A&product=B) of product_slice values to combine, or
+     * empty/null for ALL - same comma-in-names problem as WithMaterialList, see backend/README.md's
+     * "Filter syntax" note.
+     */
+    public static class WithMaterialTypeAndProduct extends WithMaterialType {
+        @QueryParam("product")
+        public List<String> product;
     }
 
     /** Repeated params (?material=A&material=B), not comma-joined - see backend/README.md's "Filter syntax" note. */
