@@ -16,6 +16,7 @@ import {
   ExtraFilterControl,
   initialExtraFilterState,
   resolveExtraParams,
+  type ExtraFilterState,
 } from './ExtraFilterControl'
 import type { KpiCardResponse } from '@/lib/kpiSchemas'
 
@@ -65,9 +66,13 @@ export function KpiChartCard({ domain, kpi, globalFilters }: {
   kpi: KpiDefinition
   globalFilters: GlobalKpiFilters
 }) {
-  const [extraState, setExtraState] = useState(() => initialExtraFilterState(kpi.extraFilter))
-  const extraParams = resolveExtraParams(kpi.extraFilter, extraState)
-  const requiredSelectMissing = kpi.extraFilter.kind === 'select' && kpi.extraFilter.required && extraParams.length === 0
+  const [extraStates, setExtraStates] = useState<ExtraFilterState[]>(() =>
+    kpi.extraFilters.map(initialExtraFilterState),
+  )
+  const extraParams = kpi.extraFilters.flatMap((filter, i) => resolveExtraParams(filter, extraStates[i]))
+  const requiredSelectMissing = kpi.extraFilters.some(
+    (filter, i) => filter.kind === 'select' && filter.required && resolveExtraParams(filter, extraStates[i]).length === 0,
+  )
 
   const query = useKpiData(domain, kpi, globalFilters, extraParams)
   const { shownSeries, hiddenCount, chartData } = useMemo(
@@ -86,7 +91,18 @@ export function KpiChartCard({ domain, kpi, globalFilters }: {
         </div>
       </div>
 
-      <ExtraFilterControl filter={kpi.extraFilter} state={extraState} onChange={setExtraState} />
+      {kpi.extraFilters.length > 0 && (
+        <div className="flex flex-wrap gap-3">
+          {kpi.extraFilters.map((filter, i) => (
+            <ExtraFilterControl
+              key={filter.param}
+              filter={filter}
+              state={extraStates[i]}
+              onChange={(next) => setExtraStates((prev) => prev.map((s, idx) => (idx === i ? next : s)))}
+            />
+          ))}
+        </div>
+      )}
 
       <div className="h-56 w-full">
         {requiredSelectMissing ? (

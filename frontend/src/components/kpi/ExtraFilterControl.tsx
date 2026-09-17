@@ -1,33 +1,30 @@
-import type { ChangeEvent } from 'react'
 import type { ExtraFilter } from '@/lib/kpiConfig'
 import type { ExtraParams } from '@/hooks/useKpiData'
-import { CAPA_LEVEL_OPTIONS, CAPA_RECORD_STATUS_OPTIONS } from '@/lib/kpiConfig'
 
 export type ExtraFilterState =
-  | { kind: 'none' }
   | { kind: 'select'; value: string }
   | { kind: 'multiSelect'; value: string[] }
   | { kind: 'repeatedText'; value: string }
-  | { kind: 'capaAging'; recordStatus: string[]; level: string[]; minAgingDays: string; maxAgingDays: string }
+  | { kind: 'freeText'; value: string }
+  | { kind: 'numberInput'; value: string }
 
 export function initialExtraFilterState(filter: ExtraFilter): ExtraFilterState {
   switch (filter.kind) {
-    case 'none':
-      return { kind: 'none' }
     case 'select':
       return { kind: 'select', value: filter.required ? (filter.options[0] ?? '') : '' }
     case 'multiSelect':
       return { kind: 'multiSelect', value: [] }
     case 'repeatedText':
       return { kind: 'repeatedText', value: '' }
-    case 'capaAging':
-      return { kind: 'capaAging', recordStatus: [], level: [], minAgingDays: '', maxAgingDays: '' }
+    case 'freeText':
+      return { kind: 'freeText', value: '' }
+    case 'numberInput':
+      return { kind: 'numberInput', value: '' }
   }
 }
 
+/** One filter -> 0 or 1 query-param entries (repeatedText can still yield several, one per value). */
 export function resolveExtraParams(filter: ExtraFilter, state: ExtraFilterState): ExtraParams {
-  if (filter.kind === 'none' || state.kind === 'none') return []
-
   if (filter.kind === 'select' && state.kind === 'select') {
     return state.value ? [[filter.param, state.value]] : []
   }
@@ -41,22 +38,20 @@ export function resolveExtraParams(filter: ExtraFilter, state: ExtraFilterState)
       .filter((v) => v.length > 0)
     return values.map((v) => [filter.param, v] as [string, string])
   }
-  if (filter.kind === 'capaAging' && state.kind === 'capaAging') {
-    const params: ExtraParams = []
-    if (state.recordStatus.length > 0) params.push(['recordStatus', state.recordStatus.join(',')])
-    if (state.level.length > 0) params.push(['level', state.level.join(',')])
-    if (state.minAgingDays !== '') params.push(['minAgingDays', state.minAgingDays])
-    if (state.maxAgingDays !== '') params.push(['maxAgingDays', state.maxAgingDays])
-    return params
+  if (filter.kind === 'freeText' && state.kind === 'freeText') {
+    const values = state.value
+      .split(',')
+      .map((v) => v.trim())
+      .filter((v) => v.length > 0)
+    return values.length > 0 ? [[filter.param, values.join(',')]] : []
+  }
+  if (filter.kind === 'numberInput' && state.kind === 'numberInput') {
+    return state.value !== '' ? [[filter.param, state.value]] : []
   }
   return []
 }
 
-function selectedOptions(e: ChangeEvent<HTMLSelectElement>): string[] {
-  return Array.from(e.target.selectedOptions).map((o) => o.value)
-}
-
-const selectClass =
+const inputClass =
   'w-full rounded-md border border-input bg-background px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-ring'
 const labelClass = 'text-muted-foreground text-[11px] font-medium'
 
@@ -69,13 +64,11 @@ export function ExtraFilterControl({
   state: ExtraFilterState
   onChange: (state: ExtraFilterState) => void
 }) {
-  if (filter.kind === 'none' || state.kind === 'none') return null
-
   if (filter.kind === 'select' && state.kind === 'select') {
     return (
       <label className="flex flex-col gap-1">
         <span className={labelClass}>{filter.param}{filter.required ? ' *' : ''}</span>
-        <select className={selectClass} value={state.value} onChange={(e) => onChange({ kind: 'select', value: e.target.value })}>
+        <select className={inputClass} value={state.value} onChange={(e) => onChange({ kind: 'select', value: e.target.value })}>
           {!filter.required && <option value="">All</option>}
           {filter.options.map((o) => (
             <option key={o} value={o}>{o}</option>
@@ -86,34 +79,63 @@ export function ExtraFilterControl({
   }
 
   if (filter.kind === 'multiSelect' && state.kind === 'multiSelect') {
+    // Blank selection = every option combined (matches the backend's own "empty param = ALL"
+    // convention - see PeriodCombiner.parseSelection), so "All" reads as checked whenever nothing
+    // (or, equivalently, everything) is explicitly picked.
+    const options = filter.options
+    const selectedValues = state.value
+    const isAll = selectedValues.length === 0
+    const selected = new Set(selectedValues)
+
+    function selectAll() {
+      onChange({ kind: 'multiSelect', value: [] })
+    }
+
+    function toggleOption(option: string) {
+      const currentlySelected = isAll ? options : selectedValues
+      const next = currentlySelected.includes(option)
+        ? currentlySelected.filter((v) => v !== option)
+        : [...currentlySelected, option]
+      // Every option ends up checked -> collapse back to "All" instead of sending every option
+      // explicitly, so re-checking the last unchecked box returns to the same blank/ALL state
+      // this started from.
+      onChange({ kind: 'multiSelect', value: next.length === options.length ? [] : next })
+    }
+
     return (
-      <label className="flex flex-col gap-1">
-        <span className={labelClass}>{filter.param} (all if none selected)</span>
-        {filter.options.length === 0 ? (
+      <fieldset className="flex flex-col gap-1">
+        <span className={labelClass}>{filter.param}</span>
+        {options.length === 0 ? (
           <span className="text-muted-foreground text-xs italic">no values in DB yet</span>
         ) : (
-          <select
-            className={`${selectClass} h-20`}
-            multiple
-            value={state.value}
-            onChange={(e) => onChange({ kind: 'multiSelect', value: selectedOptions(e) })}
-          >
-            {filter.options.map((o) => (
-              <option key={o} value={o}>{o}</option>
+          <div className="max-h-36 w-56 overflow-y-auto rounded-md border border-input bg-background p-1.5 text-xs">
+            <label className="flex items-center gap-1.5 border-b border-border pb-1 font-medium">
+              <input type="checkbox" checked={isAll} onChange={selectAll} />
+              All
+            </label>
+            {options.map((o) => (
+              <label key={o} className="flex items-center gap-1.5 py-0.5">
+                <input
+                  type="checkbox"
+                  checked={isAll || selected.has(o)}
+                  onChange={() => toggleOption(o)}
+                />
+                <span className="truncate">{o}</span>
+              </label>
             ))}
-          </select>
+          </div>
         )}
-      </label>
+      </fieldset>
     )
   }
 
   if (filter.kind === 'repeatedText' && state.kind === 'repeatedText') {
     return (
       <label className="flex flex-col gap-1">
-        <span className={labelClass}>{filter.param} (comma-separated, 1478 possible values)</span>
+        <span className={labelClass}>{filter.param} (comma-separated to combine, sent as repeated params)</span>
         <input
-          className={selectClass}
-          placeholder="e.g. Acetazolamide Tablets USP 250mg"
+          className={inputClass}
+          placeholder={filter.placeholder}
           value={state.value}
           onChange={(e) => onChange({ kind: 'repeatedText', value: e.target.value })}
         />
@@ -121,54 +143,31 @@ export function ExtraFilterControl({
     )
   }
 
-  if (filter.kind === 'capaAging' && state.kind === 'capaAging') {
+  if (filter.kind === 'freeText' && state.kind === 'freeText') {
     return (
-      <div className="flex flex-wrap gap-3">
-        <label className="flex flex-col gap-1">
-          <span className={labelClass}>recordStatus (all if none)</span>
-          <select
-            className={`${selectClass} h-20`}
-            multiple
-            value={state.recordStatus}
-            onChange={(e) => onChange({ ...state, recordStatus: selectedOptions(e) })}
-          >
-            {CAPA_RECORD_STATUS_OPTIONS.map((o) => (
-              <option key={o} value={o}>{o}</option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className={labelClass}>level (all if none)</span>
-          <select
-            className={`${selectClass} h-20`}
-            multiple
-            value={state.level}
-            onChange={(e) => onChange({ ...state, level: selectedOptions(e) })}
-          >
-            {CAPA_LEVEL_OPTIONS.map((o) => (
-              <option key={o} value={o}>{o}</option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className={labelClass}>minAgingDays</span>
-          <input
-            type="number"
-            className={`${selectClass} w-24`}
-            value={state.minAgingDays}
-            onChange={(e) => onChange({ ...state, minAgingDays: e.target.value })}
-          />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className={labelClass}>maxAgingDays</span>
-          <input
-            type="number"
-            className={`${selectClass} w-24`}
-            value={state.maxAgingDays}
-            onChange={(e) => onChange({ ...state, maxAgingDays: e.target.value })}
-          />
-        </label>
-      </div>
+      <label className="flex flex-col gap-1">
+        <span className={labelClass}>{filter.param} (comma-separated to combine; full option list unknown)</span>
+        <input
+          className={inputClass}
+          placeholder={filter.placeholder}
+          value={state.value}
+          onChange={(e) => onChange({ kind: 'freeText', value: e.target.value })}
+        />
+      </label>
+    )
+  }
+
+  if (filter.kind === 'numberInput' && state.kind === 'numberInput') {
+    return (
+      <label className="flex flex-col gap-1">
+        <span className={labelClass}>{filter.param}</span>
+        <input
+          type="number"
+          className={`${inputClass} w-24`}
+          value={state.value}
+          onChange={(e) => onChange({ kind: 'numberInput', value: e.target.value })}
+        />
+      </label>
     )
   }
 

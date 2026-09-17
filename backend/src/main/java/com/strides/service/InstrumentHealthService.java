@@ -9,6 +9,8 @@ import com.strides.repository.AggLimsQualificationCycleTimeRepository;
 import com.strides.service.kpi.PeriodCombiner;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Set;
@@ -37,17 +39,27 @@ public class InstrumentHealthService {
 
     public List<KpiCardResponse> getAvailability(String siteName, String instGroup, String grain, LocalDate from, LocalDate to) {
         return utilizationRepository.find(siteName, instGroup, grain, from, to).stream()
-                .map(row -> new KpiCardResponse(
-                        "instrument-availability", "Instrument Availability %", row.availabilityPct(), "%",
-                        null, row.grain(), row.periodStart()))
+                .map(row -> {
+                    BigDecimal availabilityPct = row.sumActualAvailableTime()
+                            .multiply(BigDecimal.valueOf(100))
+                            .divide(BigDecimal.valueOf(row.instrumentDays() * 24L), 2, RoundingMode.HALF_UP);
+                    return new KpiCardResponse(
+                            "instrument-availability", "Instrument Availability %", availabilityPct, "%",
+                            null, row.grain(), row.periodStart());
+                })
                 .toList();
     }
 
     public List<KpiCardResponse> getDowntime(String siteName, String instGroup, String grain, LocalDate from, LocalDate to) {
         return utilizationRepository.find(siteName, instGroup, grain, from, to).stream()
-                .map(row -> new KpiCardResponse(
-                        "instrument-downtime", "Instrument Downtime %", row.downtimePct(), "%",
-                        null, row.grain(), row.periodStart()))
+                .map(row -> {
+                    BigDecimal downtimePct = row.sumBreakdownHours()
+                            .multiply(BigDecimal.valueOf(100))
+                            .divide(BigDecimal.valueOf(row.instrumentDays() * 24L), 2, RoundingMode.HALF_UP);
+                    return new KpiCardResponse(
+                            "instrument-downtime", "Instrument Downtime %", downtimePct, "%",
+                            null, row.grain(), row.periodStart());
+                })
                 .toList();
     }
 
