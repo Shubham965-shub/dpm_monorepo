@@ -1,9 +1,9 @@
-import { Button } from '@/components/ui/button'
 import { LoginPage } from '@/components/LoginPage'
+import { DashboardPage } from '@/components/dashboard/DashboardPage'
 import { useAuth } from '@/hooks/useAuth'
 
 function App() {
-  const { user, isLoading, logout } = useAuth()
+  const { user, isLoading } = useAuth()
 
   if (isLoading) {
     return (
@@ -17,18 +17,7 @@ function App() {
     return <LoginPage />
   }
 
-  return (
-    <div className="flex min-h-svh flex-col items-center justify-center gap-4">
-      <h1 className="text-2xl font-semibold">dpm_monorepo</h1>
-      <p className="text-muted-foreground">Signed in as {user.email}</p>
-      <div className="flex gap-2">
-        <Button>It works</Button>
-        <Button variant="outline" onClick={() => void logout()}>
-          Sign out
-        </Button>
-      </div>
-    </div>
-  )
+  return <DashboardPage />
 }
 
 export default App
