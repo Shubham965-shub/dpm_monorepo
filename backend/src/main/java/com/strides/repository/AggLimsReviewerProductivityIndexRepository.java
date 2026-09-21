@@ -1,27 +1,29 @@
 package com.strides.repository;
 
-import com.strides.model.AggLimsReviewerProductivityIndexRow;
+import com.strides.model.PeriodSum;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.time.LocalDate;
 import java.util.List;
 
 @ApplicationScoped
-public class AggLimsReviewerProductivityIndexRepository extends AbstractAggRepository<AggLimsReviewerProductivityIndexRow> {
+public class AggLimsReviewerProductivityIndexRepository extends AbstractAggRepository<PeriodSum> {
 
-    public List<AggLimsReviewerProductivityIndexRow> find(String siteName, String grain, LocalDate from, LocalDate to) {
+    /**
+     * Sum of total_weight across every reviewer for the period - matches Power BI's "Weighted
+     * Reviewer Index" / "Total Weighted Reviewer Output" measure (SUM(WEIGHT)), confirmed live: a
+     * per-reviewer average would be a completely different metric. Sum happens in Postgres.
+     */
+    public List<PeriodSum> findTotal(String siteName, String grain, LocalDate from, LocalDate to) {
         String sql = """
-                SELECT grain, period_start, site_name, reviewer, total_weight, review_count, avg_weight
+                SELECT period_start, grain, SUM(total_weight) AS total
                 FROM agg_lims_reviewer_productivity_index
                 WHERE site_name = ? AND grain = ? AND period_start BETWEEN ? AND ?
+                GROUP BY period_start, grain
                 ORDER BY period_start""";
-        return query(sql, rs -> new AggLimsReviewerProductivityIndexRow(
-                rs.getString("grain"),
+        return query(sql, rs -> new PeriodSum(
                 rs.getObject("period_start", LocalDate.class),
-                rs.getString("site_name"),
-                rs.getString("reviewer"),
-                rs.getLong("total_weight"),
-                rs.getLong("review_count"),
-                rs.getBigDecimal("avg_weight")),
+                rs.getString("grain"),
+                rs.getLong("total")),
                 siteName, grain, from, to);
     }
 }

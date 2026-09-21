@@ -13,7 +13,10 @@
 
 export type ExtraFilter =
   | { kind: 'select'; param: string; options: string[]; required?: boolean }
-  | { kind: 'multiSelect'; param: string; options: string[] }
+  /** repeated: true sends selections as repeated params (?param=A&param=B) instead of comma-joined -
+   * required when an option value can itself contain a comma (e.g. a department name), see
+   * backend/README.md's "Filter syntax" note. */
+  | { kind: 'multiSelect'; param: string; options: string[]; repeated?: boolean }
   /** Sent as repeated query params (?material=A&material=B), not comma-joined - see backend/README.md's "Filter syntax" note. */
   | { kind: 'repeatedText'; param: string; placeholder?: string }
   /** Comma-separated free text, sent as one comma-joined param (like multiSelect) - used where the
@@ -28,6 +31,13 @@ export interface KpiDefinition {
   path: string
   /** Empty = no filter beyond the shared site/grain/from/to. */
   extraFilters: ExtraFilter[]
+  /**
+   * 'line' (default) = one point per period, one line per series - a time series.
+   * 'bar' = one horizontal bar per row's `name`, summed across the whole date range rather than
+   * per-period (every row shares one periodStart) - matches Power BI's "by product" panels
+   * (Human Error by Product, Product-wise Failure), which are category rankings, not trends.
+   */
+  chartType?: 'line' | 'bar'
 }
 
 export interface KpiDomain {
@@ -89,15 +99,52 @@ const ROOT_CAUSE_BUCKETS_DEVIATIONS = [
   'Unbucketed',
 ]
 
-// agg_tw_investigation_closure_tat's dept column is `resp_dept_slice` (fixed 2026-09-17 - was
-// filtering on the old, since-renamed `resp_dept`, a 500 on any selection).
-// 'All' is the backend's storage sentinel, not a selectable department - an empty selection
-// already means "every department" (see AggTwInvestigationClosureTatRepository's ALL_SLICE
-// default), so it's deliberately excluded here rather than offered as an option.
+// QC-versus-All department split (see backend/README.md's "Department scope" section) - blank
+// selection omits the param, which the backend defaults to ALL, so only "QC" needs to be offered.
+const DEPARTMENT_SCOPE_FILTER: ExtraFilter = { kind: 'select', param: 'departmentScope', options: ['QC'] }
+
+// agg_tw_investigation_closure_tat.resp_dept_slice's full distinct-value list (38, excluding the
+// 'All' sentinel) - confirmed live against the database. Picking any of these takes priority over
+// departmentScope (see AggTwInvestigationClosureTatRepository).
 const RESP_DEPT_INVESTIGATION_CLOSURE = [
+  'Administration Department',
   'Analytical Services Department',
+  'Computer System Validation',
+  'Corporate Quality Assurance',
+  'Dispatch',
+  'EHS',
+  'Electrical',
+  'Engineering',
+  'Facilities & Engineering',
+  'Formulation Development Department',
+  'General Stores',
+  'Group Quality Assurance',
+  'Human Resource and Administration',
+  'Human Resource Department',
+  'Information Technology Department',
+  'Logistics',
+  'Manufacturing, Science & Technology',
+  'Master Data Management',
   'Microbiology',
+  'Operations Department',
+  'Packaging Development Department',
+  'Packing Department',
+  'Pharmacovigilance',
+  'Planning Department',
+  'Process development and Transfer',
+  'Production Department',
+  'Quality Assurance Department',
+  'Quality Assurance - Validation Group',
   'Quality Control Department',
+  'Raw Material Stores',
+  'Regulatory Affairs Department',
+  'Stores',
+  'Supply Chain Management',
+  'Technical Services Group',
+  'Technical Services Group Quality Assurance',
+  'Technology Absorption Group',
+  'Unknown',
+  'Utility Department',
 ]
 
 const RESP_DEPT_RCI = ['Analytical Services Department', 'Microbiology', 'Quality Control Department']
@@ -109,6 +156,10 @@ const RECORD_TYPE_REPEAT_FAILURE = ['Deviation', 'OOS']
 const RECORD_TYPE_ROOT_CAUSE = ['Deviation', 'Out Of Specification', 'Out of Trend']
 const ORIGINATED_FROM = ['CAPA', 'Change Control']
 const MATERIAL_TYPE = ['FG', 'SFG']
+// agg_tw_product_wise_failure.disposition - confirmed live, true partition (no 'All' row).
+const DISPOSITION = ['Recall', 'Unknown', 'Release', 'Field Alert', 'Alert', 'Reject', 'Not Applicable']
+// agg_lims_turn_around_time.batch_category - confirmed live, true partition (no 'All' row).
+const BATCH_CATEGORY = ['commercial', 'other', 'exhibit', 'raw material', 'commercial validation']
 const CAPA_RECORD_STATUS = [
   'CAPA In Progress',
   'Closed - Done',
@@ -174,7 +225,9 @@ export const KPI_DOMAINS: KpiDomain[] = [
           { kind: 'multiSelect', param: 'rootCauseBucket', options: ROOT_CAUSE_BUCKETS_DEVIATIONS },
           // respDept (42 distinct), level (6, only 5 sampled), initialClassification/finalClassification
           // (4 each, only 1 sampled), recurringByCause (3, only 1 sampled) - full lists never queried,
-          // so free-text rather than an incomplete dropdown.
+          // so free-text rather than an incomplete dropdown. departmentScope=QC overrides respDept
+          // (additive pattern, see backend/README.md's "Department scope" section).
+          DEPARTMENT_SCOPE_FILTER,
           { kind: 'freeText', param: 'respDept', placeholder: 'e.g. Quality Control Department' },
           { kind: 'freeText', param: 'level', placeholder: 'e.g. NA, L1, L2...' },
           { kind: 'freeText', param: 'initialClassification', placeholder: 'e.g. Minor' },
@@ -185,7 +238,13 @@ export const KPI_DOMAINS: KpiDomain[] = [
       {
         id: 'investigation-closure-tat', label: 'Investigation Closure TAT', path: 'investigation-closure-tat',
         extraFilters: [
-          { kind: 'multiSelect', param: 'respDept', options: RESP_DEPT_INVESTIGATION_CLOSURE },
+          // Picking specific department(s) here takes priority over departmentScope below (see
+          // AggTwInvestigationClosureTatRepository) - departmentScope stays as the quick QC/All
+          // toggle (see backend/README.md's "Department scope" section).
+          // repeated: true - 'Manufacturing, Science & Technology' contains a comma, which would
+          // break comma-joined parsing (confirmed live: it silently splits into two garbage values).
+          { kind: 'multiSelect', param: 'respDept', options: RESP_DEPT_INVESTIGATION_CLOSURE, repeated: true },
+          DEPARTMENT_SCOPE_FILTER,
           // initiated_through_slice has 8 distinct values; only 'Deviation' was ever sampled - free-text.
           { kind: 'freeText', param: 'initiatedThrough', placeholder: 'e.g. Deviation' },
         ],
@@ -197,7 +256,7 @@ export const KPI_DOMAINS: KpiDomain[] = [
           { kind: 'multiSelect', param: 'initiatedThrough', options: INITIATED_THROUGH_RCI },
         ],
       },
-      { id: 'repeat-failure-rate', label: 'Repeat Failure Rate', path: 'repeat-failure-rate', extraFilters: [{ kind: 'multiSelect', param: 'recordType', options: RECORD_TYPE_REPEAT_FAILURE }] },
+      { id: 'repeat-failure-rate', label: 'Repeat Failure Rate', path: 'repeat-failure-rate', extraFilters: [{ kind: 'multiSelect', param: 'recordType', options: RECORD_TYPE_REPEAT_FAILURE }, DEPARTMENT_SCOPE_FILTER] },
       { id: 'root-cause', label: 'Root Cause Breakdown', path: 'root-cause', extraFilters: [{ kind: 'multiSelect', param: 'recordType', options: RECORD_TYPE_ROOT_CAUSE }] },
       { id: 'root-cause-consolidated', label: 'Root Cause (Consolidated)', path: 'root-cause/consolidated', extraFilters: [{ kind: 'multiSelect', param: 'recordType', options: RECORD_TYPE_ROOT_CAUSE }] },
       {
@@ -207,21 +266,40 @@ export const KPI_DOMAINS: KpiDomain[] = [
           { kind: 'multiSelect', param: 'level', options: CAPA_LEVEL },
           { kind: 'numberInput', param: 'minAgingDays' },
           { kind: 'numberInput', param: 'maxAgingDays' },
+          DEPARTMENT_SCOPE_FILTER,
+        ],
+        chartType: 'bar',
+      },
+      {
+        // period_start is the CAPA's date-opened month (confirmed live) - there is no due-date
+        // column anywhere in this table or any other CAPA table, so "by Due Date" isn't buildable
+        // without a pipeline change.
+        id: 'capa-open-by-date-opened', label: 'Open CAPA by Date Opened', path: 'capa-aging-status/by-date-opened',
+        extraFilters: [
+          { kind: 'multiSelect', param: 'recordStatus', options: CAPA_RECORD_STATUS },
+          { kind: 'multiSelect', param: 'level', options: CAPA_LEVEL },
+          DEPARTMENT_SCOPE_FILTER,
         ],
       },
-      { id: 'capa-effectiveness', label: 'CAPA Effectiveness', path: 'capa-effectiveness', extraFilters: [{ kind: 'multiSelect', param: 'originatedFrom', options: ORIGINATED_FROM }] },
-      { id: 'capa-recurrence-rate', label: 'CAPA Recurrence Rate', path: 'capa-recurrence-rate', extraFilters: [] },
-      { id: 'human-error-rate', label: 'Human Error Rate', path: 'human-error-rate', extraFilters: [] },
-      { id: 'repeat-human-error-rate', label: 'Repeat Human Error Rate', path: 'repeat-human-error-rate', extraFilters: [] },
-      { id: 'human-error-severity', label: 'Human Error Severity', path: 'human-error-severity', extraFilters: [] },
-      { id: 'human-error-by-product', label: 'Human Error by Product', path: 'human-error-by-product', extraFilters: [{ kind: 'repeatedText', param: 'material', placeholder: 'e.g. Acetazolamide Tablets USP 250mg' }] },
+      { id: 'capa-effectiveness', label: 'CAPA Effectiveness', path: 'capa-effectiveness', extraFilters: [{ kind: 'multiSelect', param: 'originatedFrom', options: ORIGINATED_FROM }, DEPARTMENT_SCOPE_FILTER] },
+      { id: 'capa-recurrence-rate', label: 'CAPA Recurrence Rate', path: 'capa-recurrence-rate', extraFilters: [DEPARTMENT_SCOPE_FILTER] },
+      { id: 'human-error-rate', label: 'Human Error Rate', path: 'human-error-rate', extraFilters: [DEPARTMENT_SCOPE_FILTER] },
+      { id: 'repeat-human-error-rate', label: 'Repeat Human Error Rate', path: 'repeat-human-error-rate', extraFilters: [DEPARTMENT_SCOPE_FILTER] },
+      { id: 'human-error-severity', label: 'Human Error Severity', path: 'human-error-severity', extraFilters: [DEPARTMENT_SCOPE_FILTER] },
+      {
+        id: 'human-error-by-product', label: 'Human Error by Product', path: 'human-error-by-product',
+        extraFilters: [{ kind: 'repeatedText', param: 'material', placeholder: 'e.g. Acetazolamide Tablets USP 250mg' }, DEPARTMENT_SCOPE_FILTER],
+        chartType: 'bar',
+      },
       { id: 'method-failure-rate', label: 'Method Failure Rate', path: 'method-failure-rate', extraFilters: [] },
       {
         id: 'product-wise-failure', label: 'Product-wise Failure', path: 'product-wise-failure',
         extraFilters: [
           { kind: 'multiSelect', param: 'materialType', options: MATERIAL_TYPE },
+          { kind: 'multiSelect', param: 'disposition', options: DISPOSITION },
           { kind: 'repeatedText', param: 'product', placeholder: 'e.g. TenoDF,Lami & Dolute Tabs 300/300/50mg' },
         ],
+        chartType: 'bar',
       },
     ],
   },
@@ -238,6 +316,9 @@ export const KPI_DOMAINS: KpiDomain[] = [
         extraFilters: [
           // department (55 distinct) and trainingType (5 distinct) - only one sample value each was
           // ever seen ("Quality Control", "Control Document"), full lists never queried - free-text.
+          // departmentScope=QC overrides department (additive pattern, see backend/README.md's
+          // "Department scope" section).
+          DEPARTMENT_SCOPE_FILTER,
           { kind: 'freeText', param: 'department', placeholder: 'e.g. Quality Control' },
           { kind: 'freeText', param: 'trainingType', placeholder: 'e.g. Control Document' },
         ],
@@ -268,7 +349,13 @@ export const KPI_DOMAINS: KpiDomain[] = [
     label: 'Lab Performance',
     basePath: '/api/lab-performance',
     kpis: [
-      { id: 'sample-tat', label: 'Sample TAT', path: 'sample-tat', extraFilters: [{ kind: 'multiSelect', param: 'sampleType', options: SAMPLE_TYPE_TAT }] },
+      {
+        id: 'sample-tat', label: 'Sample TAT', path: 'sample-tat',
+        extraFilters: [
+          { kind: 'multiSelect', param: 'sampleType', options: SAMPLE_TYPE_TAT },
+          { kind: 'multiSelect', param: 'batchCategory', options: BATCH_CATEGORY },
+        ],
+      },
       { id: 'sla-adherence', label: 'SLA Adherence', path: 'sla-adherence', extraFilters: [{ kind: 'multiSelect', param: 'sampleCategory', options: SAMPLE_CATEGORY_SLA }] },
       { id: 'priority-sample-compliance', label: 'Priority Sample Compliance', path: 'priority-sample-compliance', extraFilters: [{ kind: 'multiSelect', param: 'sampleType', options: SAMPLE_TYPE_PRIORITY }] },
       {

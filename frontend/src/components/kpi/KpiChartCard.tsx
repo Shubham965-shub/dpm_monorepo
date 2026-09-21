@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react'
 import {
+  Bar,
+  BarChart,
   CartesianGrid,
   Legend,
   Line,
@@ -61,6 +63,22 @@ function toChartData(rows: KpiCardResponse[]) {
   return { shownSeries, hiddenCount, chartData }
 }
 
+interface BarRow {
+  name: string
+  value: number | null
+  unit: string
+}
+
+// chartType 'bar' rows are already one-per-category, summed across the whole date range by the
+// backend (see backend/README.md) and pre-sorted worst-first - no per-period grouping needed.
+function toBarData(rows: KpiCardResponse[]): BarRow[] {
+  return rows.map((row) => ({ name: row.name, value: row.value, unit: row.unit }))
+}
+
+const BAR_ROW_HEIGHT_PX = 22
+const BAR_CHART_MIN_HEIGHT_PX = 224
+const BAR_CHART_MAX_VIEWPORT_PX = 320
+
 export function KpiChartCard({ domain, kpi, globalFilters }: {
   domain: KpiDomain
   kpi: KpiDefinition
@@ -74,9 +92,23 @@ export function KpiChartCard({ domain, kpi, globalFilters }: {
     (filter, i) => filter.kind === 'select' && filter.required && resolveExtraParams(filter, extraStates[i]).length === 0,
   )
 
+  const isBarChart = kpi.chartType === 'bar'
   const query = useKpiData(domain, kpi, globalFilters, extraParams)
   const { shownSeries, hiddenCount, chartData } = useMemo(
     () => toChartData(query.data ?? []),
+    [query.data],
+  )
+  const barData = useMemo(() => toBarData(query.data ?? []), [query.data])
+  const emptyState = emptyStateFor(
+    requiredSelectMissing,
+    query,
+    isBarChart ? barData.length === 0 : chartData.length === 0,
+  )
+  // Reconciliation caveats (e.g. departmentScope=QC's narrowed scope) the backend flags as a
+  // per-row note - see backend/README.md's "Department scope" section. Deduplicated since every
+  // row in a QC-scoped response carries the same text.
+  const notes = useMemo(
+    () => Array.from(new Set((query.data ?? []).map((r) => r.note).filter((n): n is string => Boolean(n)))),
     [query.data],
   )
 
@@ -104,44 +136,57 @@ export function KpiChartCard({ domain, kpi, globalFilters }: {
         </div>
       )}
 
-      <div className="h-56 w-full">
-        {requiredSelectMissing ? (
-          <EmptyState message="Choose a required filter value above." />
-        ) : query.isLoading ? (
-          <EmptyState message="Loading…" />
-        ) : query.isError ? (
-          <EmptyState
-            message={`Request failed: ${errorMessage(query.error)}`}
-            isError
-          />
-        ) : chartData.length === 0 ? (
-          <EmptyState message="No data returned for this filter/date range." />
-        ) : (
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-              <XAxis dataKey="periodStart" tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" />
-              <YAxis tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" width={40} />
-              <Tooltip contentStyle={{ fontSize: 11 }} />
-              {shownSeries.length >= 2 && <Legend wrapperStyle={{ fontSize: 10 }} />}
-              {shownSeries.map((s, i) => (
-                <Line
-                  key={s.seriesKey}
-                  type="monotone"
-                  dataKey={s.seriesKey}
-                  name={s.label}
-                  stroke={CATEGORICAL_PALETTE[i]}
-                  strokeWidth={2}
-                  dot={{ r: 3 }}
-                  connectNulls
-                />
-              ))}
-            </LineChart>
-          </ResponsiveContainer>
-        )}
-      </div>
+      {notes.map((note) => (
+        <p key={note} className="rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-700 dark:text-amber-400">
+          {note}
+        </p>
+      ))}
 
-      {hiddenCount > 0 && (
+      {isBarChart ? (
+        <div style={{ maxHeight: BAR_CHART_MAX_VIEWPORT_PX }} className="w-full overflow-y-auto">
+          {emptyState ? (
+            <div className="h-56">{emptyState}</div>
+          ) : (
+            <ResponsiveContainer width="100%" height={Math.max(BAR_CHART_MIN_HEIGHT_PX, barData.length * BAR_ROW_HEIGHT_PX)}>
+              <BarChart data={barData} layout="vertical" margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis type="number" tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" />
+                <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" width={160} />
+                <Tooltip contentStyle={{ fontSize: 11 }} />
+                <Bar dataKey="value" fill={CATEGORICAL_PALETTE[0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+      ) : (
+        <div className="h-56 w-full">
+          {emptyState ?? (
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis dataKey="periodStart" tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" />
+                <YAxis tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" width={40} />
+                <Tooltip contentStyle={{ fontSize: 11 }} />
+                {shownSeries.length >= 2 && <Legend wrapperStyle={{ fontSize: 10 }} />}
+                {shownSeries.map((s, i) => (
+                  <Line
+                    key={s.seriesKey}
+                    type="monotone"
+                    dataKey={s.seriesKey}
+                    name={s.label}
+                    stroke={CATEGORICAL_PALETTE[i]}
+                    strokeWidth={2}
+                    dot={{ r: 3 }}
+                    connectNulls
+                  />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+      )}
+
+      {!isBarChart && hiddenCount > 0 && (
         <p className="text-muted-foreground text-[11px]">+{hiddenCount} more series not shown (cap: {MAX_SERIES})</p>
       )}
 
@@ -162,6 +207,18 @@ export function KpiChartCard({ domain, kpi, globalFilters }: {
       )}
     </div>
   )
+}
+
+function emptyStateFor(
+  requiredSelectMissing: boolean,
+  query: Pick<ReturnType<typeof useKpiData>, 'isLoading' | 'isError' | 'error'>,
+  isEmpty: boolean,
+) {
+  if (requiredSelectMissing) return <EmptyState message="Choose a required filter value above." />
+  if (query.isLoading) return <EmptyState message="Loading…" />
+  if (query.isError) return <EmptyState message={`Request failed: ${errorMessage(query.error)}`} isError />
+  if (isEmpty) return <EmptyState message="No data returned for this filter/date range." />
+  return null
 }
 
 function EmptyState({ message, isError }: { message: string; isError?: boolean }) {

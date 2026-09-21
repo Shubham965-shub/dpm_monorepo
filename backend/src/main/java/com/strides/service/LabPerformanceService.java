@@ -35,9 +35,11 @@ public class LabPerformanceService {
      * materialized in this table - status is left null rather than guessed.
      * Filtering AND summing both happen in Postgres (WHERE ... IN + SUM + GROUP BY).
      */
-    public List<KpiCardResponse> getSampleTat(String siteName, String sampleType, String grain, LocalDate from, LocalDate to) {
+    public List<KpiCardResponse> getSampleTat(String siteName, String sampleType, String batchCategory,
+            String grain, LocalDate from, LocalDate to) {
         Set<String> selected = PeriodCombiner.parseSelection(sampleType);
-        List<PeriodTotal> totals = turnAroundTimeRepository.findTotals(siteName, selected, grain, from, to);
+        Set<String> selectedBatchCategories = PeriodCombiner.parseSelection(batchCategory);
+        List<PeriodTotal> totals = turnAroundTimeRepository.findTotals(siteName, selected, selectedBatchCategories, grain, from, to);
         return PeriodCombiner.fromTotals(totals, 1, "sample-tat", "Sample TAT", "days");
     }
 
@@ -60,7 +62,7 @@ public class LabPerformanceService {
         return priorityComplianceRepository.findTotals(site, selected, grain, from, to).stream()
                 .map(t -> new KpiCardResponse(
                         "priority-sample-compliance", "Priority Sample Compliance (" + t.tier() + ")",
-                        BigDecimal.valueOf(t.total()), "samples", null, t.grain(), t.periodStart()))
+                        BigDecimal.valueOf(t.total()), "samples", null, t.grain(), t.periodStart(), null))
                 .toList();
     }
 
@@ -87,7 +89,7 @@ public class LabPerformanceService {
                 .map(row -> new KpiCardResponse(
                         "hplc-sequences-per-analyst", "HPLC Sequences Executed per Analyst",
                         row.sequencesPerAnalyst(), "sequences/analyst", null,
-                        row.grain(), row.periodStart()))
+                        row.grain(), row.periodStart(), null))
                 .toList();
     }
 
@@ -97,7 +99,7 @@ public class LabPerformanceService {
                 .map(row -> new KpiCardResponse(
                         "hplc-injections-per-analyst", "HPLC Samples Injected per Analyst",
                         row.injectionsPerAnalyst(), "injections/analyst", null,
-                        row.grain(), row.periodStart()))
+                        row.grain(), row.periodStart(), null))
                 .toList();
     }
 }

@@ -1,25 +1,51 @@
 package com.strides.repository;
 
-import com.strides.model.AggTwHumanErrorByProductRow;
+import com.strides.dto.DepartmentScope;
+import com.strides.model.NamedCount;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 @ApplicationScoped
-public class AggTwHumanErrorByProductRepository extends AbstractAggRepository<AggTwHumanErrorByProductRow> {
+public class AggTwHumanErrorByProductRepository extends AbstractAggRepository<NamedCount> {
 
-    public List<AggTwHumanErrorByProductRow> find(String site, String grain, LocalDate from, LocalDate to) {
-        String sql = """
-                SELECT grain, period_start, site, material_description, human_error_count
+    @Inject
+    DepartmentScopeLiterals deptLiterals;
+
+    /**
+     * agg_tw_human_error_by_product carries a failure_category_slice breakdown alongside the
+     * table's own pre-combined 'All' row for the same per-product counts - MUST pin to exactly
+     * one slice value or every category gets summed together with 'All' itself, double-counting.
+     * departmentScope: QC pins to Laboratory Control; ALL (default) pins to 'All' - see
+     * backend/README.md's "Department scope" section.
+     * Summed across the whole [from, to] range per product (one bar per product, not one point
+     * per period) - matches Power BI's "Human Error By Product" bar chart. materials empty =
+     * every product with a nonzero count, sorted worst-first (the chart is scrollable, not
+     * top-N-capped, matching Power BI's own panel). material_description = 'Not Applicable' is a
+     * sentinel for "no product could be identified" (confirmed live, a genuinely large count) -
+     * excluded here since it isn't a product and Power BI's own chart omits it too.
+     */
+    public List<NamedCount> findByProduct(String site, DepartmentScope departmentScope, Set<String> materials,
+            String grain, LocalDate from, LocalDate to) {
+        StringBuilder sql = new StringBuilder("""
+                SELECT material_description, SUM(human_error_count) AS total
                 FROM agg_tw_human_error_by_product
-                WHERE site = ? AND grain = ? AND period_start BETWEEN ? AND ?
-                ORDER BY period_start""";
-        return query(sql, rs -> new AggTwHumanErrorByProductRow(
-                rs.getString("grain"),
-                rs.getObject("period_start", LocalDate.class),
-                rs.getString("site"),
+                WHERE site = ? AND grain = ? AND period_start BETWEEN ? AND ? AND failure_category_slice = ?
+                  AND material_description <> 'Not Applicable'""");
+        List<Object> params = new ArrayList<>(
+                List.of(site, grain, from, to, sliceValueFor(departmentScope, deptLiterals.failureCategory())));
+        if (!materials.isEmpty()) {
+            sql.append(" AND material_description IN (").append(placeholders(materials)).append(")");
+            params.addAll(materials);
+        }
+        sql.append(" GROUP BY material_description HAVING SUM(human_error_count) > 0 ORDER BY total DESC");
+
+        return query(sql.toString(), rs -> new NamedCount(
                 rs.getString("material_description"),
-                rs.getLong("human_error_count")),
-                site, grain, from, to);
+                rs.getLong("total")),
+                params.toArray());
     }
 }

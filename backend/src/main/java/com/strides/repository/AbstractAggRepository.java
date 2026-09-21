@@ -1,5 +1,6 @@
 package com.strides.repository;
 
+import com.strides.dto.DepartmentScope;
 import jakarta.inject.Inject;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -51,17 +52,31 @@ public abstract class AbstractAggRepository<T> {
         return values.stream().filter(v -> !ALL_SLICE.equals(v)).toList();
     }
 
+    /**
+     * Slice-pattern department scope (see DPM Department-Level Splits spec / backend/README.md):
+     * resolves to exactly one value, QC's own literal or the table's pre-combined "All" sentinel -
+     * always an equality filter, never an IN (...) list, so a slice column can never be summed
+     * across by construction.
+     */
+    protected static String sliceValueFor(DepartmentScope scope, String qcLiteral) {
+        return scope == DepartmentScope.QC ? qcLiteral : ALL_SLICE;
+    }
+
     @Inject
     DataSource dataSource;
 
-    protected List<T> query(String sql, RowMapper<T> mapper, Object... params) {
+    /**
+     * Method-level &lt;R&gt; (not the class's own T) so one repository can map different queries to
+     * different row types - e.g. a per-level total alongside a per-period trend from the same table.
+     */
+    protected <R> List<R> query(String sql, RowMapper<R> mapper, Object... params) {
         try (Connection connection = dataSource.getConnection();
                 PreparedStatement statement = connection.prepareStatement(sql)) {
             for (int i = 0; i < params.length; i++) {
                 statement.setObject(i + 1, params[i]);
             }
             try (ResultSet resultSet = statement.executeQuery()) {
-                List<T> rows = new ArrayList<>();
+                List<R> rows = new ArrayList<>();
                 while (resultSet.next()) {
                     rows.add(mapper.map(resultSet));
                 }

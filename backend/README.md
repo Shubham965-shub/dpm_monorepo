@@ -26,6 +26,25 @@ Required env vars (put them in a local, gitignored `.env` or `application-local.
 
 Connection pool sizing (`quarkus.datasource.jdbc.min-size`/`max-size`/`max-lifetime` in `application.properties`) is currently a **proposed starter value (2/10/30m)** — confirm/adjust for actual expected load before production use.
 
+## Department scope (QC vs All)
+
+Ten KPIs expose a `departmentScope` query param (`QC | ALL`, default `ALL`, 400 on anything else - see `DepartmentScope.parse`): **investigation-closure-tat, repeat-failure-rate, human-error-rate, repeat-human-error-rate, human-error-severity, human-error-by-product, capa-aging-status, capa-recurrence-rate, capa-effectiveness, deviations, training-completion-rate**. `QC` = Quality Control's own rows; `ALL` = every department combined, QC included - never "everything except QC".
+
+Two patterns, depending on whether the underlying table carries the department as a **slice** (a pre-combined `'All'` row alongside per-department breakdown rows) or as a plain **additive** groupBy column with no such row:
+
+- **Slice pattern** (`agg_tw_investigation_closure_tat`, `agg_tw_repeat_failure_rate`, `agg_tw_human_error_rate`/`_severity`/`_by_product`, `agg_tw_capa_aging_status`/`_recurrence_rate`/`_effectiveness`): the repository always filters the slice column to exactly one value - `QC`'s configured literal or the table's own `'All'` sentinel - via `AbstractAggRepository.sliceValueFor`. **Never SUM or GROUP BY across a slice column** - QC rows are a subset of `All` rows, so combining them double-counts. (Several of these tables recently gained their department/failure-category breakdown rows in the same pipeline run that used to leave them empty - a repository that doesn't pin the slice column will silently double-count the moment real breakdown rows exist alongside `'All'`, which is exactly the bug fixed alongside adding this parameter.)
+- **Additive pattern** (`agg_tw_deviations.resp_dept`, `agg_cw_training_completion_rate.department`): a true partition, no `'All'` row. `QC` adds a `WHERE` predicate (the service overrides any explicit `respDept`/`department` selection when `departmentScope=QC` is given); `ALL` omits it and sums across every department - the existing multi-select combine filter already worked this way.
+
+The QC literal differs per source vocabulary and is held in `application.properties` (`department-scope.qc-literal.*`, resolved via `DepartmentScopeLiterals`), not inline in query strings:
+- `resp-dept` → `Quality Control Department` (TrackWise `resp_dept_slice`/`resp_dept`)
+- `failure-category` → `Laboratory Control` (Human Error KPIs scope on failure category, not department)
+- `training-department` → `Quality Control` (ComplianceWire `department`)
+
+**Reconciliation caveats** - three places QC and ALL don't decompose the way a reader expects, surfaced via `KpiCardResponse.note` (non-null exactly when the caveat applies) rather than silently tolerated:
+- **Investigation Closure TAT**: QC means *Quality Control Department alone* - the fact used to also fold in Microbiology and Analytical Services, so QC's scope is narrower than before this split; those two departments now count toward `ALL` only.
+- **Repeat Failure Rate**: OOS records carry no department at any source (sentinel `'Not Applicable'`, `ALL` only) - `QC` returns Deviation records exclusively, so it is a pure deviation metric, not a decomposition of `ALL` (which blends both record types).
+- **CAPA Effectiveness**: the Change Control branch joins on `child_id`, which may fan out and duplicate a record under multiple department slices - every response from this KPI carries a caveat note; each slice stays internally correct, but department slices are not guaranteed to sum to `ALL` here.
+
 ## Authentication
 
 The app requires a valid access token on every endpoint except `POST /api/auth/login`, `POST /api/auth/refresh`, and `POST /api/auth/logout` (enforced by `AuthenticationFilter`, default-deny). Architecture: a 15-min access token (JWT) plus a 7-day refresh token (opaque, hashed at rest, rotated on every use, with reuse detection - see `RefreshTokenService`), both sent as plain bearer tokens - the access token as an `Authorization: Bearer` header, the refresh token in the request body of `/api/auth/refresh` and `/api/auth/logout`. No cookies: this app is deployed inside a VNet over plain http, where a cookie's `Secure` attribute (required for a browser to ever send it) can't be satisfied. The client (frontend `session.ts`) persists both tokens in `localStorage`. See `AUTHENTICATION.md` for the full mechanics, including the trade-off that entails vs. an httpOnly cookie.

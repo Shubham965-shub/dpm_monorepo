@@ -20,8 +20,8 @@ public class LabPerformanceController {
 
     @GET
     @Path("/sample-tat")
-    public List<KpiCardResponse> sampleTat(@BeanParam KpiParams.WithSampleType p) {
-        return service.getSampleTat(p.site, p.sampleType, RequiredParams.require(p.grain, "grain"),
+    public List<KpiCardResponse> sampleTat(@BeanParam KpiParams.WithSampleTypeAndBatchCategory p) {
+        return service.getSampleTat(p.site, p.sampleType, p.batchCategory, RequiredParams.require(p.grain, "grain"),
                 RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
     }
 

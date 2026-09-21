@@ -10,8 +10,14 @@ import java.util.Set;
 @ApplicationScoped
 public class AggLimsTurnAroundTimeRepository extends AbstractAggRepository<PeriodTotal> {
 
-    /** sampleTypes empty = no filter (every sample type combined). Sums happen in Postgres. */
-    public List<PeriodTotal> findTotals(String siteName, Set<String> sampleTypes, String grain, LocalDate from, LocalDate to) {
+    /**
+     * sampleTypes/batchCategories empty = no filter on that dimension (every value combined).
+     * batch_category (commercial, other, exhibit, raw material, commercial validation - confirmed
+     * live) is a true partition, no "All" row, same combine convention as sample_type. Sums
+     * happen in Postgres.
+     */
+    public List<PeriodTotal> findTotals(String siteName, Set<String> sampleTypes, Set<String> batchCategories,
+            String grain, LocalDate from, LocalDate to) {
         StringBuilder sql = new StringBuilder("""
                 SELECT period_start, grain, SUM(sum_tat_days) AS numerator, SUM(sample_count) AS denominator
                 FROM agg_lims_turn_around_time
@@ -20,6 +26,10 @@ public class AggLimsTurnAroundTimeRepository extends AbstractAggRepository<Perio
         if (!sampleTypes.isEmpty()) {
             sql.append(" AND sample_type IN (").append(placeholders(sampleTypes)).append(")");
             params.addAll(sampleTypes);
+        }
+        if (!batchCategories.isEmpty()) {
+            sql.append(" AND batch_category IN (").append(placeholders(batchCategories)).append(")");
+            params.addAll(batchCategories);
         }
         sql.append(" GROUP BY period_start, grain ORDER BY period_start");
 

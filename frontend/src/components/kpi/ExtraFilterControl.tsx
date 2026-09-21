@@ -29,7 +29,8 @@ export function resolveExtraParams(filter: ExtraFilter, state: ExtraFilterState)
     return state.value ? [[filter.param, state.value]] : []
   }
   if (filter.kind === 'multiSelect' && state.kind === 'multiSelect') {
-    return state.value.length > 0 ? [[filter.param, state.value.join(',')]] : []
+    if (state.value.length === 0) return []
+    return filter.repeated ? state.value.map((v) => [filter.param, v] as [string, string]) : [[filter.param, state.value.join(',')]]
   }
   if (filter.kind === 'repeatedText' && state.kind === 'repeatedText') {
     const values = state.value

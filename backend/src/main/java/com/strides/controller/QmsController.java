@@ -50,14 +50,14 @@ public class QmsController {
     @Path("/deviations")
     public List<KpiCardResponse> deviations(@BeanParam KpiParams.Deviations p) {
         return service.getDeviations(p.site, p.rootCauseBucket, p.respDept, p.level,
-                p.initialClassification, p.finalClassification, p.recurringByCause,
+                p.initialClassification, p.finalClassification, p.recurringByCause, p.departmentScope,
                 RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
     }
 
     @GET
     @Path("/investigation-closure-tat")
-    public List<KpiCardResponse> investigationClosureTat(@BeanParam KpiParams.WithRespDept p) {
-        return service.getInvestigationClosureTat(p.site, p.respDept, p.initiatedThrough,
+    public List<KpiCardResponse> investigationClosureTat(@BeanParam KpiParams.WithInitiatedThroughAndDepartmentScope p) {
+        return service.getInvestigationClosureTat(p.site, p.departmentScope, p.respDept, p.initiatedThrough,
                 RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
     }
 
@@ -71,7 +71,7 @@ public class QmsController {
     @GET
     @Path("/repeat-failure-rate")
     public List<KpiCardResponse> repeatFailureRate(@BeanParam KpiParams.WithRecordType p) {
-        return service.getRepeatFailureRate(p.site, p.recordType,
+        return service.getRepeatFailureRate(p.site, p.recordType, p.departmentScope,
                 RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
     }
 
@@ -92,49 +92,56 @@ public class QmsController {
     @GET
     @Path("/capa-aging-status")
     public List<KpiCardResponse> capaAgingStatus(@BeanParam KpiParams.CapaAgingStatus p) {
-        return service.getCapaAgingStatus(p.site, p.recordStatus, p.level, p.minAgingDays, p.maxAgingDays,
+        return service.getCapaAgingStatus(p.site, p.departmentScope, p.recordStatus, p.level, p.minAgingDays, p.maxAgingDays,
+                RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
+    }
+
+    @GET
+    @Path("/capa-aging-status/by-date-opened")
+    public List<KpiCardResponse> capaOpenByDateOpened(@BeanParam KpiParams.CapaAgingStatus p) {
+        return service.getCapaOpenByDateOpened(p.site, p.departmentScope, p.recordStatus, p.level,
                 RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
     }
 
     @GET
     @Path("/capa-effectiveness")
     public List<KpiCardResponse> capaEffectiveness(@BeanParam KpiParams.WithOriginatedFrom p) {
-        return service.getCapaEffectiveness(p.site, p.originatedFrom,
+        return service.getCapaEffectiveness(p.site, p.originatedFrom, p.departmentScope,
                 RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
     }
 
     @GET
     @Path("/capa-recurrence-rate")
-    public List<KpiCardResponse> capaRecurrenceRate(@BeanParam KpiParams.DateRange p) {
-        return service.getCapaRecurrenceRate(p.site,
+    public List<KpiCardResponse> capaRecurrenceRate(@BeanParam KpiParams.WithDepartmentScope p) {
+        return service.getCapaRecurrenceRate(p.site, p.departmentScope,
                 RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
     }
 
     @GET
     @Path("/human-error-rate")
-    public List<KpiCardResponse> humanErrorRate(@BeanParam KpiParams.DateRange p) {
-        return service.getHumanErrorRate(p.site,
+    public List<KpiCardResponse> humanErrorRate(@BeanParam KpiParams.WithDepartmentScope p) {
+        return service.getHumanErrorRate(p.site, p.departmentScope,
                 RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
     }
 
     @GET
     @Path("/repeat-human-error-rate")
-    public List<KpiCardResponse> repeatHumanErrorRate(@BeanParam KpiParams.DateRange p) {
-        return service.getRepeatHumanErrorRate(p.site,
+    public List<KpiCardResponse> repeatHumanErrorRate(@BeanParam KpiParams.WithDepartmentScope p) {
+        return service.getRepeatHumanErrorRate(p.site, p.departmentScope,
                 RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
     }
 
     @GET
     @Path("/human-error-severity")
-    public List<KpiCardResponse> humanErrorSeverity(@BeanParam KpiParams.DateRange p) {
-        return service.getHumanErrorSeverity(p.site,
+    public List<KpiCardResponse> humanErrorSeverity(@BeanParam KpiParams.WithDepartmentScope p) {
+        return service.getHumanErrorSeverity(p.site, p.departmentScope,
                 RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
     }
 
     @GET
     @Path("/human-error-by-product")
     public List<KpiCardResponse> humanErrorByProduct(@BeanParam KpiParams.WithMaterialList p) {
-        return service.getHumanErrorByProduct(p.site, p.material, RequiredParams.require(p.grain, "grain"),
+        return service.getHumanErrorByProduct(p.site, p.material, p.departmentScope, RequiredParams.require(p.grain, "grain"),
                 RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
     }
 
@@ -148,7 +155,7 @@ public class QmsController {
     @GET
     @Path("/product-wise-failure")
     public List<KpiCardResponse> productWiseFailure(@BeanParam KpiParams.WithMaterialTypeAndProduct p) {
-        return service.getProductWiseFailure(p.site, p.materialType, p.product,
+        return service.getProductWiseFailure(p.site, p.materialType, p.disposition, p.product,
                 RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
     }
 }

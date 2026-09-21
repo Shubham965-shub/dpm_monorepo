@@ -40,6 +40,12 @@ public final class KpiParams {
         public String sampleType;
     }
 
+    /** batchCategory: comma-separated list to combine (commercial, other, exhibit, raw material, commercial validation), or null/blank for ALL. sample-tat only. */
+    public static class WithSampleTypeAndBatchCategory extends WithSampleType {
+        @QueryParam("batchCategory")
+        public String batchCategory;
+    }
+
     public static class WithSampleCategory extends DateRange {
         @QueryParam("sampleCategory")
         public String sampleCategory;
@@ -61,12 +67,19 @@ public final class KpiParams {
         public String designation;
     }
 
-    /** department/trainingType: comma-separated combine filters, each independent, or null/blank for ALL. */
+    /**
+     * department/trainingType: comma-separated combine filters, each independent, or null/blank
+     * for ALL. departmentScope: QC | ALL (default ALL) - additive pattern, see
+     * backend/README.md's "Department scope" section; QC takes priority over an explicit
+     * department selection when both are given.
+     */
     public static class WithDepartmentAndTrainingType extends DateRange {
         @QueryParam("department")
         public String department;
         @QueryParam("trainingType")
         public String trainingType;
+        @QueryParam("departmentScope")
+        public String departmentScope;
     }
 
     public static class WithRootCauseBucket extends DateRange {
@@ -74,7 +87,7 @@ public final class KpiParams {
         public String rootCauseBucket;
     }
 
-    /** respDept: comma-separated combine filter. initiatedThrough: comma-separated combine filter, shared by investigation-closure-tat and rci-beyond-timeline. */
+    /** respDept/initiatedThrough: each an independent comma-separated combine filter, or null/blank for ALL. rci-beyond-timeline only - true partition, no department-scope split. */
     public static class WithRespDept extends DateRange {
         @QueryParam("respDept")
         public String respDept;
@@ -82,7 +95,30 @@ public final class KpiParams {
         public String initiatedThrough;
     }
 
-    /** All five extra dimensions on agg_tw_deviations, each a comma-separated combine filter, or null/blank for ALL. */
+    /**
+     * initiatedThrough: comma-separated combine filter, or null/blank for ALL.
+     * respDept: repeated params (?respDept=A&respDept=B), not comma-joined - at least one real
+     * value ("Manufacturing, Science & Technology") contains a comma, see backend/README.md's
+     * "Filter syntax" note; options sourced live from the DB, not hardcoded - takes priority over
+     * departmentScope when given.
+     * departmentScope: QC | ALL (default ALL), used only when respDept is blank - see
+     * backend/README.md's "Department scope" section. investigation-closure-tat only.
+     */
+    public static class WithInitiatedThroughAndDepartmentScope extends DateRange {
+        @QueryParam("initiatedThrough")
+        public String initiatedThrough;
+        @QueryParam("respDept")
+        public List<String> respDept;
+        @QueryParam("departmentScope")
+        public String departmentScope;
+    }
+
+    /**
+     * All five extra dimensions on agg_tw_deviations, each a comma-separated combine filter, or
+     * null/blank for ALL. departmentScope: QC | ALL (default ALL) - additive pattern, see
+     * backend/README.md's "Department scope" section; QC takes priority over an explicit respDept
+     * selection when both are given.
+     */
     public static class Deviations extends WithRootCauseBucket {
         @QueryParam("respDept")
         public String respDept;
@@ -94,16 +130,29 @@ public final class KpiParams {
         public String finalClassification;
         @QueryParam("recurringByCause")
         public String recurringByCause;
+        @QueryParam("departmentScope")
+        public String departmentScope;
     }
 
+    /** departmentScope: QC | ALL (default ALL), repeat-failure-rate only - see backend/README.md's "Department scope" section. */
     public static class WithRecordType extends DateRange {
         @QueryParam("recordType")
         public String recordType;
+        @QueryParam("departmentScope")
+        public String departmentScope;
     }
 
     public static class WithOriginatedFrom extends DateRange {
         @QueryParam("originatedFrom")
         public String originatedFrom;
+        @QueryParam("departmentScope")
+        public String departmentScope;
+    }
+
+    /** departmentScope: QC | ALL (default ALL) - capa-recurrence-rate, human-error-rate, repeat-human-error-rate, human-error-severity. */
+    public static class WithDepartmentScope extends DateRange {
+        @QueryParam("departmentScope")
+        public String departmentScope;
     }
 
     public static class WithMaterialType extends DateRange {
@@ -115,18 +164,30 @@ public final class KpiParams {
      * product: repeated params (?product=A&product=B) of product_slice values to combine, or
      * empty/null for ALL - same comma-in-names problem as WithMaterialList, see backend/README.md's
      * "Filter syntax" note.
+     * disposition: comma-separated list to combine (Recall, Unknown, Release, Field Alert, Alert,
+     * Reject, Not Applicable), or null/blank for ALL.
      */
     public static class WithMaterialTypeAndProduct extends WithMaterialType {
         @QueryParam("product")
         public List<String> product;
+        @QueryParam("disposition")
+        public String disposition;
     }
 
-    /** Repeated params (?material=A&material=B), not comma-joined - see backend/README.md's "Filter syntax" note. */
+    /**
+     * material: repeated params (?material=A&material=B), not comma-joined - see
+     * backend/README.md's "Filter syntax" note.
+     * departmentScope: QC | ALL (default ALL) - human-error-by-product, see backend/README.md's
+     * "Department scope" section.
+     */
     public static class WithMaterialList extends DateRange {
         @QueryParam("material")
         public List<String> material;
+        @QueryParam("departmentScope")
+        public String departmentScope;
     }
 
+    /** departmentScope: QC | ALL (default ALL) - slice pattern on resp_dept_slice, see backend/README.md's "Department scope" section. */
     public static class CapaAgingStatus extends DateRange {
         @QueryParam("recordStatus")
         public String recordStatus;
@@ -136,5 +197,7 @@ public final class KpiParams {
         public Double minAgingDays;
         @QueryParam("maxAgingDays")
         public Double maxAgingDays;
+        @QueryParam("departmentScope")
+        public String departmentScope;
     }
 }

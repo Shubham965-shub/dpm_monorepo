@@ -15,6 +15,9 @@ export const kpiCardResponseSchema = z.object({
   status: kpiStatusSchema,
   grain: z.string(),
   periodStart: z.string(),
+  // Caveat the UI must surface as-is, e.g. departmentScope=QC's narrowed scope on Investigation
+  // TAT (see backend/README.md's "Department scope" section) - null when a KPI has none.
+  note: z.string().nullable(),
 })
 export type KpiCardResponse = z.infer<typeof kpiCardResponseSchema>
 

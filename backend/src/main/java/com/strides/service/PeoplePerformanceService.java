@@ -1,11 +1,13 @@
 package com.strides.service;
 
+import com.strides.dto.DepartmentScope;
 import com.strides.dto.KpiCardResponse;
 import com.strides.model.AggCwTrainingCompletionRateRow;
 import com.strides.repository.AggCwTrainingCompletionRateRepository;
 import com.strides.repository.AggLimsRepeatAnalysisRateRepository;
 import com.strides.repository.AggLimsReviewerProductivityIndexRepository;
 import com.strides.repository.AggLimsRightFirstTimeRepository;
+import com.strides.repository.DepartmentScopeLiterals;
 import com.strides.service.kpi.PeriodCombiner;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -32,6 +34,8 @@ public class PeoplePerformanceService {
     AggLimsRightFirstTimeRepository rightFirstTimeRepository;
     @Inject
     AggCwTrainingCompletionRateRepository trainingCompletionRateRepository;
+    @Inject
+    DepartmentScopeLiterals deptLiterals;
 
     /** sampleType: comma-separated list to combine, or null/blank for ALL. */
     public List<KpiCardResponse> getRepeatAnalysisRate(String siteName, String sampleType, String grain, LocalDate from, LocalDate to) {
@@ -42,12 +46,8 @@ public class PeoplePerformanceService {
 
     /** Reviewer Productivity's threshold is "% of target" - no target column exists, status left null. */
     public List<KpiCardResponse> getReviewerProductivity(String siteName, String grain, LocalDate from, LocalDate to) {
-        return reviewerProductivityRepository.find(siteName, grain, from, to).stream()
-                .map(row -> new KpiCardResponse(
-                        "reviewer-productivity", "Reviewer Productivity Index (" + row.reviewer() + ")",
-                        row.avgWeight(), "weight/review", null,
-                        row.grain(), row.periodStart()))
-                .toList();
+        var totals = reviewerProductivityRepository.findTotal(siteName, grain, from, to);
+        return PeriodCombiner.fromSums(totals, "reviewer-productivity", "Reviewer Productivity Index", "weight");
     }
 
     /** sampleType: comma-separated list to combine, or null/blank for ALL. */
@@ -64,11 +64,19 @@ public class PeoplePerformanceService {
      * assignment_status is still consumed internally to compute the ratio itself, not exposed as
      * a separate external filter.
      */
+    /**
+     * departmentScope: QC | ALL (default ALL) - additive pattern, see backend/README.md's
+     * "Department scope" section. QC overrides department to Quality Control alone; ALL (default)
+     * leaves department as given (blank = every department summed).
+     */
     public List<KpiCardResponse> getTrainingCompletionRate(String site, String department, String trainingType,
-            String grain, LocalDate from, LocalDate to) {
+            String departmentScope, String grain, LocalDate from, LocalDate to) {
+        Set<String> effectiveDepartment = DepartmentScope.parse(departmentScope) == DepartmentScope.QC
+                ? Set.of(deptLiterals.trainingDepartment())
+                : PeriodCombiner.parseSelection(department);
         Map<LocalDate, List<AggCwTrainingCompletionRateRow>> byPeriod =
                 trainingCompletionRateRepository.find(site,
-                        PeriodCombiner.parseSelection(department), PeriodCombiner.parseSelection(trainingType),
+                        effectiveDepartment, PeriodCombiner.parseSelection(trainingType),
                         grain, from, to).stream()
                         .collect(Collectors.groupingBy(AggCwTrainingCompletionRateRow::periodStart));
 
@@ -87,7 +95,7 @@ public class PeoplePerformanceService {
                     String grainValue = rows.get(0).grain();
                     return new KpiCardResponse(
                             "training-completion-rate", "Training Completion Rate", pct, "%",
-                            null, grainValue, periodStart);
+                            null, grainValue, periodStart, null);
                 })
                 .sorted(Comparator.comparing(KpiCardResponse::periodStart))
                 .toList();

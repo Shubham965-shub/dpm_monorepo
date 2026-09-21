@@ -1,22 +1,28 @@
 package com.strides.repository;
 
+import com.strides.dto.DepartmentScope;
 import com.strides.model.AggTwHumanErrorRateRow;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import java.time.LocalDate;
 import java.util.List;
 
 @ApplicationScoped
 public class AggTwHumanErrorRateRepository extends AbstractAggRepository<AggTwHumanErrorRateRow> {
 
+    @Inject
+    DepartmentScopeLiterals deptLiterals;
+
     /**
-     * agg_tw_human_error_rate now carries a failure_category_slice breakdown alongside the
-     * table's own pre-combined 'All' total for the same measures - pinning to 'All' keeps this
-     * returning the same single per-period row as before that breakdown existed, instead of one
-     * row per category (which would also double-count if summed unfiltered). No failure-category
-     * filter is exposed: test_count is NULL on every non-'All' breakdown row (confirmed live
-     * against the database), so there's no denominator to recompute a rate from a chosen subset.
+     * The QC scope for Human Error KPIs is defined by Overall Failure Category = Laboratory
+     * Control, not by a department field - departmentScope: QC pins failure_category_slice to
+     * Laboratory Control; ALL (default) pins it to the table's own pre-combined 'All' row (see
+     * backend/README.md's "Department scope" section). test_count and both rate columns are
+     * populated on exactly these two slices (confirmed live) - every other category slice carries
+     * NULL rates, since those rows are detail, not a defined KPI scope; no filter is exposed for
+     * them here.
      */
-    public List<AggTwHumanErrorRateRow> find(String site, String grain, LocalDate from, LocalDate to) {
+    public List<AggTwHumanErrorRateRow> find(String site, DepartmentScope departmentScope, String grain, LocalDate from, LocalDate to) {
         String sql = """
                 SELECT grain, period_start, site, human_error_count, recurring_count, test_count,
                        human_error_rate, repeat_human_error_rate
@@ -32,6 +38,6 @@ public class AggTwHumanErrorRateRepository extends AbstractAggRepository<AggTwHu
                 rs.getLong("test_count"),
                 rs.getBigDecimal("human_error_rate"),
                 rs.getBigDecimal("repeat_human_error_rate")),
-                site, grain, from, to, ALL_SLICE);
+                site, grain, from, to, sliceValueFor(departmentScope, deptLiterals.failureCategory()));
     }
 }

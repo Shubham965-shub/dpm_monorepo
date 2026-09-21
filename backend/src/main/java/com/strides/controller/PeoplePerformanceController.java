@@ -42,7 +42,7 @@ public class PeoplePerformanceController {
     @GET
     @Path("/training-completion-rate")
     public List<KpiCardResponse> trainingCompletionRate(@BeanParam KpiParams.WithDepartmentAndTrainingType p) {
-        return service.getTrainingCompletionRate(p.site, p.department, p.trainingType,
+        return service.getTrainingCompletionRate(p.site, p.department, p.trainingType, p.departmentScope,
                 RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
     }
 }
