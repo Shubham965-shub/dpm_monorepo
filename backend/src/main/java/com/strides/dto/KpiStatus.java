@@ -1,4 +1,4 @@
-package com.strides.service.kpi;
+package com.strides.dto;
 
 public enum KpiStatus {
     RED,

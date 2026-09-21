@@ -10,8 +10,12 @@ import java.util.Set;
 @ApplicationScoped
 public class AggTwRciBeyondTimelineRepository extends AbstractAggRepository<PeriodSum> {
 
-    /** respDepts empty = no filter (every department combined). Sum happens in Postgres. */
-    public List<PeriodSum> findTotals(String site, Set<String> respDepts, String grain, LocalDate from, LocalDate to) {
+    /**
+     * respDepts/initiatedThroughs empty = no filter on that dimension (every value combined). Sum
+     * happens in Postgres. Neither column carries an "All" catch-all row - true partition.
+     */
+    public List<PeriodSum> findTotals(String site, Set<String> respDepts, Set<String> initiatedThroughs,
+            String grain, LocalDate from, LocalDate to) {
         StringBuilder sql = new StringBuilder("""
                 SELECT period_start, grain, SUM(overdue_count) AS total
                 FROM agg_tw_rci_beyond_timeline
@@ -20,6 +24,10 @@ public class AggTwRciBeyondTimelineRepository extends AbstractAggRepository<Peri
         if (!respDepts.isEmpty()) {
             sql.append(" AND resp_dept IN (").append(placeholders(respDepts)).append(")");
             params.addAll(respDepts);
+        }
+        if (!initiatedThroughs.isEmpty()) {
+            sql.append(" AND initiated_through IN (").append(placeholders(initiatedThroughs)).append(")");
+            params.addAll(initiatedThroughs);
         }
         sql.append(" GROUP BY period_start, grain ORDER BY period_start");
 

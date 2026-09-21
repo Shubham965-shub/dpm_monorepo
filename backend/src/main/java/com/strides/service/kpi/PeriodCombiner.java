@@ -1,5 +1,6 @@
 package com.strides.service.kpi;
 
+import com.strides.dto.KpiCardResponse;
 import com.strides.model.PeriodSum;
 import com.strides.model.PeriodTotal;
 import java.math.BigDecimal;
@@ -33,11 +34,17 @@ public final class PeriodCombiner {
     /** multiplier is 100 for percentages (numerator/denominator * 100), 1 for plain ratios (days, tests/analyst). */
     public static List<KpiCardResponse> fromTotals(List<PeriodTotal> totals, double multiplier,
             String kpiId, String name, String unit) {
+        return fromTotals(totals, multiplier, kpiId, name, unit, null);
+    }
+
+    /** Same as the 5-arg overload, but every row carries the given caveat note (or null for none) - see KpiCardResponse.note. */
+    public static List<KpiCardResponse> fromTotals(List<PeriodTotal> totals, double multiplier,
+            String kpiId, String name, String unit, String note) {
         return totals.stream()
                 .map(t -> {
                     BigDecimal value = t.denominator() == 0 ? null
                             : BigDecimal.valueOf(t.numerator() * multiplier / t.denominator()).setScale(2, RoundingMode.HALF_UP);
-                    return new KpiCardResponse(kpiId, name, value, unit, null, t.grain(), t.periodStart());
+                    return new KpiCardResponse(kpiId, name, value, unit, null, t.grain(), t.periodStart(), note);
                 })
                 .toList();
     }
@@ -47,7 +54,7 @@ public final class PeriodCombiner {
         return sums.stream()
                 .map(s -> {
                     BigDecimal value = BigDecimal.valueOf(s.total());
-                    return new KpiCardResponse(kpiId, name, value, unit, null, s.grain(), s.periodStart());
+                    return new KpiCardResponse(kpiId, name, value, unit, null, s.grain(), s.periodStart(), null);
                 })
                 .toList();
     }

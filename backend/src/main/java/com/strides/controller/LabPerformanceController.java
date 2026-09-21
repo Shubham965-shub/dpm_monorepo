@@ -1,15 +1,14 @@
 package com.strides.controller;
 
+import com.strides.dto.KpiCardResponse;
+import com.strides.dto.KpiParams;
 import com.strides.service.LabPerformanceService;
-import com.strides.service.kpi.KpiCardResponse;
 import jakarta.inject.Inject;
-import jakarta.ws.rs.DefaultValue;
+import jakarta.ws.rs.BeanParam;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
-import java.time.LocalDate;
 import java.util.List;
 
 @Path("/api/lab-performance")
@@ -21,53 +20,43 @@ public class LabPerformanceController {
 
     @GET
     @Path("/sample-tat")
-    public List<KpiCardResponse> sampleTat(@QueryParam("site") @DefaultValue("KRSG") String site,
-            @QueryParam("sampleType") String sampleType, @QueryParam("grain") String grain,
-            @QueryParam("from") LocalDate from, @QueryParam("to") LocalDate to) {
-        return service.getSampleTat(site, sampleType, RequiredParams.require(grain, "grain"),
-                RequiredParams.require(from, "from"), RequiredParams.require(to, "to"));
+    public List<KpiCardResponse> sampleTat(@BeanParam KpiParams.WithSampleTypeAndBatchCategory p) {
+        return service.getSampleTat(p.site, p.sampleType, p.batchCategory, RequiredParams.require(p.grain, "grain"),
+                RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
     }
 
     @GET
     @Path("/sla-adherence")
-    public List<KpiCardResponse> slaAdherence(@QueryParam("site") @DefaultValue("KRSG") String site,
-            @QueryParam("sampleCategory") String sampleCategory, @QueryParam("grain") String grain,
-            @QueryParam("from") LocalDate from, @QueryParam("to") LocalDate to) {
-        return service.getSlaAdherence(site, sampleCategory, RequiredParams.require(grain, "grain"),
-                RequiredParams.require(from, "from"), RequiredParams.require(to, "to"));
+    public List<KpiCardResponse> slaAdherence(@BeanParam KpiParams.WithSampleCategory p) {
+        return service.getSlaAdherence(p.site, p.sampleCategory, RequiredParams.require(p.grain, "grain"),
+                RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
     }
 
     @GET
     @Path("/priority-sample-compliance")
-    public List<KpiCardResponse> prioritySampleCompliance(@QueryParam("site") @DefaultValue("KRSG") String site,
-            @QueryParam("sampleType") String sampleType, @QueryParam("grain") String grain,
-            @QueryParam("from") LocalDate from, @QueryParam("to") LocalDate to) {
-        return service.getPrioritySampleCompliance(site, sampleType, RequiredParams.require(grain, "grain"),
-                RequiredParams.require(from, "from"), RequiredParams.require(to, "to"));
+    public List<KpiCardResponse> prioritySampleCompliance(@BeanParam KpiParams.WithSampleType p) {
+        return service.getPrioritySampleCompliance(p.site, p.sampleType, RequiredParams.require(p.grain, "grain"),
+                RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
     }
 
     @GET
     @Path("/tests-per-analyst")
-    public List<KpiCardResponse> testsPerAnalyst(@QueryParam("site") @DefaultValue("KRSG") String site,
-            @QueryParam("sampleCategory") String sampleCategory, @QueryParam("grain") String grain,
-            @QueryParam("from") LocalDate from, @QueryParam("to") LocalDate to) {
-        return service.getTestsPerAnalyst(site, sampleCategory, RequiredParams.require(grain, "grain"),
-                RequiredParams.require(from, "from"), RequiredParams.require(to, "to"));
+    public List<KpiCardResponse> testsPerAnalyst(@BeanParam KpiParams.WithSampleCategoryAndAnalyst p) {
+        return service.getTestsPerAnalyst(p.site, p.sampleCategory, p.analyst, RequiredParams.require(p.grain, "grain"),
+                RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
     }
 
     @GET
     @Path("/hplc-sequences-per-analyst")
-    public List<KpiCardResponse> hplcSequencesPerAnalyst(@QueryParam("site") @DefaultValue("KRSG") String site, @QueryParam("grain") String grain,
-            @QueryParam("from") LocalDate from, @QueryParam("to") LocalDate to) {
-        return service.getHplcSequencesPerAnalyst(site, RequiredParams.require(grain, "grain"),
-                RequiredParams.require(from, "from"), RequiredParams.require(to, "to"));
+    public List<KpiCardResponse> hplcSequencesPerAnalyst(@BeanParam KpiParams.WithInjectionStatus p) {
+        return service.getHplcSequencesPerAnalyst(p.site, p.injectionStatus,
+                RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
     }
 
     @GET
     @Path("/hplc-injections-per-analyst")
-    public List<KpiCardResponse> hplcInjectionsPerAnalyst(@QueryParam("site") @DefaultValue("KRSG") String site, @QueryParam("grain") String grain,
-            @QueryParam("from") LocalDate from, @QueryParam("to") LocalDate to) {
-        return service.getHplcInjectionsPerAnalyst(site, RequiredParams.require(grain, "grain"),
-                RequiredParams.require(from, "from"), RequiredParams.require(to, "to"));
+    public List<KpiCardResponse> hplcInjectionsPerAnalyst(@BeanParam KpiParams.WithInjectionStatus p) {
+        return service.getHplcInjectionsPerAnalyst(p.site, p.injectionStatus,
+                RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
     }
 }

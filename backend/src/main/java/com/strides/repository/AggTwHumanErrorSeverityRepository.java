@@ -1,18 +1,31 @@
 package com.strides.repository;
 
+import com.strides.dto.DepartmentScope;
 import com.strides.model.AggTwHumanErrorSeverityRow;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import java.time.LocalDate;
 import java.util.List;
 
 @ApplicationScoped
 public class AggTwHumanErrorSeverityRepository extends AbstractAggRepository<AggTwHumanErrorSeverityRow> {
 
-    public List<AggTwHumanErrorSeverityRow> find(String site, String grain, LocalDate from, LocalDate to) {
+    @Inject
+    DepartmentScopeLiterals deptLiterals;
+
+    /**
+     * agg_tw_human_error_severity carries a failure_category_slice breakdown alongside the
+     * table's own pre-combined 'All' row for the same final_classification counts - MUST pin to
+     * exactly one slice value or every category (Laboratory Control, Packaging, Production, ...)
+     * gets summed together with 'All' itself, double-counting. departmentScope: QC pins to
+     * Laboratory Control (this KPI's QC scope is defined by failure category, not department -
+     * see backend/README.md's "Department scope" section); ALL (default) pins to 'All'.
+     */
+    public List<AggTwHumanErrorSeverityRow> find(String site, DepartmentScope departmentScope, String grain, LocalDate from, LocalDate to) {
         String sql = """
                 SELECT grain, period_start, site, final_classification, human_error_count
                 FROM agg_tw_human_error_severity
-                WHERE site = ? AND grain = ? AND period_start BETWEEN ? AND ?
+                WHERE site = ? AND grain = ? AND period_start BETWEEN ? AND ? AND failure_category_slice = ?
                 ORDER BY period_start""";
         return query(sql, rs -> new AggTwHumanErrorSeverityRow(
                 rs.getString("grain"),
@@ -20,6 +33,6 @@ public class AggTwHumanErrorSeverityRepository extends AbstractAggRepository<Agg
                 rs.getString("site"),
                 rs.getString("final_classification"),
                 rs.getLong("human_error_count")),
-                site, grain, from, to);
+                site, grain, from, to, sliceValueFor(departmentScope, deptLiterals.failureCategory()));
     }
 }

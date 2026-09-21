@@ -5,13 +5,13 @@ import { OverallHeatmap } from './OverallHeatmap'
 import { QcScoreCard } from './QcScoreCard'
 import { PositiveSignals } from './PositiveSignals'
 import { SectionSummaryList } from './SectionSummaryList'
-import { KPI_CATALOGUE } from '@/lib/kpiCatalogue'
+import { KPI_DOMAINS } from '@/lib/kpiConfig'
 
 export function DashboardPage() {
   const { user, logout } = useAuth()
   if (!user) return null
 
-  const totalKpis = KPI_CATALOGUE.reduce((sum, s) => sum + s.kpis.length, 0)
+  const totalKpis = KPI_DOMAINS.reduce((sum, d) => sum + d.kpis.length, 0)
 
   return (
     <div className="min-h-svh bg-muted/40">
@@ -23,7 +23,7 @@ export function DashboardPage() {
         <div>
           <h1 className="text-xl font-semibold">KRSG Operations</h1>
           <p className="text-sm text-muted-foreground">
-            Composite plant performance · {totalKpis} KPIs across {KPI_CATALOGUE.length} sections
+            Composite plant performance · {totalKpis} KPIs across {KPI_DOMAINS.length} sections
           </p>
         </div>
 

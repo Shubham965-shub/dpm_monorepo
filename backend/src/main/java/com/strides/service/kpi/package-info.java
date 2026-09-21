@@ -1,2 +1,2 @@
-/** Shared RAG-status evaluation and response shape reused by every section's KPIs. */
+/** Shared per-period numerator/denominator combining logic, reused by every section's KPIs. */
 package com.strides.service.kpi;

@@ -1,13 +1,15 @@
-import type { KpiCatalogueSection } from '@/lib/kpiCatalogue'
+// Matches KPI_DOMAINS' keys in kpiConfig.ts (the backend's Qms/PeoplePerformance/InstrumentHealth/
+// LabPerformance controllers).
+export type SectionKey = 'qms' | 'people-performance' | 'instrument-health' | 'lab-performance'
 
-// The Overall Heatmap is wired to real data - see useHeatmapData.ts / kpiApi.ts.
+// The Overall Heatmap is wired to real data - see useHeatmapData.ts / kpiConfig.ts.
 //
 // The composite "QC Score" and its per-section score/trend have no backend counterpart at all
 // (no endpoint, no aggregation logic) - this is a UI placeholder pending a product decision on
 // how that composite should be computed. Single source shared by QcScoreCard and
 // SectionSummaryList so the same mocked numbers aren't duplicated in two files.
 export const SECTION_SCORE_MOCK: Record<
-  KpiCatalogueSection['key'],
+  SectionKey,
   { shortLabel: string; category: string; score: number; deltaPts: number; starred: boolean }
 > = {
   'lab-performance': { shortLabel: 'Lab', category: 'Operational Efficiency', score: 76, deltaPts: -2.1, starred: true },

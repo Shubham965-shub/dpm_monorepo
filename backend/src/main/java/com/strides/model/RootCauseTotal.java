@@ -2,7 +2,7 @@ package com.strides.model;
 
 import java.time.LocalDate;
 
-/** All 10 root-cause dimension counts + the overall total, summed per period across the selected record types. */
+/** All 14 root-cause dimension counts + the overall total, summed per period across the selected record types. */
 public record RootCauseTotal(
         LocalDate periodStart,
         String grain,
@@ -16,5 +16,9 @@ public record RootCauseTotal(
         long byDataIntegrity,
         long byVendor,
         long byUtility,
+        long byBmrBpr,
+        long byEquipment,
+        long byFacility,
+        long byMedicalProduct,
         long totalCount) {
 }

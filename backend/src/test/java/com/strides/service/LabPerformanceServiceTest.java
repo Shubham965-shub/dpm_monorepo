@@ -41,10 +41,10 @@ class LabPerformanceServiceTest {
 
     @Test
     void getSampleTat_hasNoStatus_thresholdNeedsATargetColumnThatDoesntExist() {
-        when(turnAroundTimeRepository.findTotals(eq("KRSG"), anySet(), eq("monthly"), any(), any()))
+        when(turnAroundTimeRepository.findTotals(eq("KRSG"), anySet(), anySet(), eq("monthly"), any(), any()))
                 .thenReturn(List.of(new PeriodTotal(LocalDate.of(2026, 3, 1), "monthly", 750, 25)));
 
-        var result = service.getSampleTat("KRSG", "PV,RM", "monthly",
+        var result = service.getSampleTat("KRSG", "PV,RM", null, "monthly",
                 LocalDate.of(2026, 3, 1), LocalDate.of(2026, 3, 31));
 
         assertEquals(1, result.size());

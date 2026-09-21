@@ -1,8 +1,10 @@
 import { useQueries } from '@tanstack/react-query'
-import { KPI_CATALOGUE, type KpiCatalogueSection } from '@/lib/kpiCatalogue'
-import { fetchKpiSeries, type KpiCardResponse, type KpiFilters } from '@/lib/kpiApi'
+import { getValidated } from '@/lib/apiClient'
+import { kpiCardListSchema, type KpiCardResponse } from '@/lib/kpiSchemas'
+import { KPI_DOMAINS, type KpiDefinition } from '@/lib/kpiConfig'
 import { getTrailing3MonthRange, type MonthColumn } from '@/lib/kpiDateRange'
 import type { HeatmapCell, HeatmapRow, RagStatus } from '@/components/dashboard/types'
+import type { SectionKey } from '@/components/dashboard/mockData'
 
 const STATUS_MAP: Record<'RED' | 'AMBER' | 'GREEN', RagStatus> = {
   RED: 'action',
@@ -26,36 +28,46 @@ function worstStatus(cards: KpiCardResponse[]): RagStatus {
   return worst ?? 'no-data'
 }
 
+// A KPI the heatmap can't fetch without picking a value for the user (e.g. InstrumentHealth's
+// instGroup, which has no agreed default - see kpiConfig.ts) - shown as "no data" instead of
+// guessing one, same as every other unresolved-filter KPI.
+function requiredFilterOf(kpi: KpiDefinition) {
+  return kpi.extraFilters.find((f) => f.kind === 'select' && f.required)
+}
+
 export interface HeatmapSectionData {
-  key: KpiCatalogueSection['key']
+  key: SectionKey
   title: string
   rows: HeatmapRow[]
 }
 
 export function useHeatmapData(site: string) {
   const { months, from, to } = getTrailing3MonthRange()
-  const filters: KpiFilters = { site, grain: 'monthly', from, to }
 
-  const requests = KPI_CATALOGUE.flatMap((section) =>
-    section.kpis.map((kpi) => ({ section, kpi })),
+  const requests = KPI_DOMAINS.flatMap((domain) =>
+    domain.kpis.map((kpi) => ({ domain, kpi, blockedBy: requiredFilterOf(kpi) })),
   )
 
   const results = useQueries({
-    queries: requests.map(({ section, kpi }) => ({
-      queryKey: ['kpi-series', section.key, kpi.slug, filters] as const,
-      queryFn: () => fetchKpiSeries(section, kpi, filters),
-      staleTime: 5 * 60 * 1000,
-    })),
+    queries: requests.map(({ domain, kpi, blockedBy }) => {
+      const queryString = new URLSearchParams({ site, grain: 'monthly', from, to }).toString()
+      return {
+        queryKey: ['kpi', domain.key, kpi.id, queryString] as const,
+        queryFn: () => getValidated(kpiCardListSchema, `${domain.basePath}/${kpi.path}?${queryString}`),
+        enabled: !blockedBy,
+        staleTime: 5 * 60 * 1000,
+      }
+    }),
   })
 
-  const sections: HeatmapSectionData[] = KPI_CATALOGUE.map((section) => ({
-    key: section.key,
-    title: section.title,
+  const sections: HeatmapSectionData[] = KPI_DOMAINS.map((domain) => ({
+    key: domain.key as SectionKey,
+    title: domain.label,
     rows: [],
   }))
 
-  requests.forEach(({ section, kpi }, i) => {
-    const cards = results[i]?.data ?? []
+  requests.forEach(({ domain, kpi, blockedBy }, i) => {
+    const cards = blockedBy ? [] : (results[i]?.data ?? [])
     const cardsByMonth = new Map<string, KpiCardResponse[]>()
     for (const card of cards) {
       const monthKey = card.periodStart.slice(0, 7)
@@ -69,9 +81,9 @@ export function useHeatmapData(site: string) {
       status: worstStatus(cardsByMonth.get(m.key) ?? []),
     }))
 
-    sections.find((s) => s.key === section.key)?.rows.push({
-      slug: kpi.slug,
-      name: kpi.blockedReason ? `${kpi.name} (no instrument group set)` : kpi.name,
+    sections.find((s) => s.key === domain.key)?.rows.push({
+      slug: kpi.id,
+      name: blockedBy ? `${kpi.label} (requires ${blockedBy.param} filter)` : kpi.label,
       cells,
     })
   })
@@ -79,7 +91,7 @@ export function useHeatmapData(site: string) {
   return {
     sections,
     months,
-    isLoading: results.some((r) => r.isLoading),
-    isError: results.some((r) => r.isError),
+    isLoading: results.some((r, i) => !requests[i].blockedBy && r.isLoading),
+    isError: results.some((r, i) => !requests[i].blockedBy && r.isError),
   }
 }
