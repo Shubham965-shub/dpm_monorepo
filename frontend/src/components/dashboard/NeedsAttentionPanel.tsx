@@ -1,20 +1,29 @@
 import { Clock, ChevronRight, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { KPI_DOMAINS } from '@/lib/kpiConfig'
 import { NEEDS_ATTENTION_MOCK } from './mockData'
+import { DemoDataBadge } from './DemoDataBadge'
+import type { SectionFilterValue } from './FilterBar'
 
 const STATUS_STYLE = {
   'no-action': { label: 'No Action Taken', dot: 'bg-[#ba0000]', text: 'text-[#ba0000]' },
   escalated: { label: 'Escalated', dot: 'bg-[#cf7e00]', text: 'text-[#cf7e00]' },
 } as const
 
-export function NeedsAttentionPanel() {
+export function NeedsAttentionPanel({ section }: { section: SectionFilterValue }) {
+  // NEEDS_ATTENTION_MOCK.category holds a domain's real kpiConfig.ts label (e.g. "Lab
+  // Performance") - filter by that so the top Section filter actually narrows this panel too.
+  const sectionLabel = section === 'all' ? null : KPI_DOMAINS.find((d) => d.key === section)?.label
+  const items = sectionLabel ? NEEDS_ATTENTION_MOCK.filter((i) => i.category === sectionLabel) : NEEDS_ATTENTION_MOCK
+
   return (
     <div className="rounded-lg border border-border bg-card">
       <div className="flex items-center justify-between border-b border-border px-5 py-4">
         <div className="flex items-center gap-2">
           <Clock className="size-4 text-foreground" />
           <h2 className="text-base font-semibold">Needs Attention</h2>
+          <DemoDataBadge />
         </div>
         <a href="#" className="flex items-center gap-1 text-xs font-semibold text-brand hover:underline">
           Open agenda drill-down
@@ -22,8 +31,11 @@ export function NeedsAttentionPanel() {
         </a>
       </div>
 
+      {items.length === 0 ? (
+        <p className="px-5 py-6 text-sm text-muted-foreground">Nothing needs attention in this section.</p>
+      ) : (
       <div className="flex flex-col divide-y divide-border md:flex-row md:divide-x md:divide-y-0">
-        {NEEDS_ATTENTION_MOCK.map((item) => {
+        {items.map((item) => {
           const status = STATUS_STYLE[item.status]
           return (
             <div key={item.id} className="flex flex-1 flex-col justify-between gap-4 p-4">
@@ -60,6 +72,7 @@ export function NeedsAttentionPanel() {
           )
         })}
       </div>
+      )}
     </div>
   )
 }

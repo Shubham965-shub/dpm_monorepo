@@ -26,7 +26,7 @@ export function TopNav({ user, onLogout }: { user: UserPublic; onLogout: () => v
   const { theme, toggleTheme } = useTheme()
 
   return (
-    <header className="flex items-center justify-between border-b border-brand bg-brand-dark px-6 py-3 text-white">
+    <header className="flex items-center justify-between border-b border-brand bg-brand-dark px-6 py-3 text-white md:px-10 lg:px-20">
       <div className="flex items-center gap-3">
         <img src={stridesLogo} alt="Strides" className="h-6 w-auto" />
         <NavDivider />
@@ -76,7 +76,7 @@ export function SubNav({
   onViewChange: (view: SubNavView) => void
 }) {
   return (
-    <div className="flex items-center justify-between border-b border-border px-6 py-2">
+    <div className="flex items-center justify-between border-b border-border px-6 py-2 md:px-10 lg:px-20">
       <div className="flex items-center gap-4 text-sm">
         <button
           onClick={() => onViewChange('dashboard')}

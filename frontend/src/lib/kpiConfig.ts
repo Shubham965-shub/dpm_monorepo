@@ -48,6 +48,20 @@ export interface KpiDomain {
   kpis: KpiDefinition[]
 }
 
+/**
+ * A required select filter (currently just Instrument Health's instGroup) has no backend-side
+ * "combined" value to fall back to - the column is an exact-match required param with 3 real,
+ * distinct values, no "All" row (see InstrumentHealthController). Rather than blocking the fetch
+ * entirely, default to the first real option so the KPI still loads - same as
+ * ExtraFilterControl's initialExtraFilterState already does for the ranking-bar cards - and let
+ * the card's own Filters control switch it.
+ */
+export function requiredSelectDefaults(kpi: KpiDefinition): [string, string][] {
+  return kpi.extraFilters
+    .filter((f): f is Extract<ExtraFilter, { kind: 'select' }> => f.kind === 'select' && !!f.required)
+    .map((f) => [f.param, f.options[0] ?? ''])
+}
+
 // Union of site/site_name distinct values across every agg_* table - confirmed live.
 export const SITE_OPTIONS = [
   'Alathur',

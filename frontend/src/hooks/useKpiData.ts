@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { getValidated } from '@/lib/apiClient'
 import { kpiCardListSchema } from '@/lib/kpiSchemas'
 import type { KpiDomain, KpiDefinition } from '@/lib/kpiConfig'
@@ -33,10 +33,16 @@ export function useKpiData(
   kpi: KpiDefinition,
   globalFilters: GlobalKpiFilters,
   extraParams: ExtraParams,
+  options?: { enabled?: boolean },
 ) {
   const queryString = buildQueryString(globalFilters, extraParams)
   return useQuery({
     queryKey: ['kpi', domain.key, kpi.id, queryString],
     queryFn: () => getValidated(kpiCardListSchema, `${domain.basePath}/${kpi.path}?${queryString}`),
+    enabled: options?.enabled,
+    // Switching a filter/grain while its previous value's data is showing should hold that data on
+    // screen until the new fetch resolves, not flash back to whatever the caller falls back to -
+    // otherwise a slow request reads as "the dropdown isn't doing anything".
+    placeholderData: keepPreviousData,
   })
 }

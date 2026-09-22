@@ -1,10 +1,11 @@
 import { Star, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { SEVERITY_META } from './types'
 
-function Chip({ dotColor, label }: { dotColor: string; label: string }) {
+function Chip({ dotHex, label }: { dotHex: string; label: string }) {
   return (
-    <span className="flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 text-xs font-medium whitespace-nowrap">
-      <span className={cn('size-1.5 rounded-full', dotColor)} />
+    <span className="flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-bold whitespace-nowrap">
+      <span className="size-1.5 rounded-full" style={{ backgroundColor: dotHex }} />
       {label}
     </span>
   )
@@ -55,9 +56,9 @@ export function SectionSummaryBar({
       </div>
 
       <div className="flex items-center gap-3">
-        {critical > 0 && <Chip dotColor="bg-red-400" label={`${critical} critical`} />}
-        {warning > 0 && <Chip dotColor="bg-amber-300" label={`${warning} warning`} />}
-        {onTrack > 0 && <Chip dotColor="bg-emerald-300" label={`${onTrack} on track`} />}
+        {critical > 0 && <Chip dotHex={SEVERITY_META.action.pillDotHex} label={`${critical} critical`} />}
+        {warning > 0 && <Chip dotHex={SEVERITY_META.alert.pillDotHex} label={`${warning} warning`} />}
+        {onTrack > 0 && <Chip dotHex={SEVERITY_META['in-control'].pillDotHex} label={`${onTrack} on track`} />}
 
         <div className="text-right">
           <div className="text-2xl leading-none font-bold">{score}</div>
