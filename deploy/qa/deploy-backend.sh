@@ -8,20 +8,21 @@ here="$(cd "$(dirname "$0")" && pwd)"
 source "$here/env.sh"
 
 image="${1:?usage: deploy-backend.sh <image ref>}"
-az_app=(az containerapp --subscription "$AZ_SUBSCRIPTION_ID" -g "$AZ_RESOURCE_GROUP")
+# Global options must follow the subcommand (`az containerapp update ...`), never precede it.
+target=(--subscription "$AZ_SUBSCRIPTION_ID" -g "$AZ_RESOURCE_GROUP" -n "$BACKEND_APP_NAME")
 
 echo "--- Updating $BACKEND_APP_NAME to $image ---"
-"${az_app[@]}" update -n "$BACKEND_APP_NAME" --image "$image" --output none
+az containerapp update "${target[@]}" --image "$image" --output none
 
-revision="$("${az_app[@]}" show -n "$BACKEND_APP_NAME" --query properties.latestRevisionName -o tsv)"
-fqdn="$("${az_app[@]}" show -n "$BACKEND_APP_NAME" --query properties.configuration.ingress.fqdn -o tsv)"
+revision="$(az containerapp show "${target[@]}" --query properties.latestRevisionName -o tsv)"
+fqdn="$(az containerapp show "${target[@]}" --query properties.configuration.ingress.fqdn -o tsv)"
 echo "--- Waiting for revision $revision ---"
 
 # `update` returns once ARM accepts the revision. Poll until it actually runs so a broken image
 # fails this deploy instead of leaving the previous revision quietly serving traffic.
 deadline=$((SECONDS + BACKEND_ROLLOUT_TIMEOUT_SECONDS))
 while :; do
-  state="$("${az_app[@]}" revision show -n "$BACKEND_APP_NAME" --revision "$revision" \
+  state="$(az containerapp revision show "${target[@]}" --revision "$revision" \
     --query properties.runningState -o tsv 2>/dev/null || echo Unknown)"
   echo "  $(date +%T) runningState=$state"
   case "$state" in
