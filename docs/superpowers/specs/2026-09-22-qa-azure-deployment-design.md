@@ -46,7 +46,7 @@ subscription already uses.
 | Container Apps environment | `dpm-qa-env` | Consumption, no VNet |
 | Container App | `dpm-backend-qa` | External HTTPS ingress to port 8080, system-assigned identity pulls from ACR |
 | Static Web App | `dpm-frontend-qa` | East Asia, Standard, no linked repo (deployed by token from the workflow) |
-| User-assigned identity | `dpm-qa-github-deploy` | Federated credential subject `repo:Strides-Pharma-Science-Ltd/dpm_monorepo:environment:qa`; Contributor on the RG |
+| User-assigned identity | `dpm-qa-github-deploy` | Federated credentials for subject `repo:Strides-Pharma-Science-Ltd/dpm_monorepo:environment:qa` in both the plain and the id-qualified form GitHub actually presents (`repo:<org>@<id>/<repo>@<id>:environment:qa`); Contributor on the RG |
 
 ### Backend runtime configuration
 

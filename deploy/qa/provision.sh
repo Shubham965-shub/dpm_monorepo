@@ -42,13 +42,22 @@ fi
 echo "--- GitHub deploy identity $GITHUB_IDENTITY_NAME (OIDC federation) ---"
 az identity create "${rg[@]}" -n "$GITHUB_IDENTITY_NAME" -l "$AZ_LOCATION" --output none
 client_id="$(az identity show "${rg[@]}" -n "$GITHUB_IDENTITY_NAME" --query clientId -o tsv)"
-fed_name="github-$GITHUB_ENVIRONMENT"
-if ! az identity federated-credential show "${rg[@]}" --identity-name "$GITHUB_IDENTITY_NAME" -n "$fed_name" --output none 2>/dev/null; then
-  az identity federated-credential create "${rg[@]}" --identity-name "$GITHUB_IDENTITY_NAME" -n "$fed_name" \
-    --issuer https://token.actions.githubusercontent.com \
-    --subject "repo:$GITHUB_REPO:environment:$GITHUB_ENVIRONMENT" \
-    --audiences api://AzureADTokenExchange --output none
-fi
+# GitHub presents the OIDC subject with numeric org/repo ids embedded
+# (repo:<org>@<org id>/<repo>@<repo id>:environment:<env>) - the plain form alone fails with
+# AADSTS700213, as the first workflow run showed. Register both so either form is accepted.
+org_id="$(gh api "orgs/${GITHUB_REPO%%/*}" -q .id)"
+repo_id="$(gh api "repos/$GITHUB_REPO" -q .id)"
+ensure_federated_credential() {  # <name> <subject>
+  if ! az identity federated-credential show "${rg[@]}" --identity-name "$GITHUB_IDENTITY_NAME" -n "$1" --output none 2>/dev/null; then
+    az identity federated-credential create "${rg[@]}" --identity-name "$GITHUB_IDENTITY_NAME" -n "$1" \
+      --issuer https://token.actions.githubusercontent.com --subject "$2" \
+      --audiences api://AzureADTokenExchange --output none
+  fi
+}
+ensure_federated_credential "github-$GITHUB_ENVIRONMENT" \
+  "repo:$GITHUB_REPO:environment:$GITHUB_ENVIRONMENT"
+ensure_federated_credential "github-$GITHUB_ENVIRONMENT-ids" \
+  "repo:${GITHUB_REPO%%/*}@$org_id/${GITHUB_REPO##*/}@$repo_id:environment:$GITHUB_ENVIRONMENT"
 
 echo "--- Static Web App $SWA_NAME ---"
 az staticwebapp create "${rg[@]}" -n "$SWA_NAME" -l "$AZ_SWA_LOCATION" --sku "$SWA_SKU" --output none
