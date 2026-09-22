@@ -14,13 +14,15 @@ Actions tab. To ship what is on `main`: merge `main` into `qa` and push.
 ## One-time setup (already done for QA on 2026-09-22)
 
 ```bash
-deploy/qa/provision.sh                # all Azure resources + GitHub environment/vars/secret
-deploy/qa/grant-github-identity.sh    # run by a human with Owner: Contributor for the deploy identity
+deploy/qa/provision.sh                       # all Azure resources + GitHub environment/vars/secrets
+deploy/qa/set-github-azure-credentials.sh    # AZURE_CREDENTIALS secret from the gitignored .creds file
 ```
 
 `provision.sh` is idempotent and safe to re-run. It never reconfigures an existing container app;
 it reads DB values from `backend/.env`, generates a fresh `JWT_SECRET`, and sets `CORS_ORIGINS` to
-the SWA hostname.
+the SWA hostname. The workflows log in to Azure as the `LH-Github` app registration (Contributor on
+the QA subscription); paste its details from the portal into `.creds` (format documented in the
+script) and run `set-github-azure-credentials.sh`, again whenever the client secret is rotated.
 
 ## Manual rollout from a laptop
 

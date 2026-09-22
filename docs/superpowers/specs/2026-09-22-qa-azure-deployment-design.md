@@ -33,9 +33,9 @@ subscription already uses.
 | Deploy trigger | push to a dedicated `qa` branch (path-filtered) + manual `workflow_dispatch` |
 | Frontend to API | separate origins; frontend calls the Container App URL directly, backend CORS allowlists the SWA origin |
 | SWA tier | Standard (the subscription's Free-tier quota is exhausted; creation with Free fails) |
-| CI auth to Azure | GitHub OIDC via a user-assigned identity federated to the repo's `qa` GitHub Environment |
+| CI auth to Azure | The existing `LH-Github` service principal (Contributor on the QA subscription), stored as the `AZURE_CREDENTIALS` secret of the `qa` GitHub Environment. An OIDC identity was tried first and dropped: GitHub presents an id-qualified subject and the role grant was blocked by tooling |
 | Image build | `az acr build` (ACR Tasks) reusing `Dockerfile.jvm`; no Docker daemon needed locally or in CI |
-| Secrets at rest | Container App secrets only (DB password, JWT secret). GitHub holds only the SWA deployment token |
+| Secrets at rest | Container App secrets (DB password, JWT secret). GitHub holds the SWA deployment token and the service principal credentials |
 
 ## Azure resources (all in `QA-Lighthouse`)
 
@@ -46,7 +46,6 @@ subscription already uses.
 | Container Apps environment | `dpm-qa-env` | Consumption, no VNet |
 | Container App | `dpm-backend-qa` | External HTTPS ingress to port 8080, system-assigned identity pulls from ACR |
 | Static Web App | `dpm-frontend-qa` | East Asia, Standard, no linked repo (deployed by token from the workflow) |
-| User-assigned identity | `dpm-qa-github-deploy` | Federated credentials for subject `repo:Strides-Pharma-Science-Ltd/dpm_monorepo:environment:qa` in both the plain and the id-qualified form GitHub actually presents (`repo:<org>@<id>/<repo>@<id>:environment:qa`); Contributor on the RG |
 
 ### Backend runtime configuration
 
@@ -67,8 +66,8 @@ fallback so deep links serve `index.html`.
 
 ```
 deploy/qa/env.sh                   one place for every name, id, and sizing value
-deploy/qa/provision.sh             idempotent one-time setup of all Azure resources + GitHub env/vars/secret
-deploy/qa/grant-github-identity.sh Contributor role assignment for the deploy identity (run by a human, see below)
+deploy/qa/provision.sh             idempotent one-time setup of all Azure resources + GitHub env/vars/secrets
+deploy/qa/set-github-azure-credentials.sh  reads the gitignored .creds file and stores AZURE_CREDENTIALS in the qa environment
 deploy/qa/build-push-backend.sh    mvnw package (with unit tests) + az acr build; shared by provision and CI
 deploy/qa/deploy-backend.sh        az containerapp update + wait for the new revision + smoke check
 deploy/qa/README.md                runbook
@@ -79,7 +78,7 @@ frontend/public/staticwebapp.config.json
 
 ## Data flow
 
-1. A push to `qa` touching `backend/**` (or `deploy/qa/**`) runs the backend workflow: OIDC login,
+1. A push to `qa` touching `backend/**` (or `deploy/qa/**`) runs the backend workflow: service principal login,
    `build-push-backend.sh` builds the jar (unit tests run) and asks ACR Tasks to build and store
    `dpm-backend:<sha>`, then `deploy-backend.sh` points the Container App at it and polls the new
    revision until it is running and answers HTTP.
@@ -99,9 +98,9 @@ frontend/public/staticwebapp.config.json
 ## Guardrail interaction
 
 The Lighthouse plugin's `guard-az.py` hook denies `az role assignment create` for every command
-Claude runs, regardless of subscription. The one role assignment this design needs (Contributor
-for `dpm-qa-github-deploy` on `QA-Lighthouse`) is therefore isolated in
-`grant-github-identity.sh`, which a human with Owner rights runs once.
+Claude runs, and the Claude Code permission classifier gates GitHub secret writes. Neither is needed
+in steady state: `LH-Github` already has Contributor on the subscription, and the one secret write
+is isolated in `set-github-azure-credentials.sh`, which a human runs (also after rotating the secret).
 
 ## Out of scope
 

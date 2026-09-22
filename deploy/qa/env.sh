@@ -4,7 +4,6 @@
 # Decisions and rationale: docs/superpowers/specs/2026-09-22-qa-azure-deployment-design.md
 
 export AZ_SUBSCRIPTION_ID="16434d97-76c8-4357-b11d-05e42e1e1e49"   # STRIDES-RISE-LH-01 (QA)
-export AZ_TENANT_ID="9c70483a-4e14-4e1e-862a-5fda2a0a5d77"
 export AZ_RESOURCE_GROUP="QA-Lighthouse"
 export AZ_LOCATION="centralindia"
 # Static Web Apps is not offered in Central India; every sibling QA SWA in this RG uses East Asia.
@@ -19,7 +18,6 @@ export SWA_NAME="dpm-frontend-qa"
 # Standard, not Free: this subscription already holds the maximum number of Free static sites
 # (creation fails with "too many static sites with SKU: Free"), same reason sop-stp-fe-qa is Standard.
 export SWA_SKU="Standard"
-export GITHUB_IDENTITY_NAME="dpm-qa-github-deploy"
 
 export GITHUB_REPO="Strides-Pharma-Science-Ltd/dpm_monorepo"
 export GITHUB_ENVIRONMENT="qa"

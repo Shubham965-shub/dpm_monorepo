@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
 # One-time, idempotent provisioning of the QA stack described in
 # docs/superpowers/specs/2026-09-22-qa-azure-deployment-design.md: registry, Container Apps
-# environment + app, Static Web App, GitHub OIDC identity, and the GitHub Environment the workflows
-# read from. Safe to re-run: every step is create-or-keep. The container app is only created here,
+# environment + app, Static Web App, and the GitHub Environment the workflows read from. Safe to re-run: every step is create-or-keep. The container app is only created here,
 # never reconfigured - image rollouts are the workflow's job (deploy-backend.sh).
 #
 # Needs: az logged in to the QA subscription, gh logged in with admin on the repo, and backend/.env
-# holding the DB connection values. Afterwards a human runs grant-github-identity.sh (see there).
+# holding the DB connection values, and .creds with the LH-Github app registration's client secret.
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 source "$here/env.sh"
@@ -39,26 +38,6 @@ if ! az containerapp env show "${rg[@]}" -n "$CAE_NAME" --output none 2>/dev/nul
     --logs-workspace-id "$law_id" --logs-workspace-key "$law_key" --output none
 fi
 
-echo "--- GitHub deploy identity $GITHUB_IDENTITY_NAME (OIDC federation) ---"
-az identity create "${rg[@]}" -n "$GITHUB_IDENTITY_NAME" -l "$AZ_LOCATION" --output none
-client_id="$(az identity show "${rg[@]}" -n "$GITHUB_IDENTITY_NAME" --query clientId -o tsv)"
-# GitHub presents the OIDC subject with numeric org/repo ids embedded
-# (repo:<org>@<org id>/<repo>@<repo id>:environment:<env>) - the plain form alone fails with
-# AADSTS700213, as the first workflow run showed. Register both so either form is accepted.
-org_id="$(gh api "orgs/${GITHUB_REPO%%/*}" -q .id)"
-repo_id="$(gh api "repos/$GITHUB_REPO" -q .id)"
-ensure_federated_credential() {  # <name> <subject>
-  if ! az identity federated-credential show "${rg[@]}" --identity-name "$GITHUB_IDENTITY_NAME" -n "$1" --output none 2>/dev/null; then
-    az identity federated-credential create "${rg[@]}" --identity-name "$GITHUB_IDENTITY_NAME" -n "$1" \
-      --issuer https://token.actions.githubusercontent.com --subject "$2" \
-      --audiences api://AzureADTokenExchange --output none
-  fi
-}
-ensure_federated_credential "github-$GITHUB_ENVIRONMENT" \
-  "repo:$GITHUB_REPO:environment:$GITHUB_ENVIRONMENT"
-ensure_federated_credential "github-$GITHUB_ENVIRONMENT-ids" \
-  "repo:${GITHUB_REPO%%/*}@$org_id/${GITHUB_REPO##*/}@$repo_id:environment:$GITHUB_ENVIRONMENT"
-
 echo "--- Static Web App $SWA_NAME ---"
 az staticwebapp create "${rg[@]}" -n "$SWA_NAME" -l "$AZ_SWA_LOCATION" --sku "$SWA_SKU" --output none
 swa_host="$(az staticwebapp show "${rg[@]}" -n "$SWA_NAME" --query defaultHostname -o tsv)"
@@ -86,10 +65,14 @@ api_fqdn="$(az containerapp show "${rg[@]}" -n "$BACKEND_APP_NAME" --query prope
 
 echo "--- GitHub environment '$GITHUB_ENVIRONMENT' on $GITHUB_REPO ---"
 gh api -X PUT "repos/$GITHUB_REPO/environments/$GITHUB_ENVIRONMENT" --silent
-gh variable set AZURE_CLIENT_ID       -R "$GITHUB_REPO" --env "$GITHUB_ENVIRONMENT" --body "$client_id"
-gh variable set AZURE_TENANT_ID       -R "$GITHUB_REPO" --env "$GITHUB_ENVIRONMENT" --body "$AZ_TENANT_ID"
-gh variable set AZURE_SUBSCRIPTION_ID -R "$GITHUB_REPO" --env "$GITHUB_ENVIRONMENT" --body "$AZ_SUBSCRIPTION_ID"
-gh variable set QA_API_URL            -R "$GITHUB_REPO" --env "$GITHUB_ENVIRONMENT" --body "https://$api_fqdn"
+gh variable set QA_API_URL -R "$GITHUB_REPO" --env "$GITHUB_ENVIRONMENT" --body "https://$api_fqdn"
+# Azure login for the workflows uses the existing LH-Github service principal (Contributor on the
+# QA subscription); its details come from the gitignored .creds file when present.
+if [ -f "$repo_root/.creds" ]; then
+  "$here/set-github-azure-credentials.sh" "$repo_root/.creds"
+else
+  echo "  .creds not found - run deploy/qa/set-github-azure-credentials.sh once it is in place" >&2
+fi
 # Piped straight through so the deployment token never lands in a terminal or a log.
 az staticwebapp secrets list "${rg[@]}" -n "$SWA_NAME" --query properties.apiKey -o tsv \
   | gh secret set AZURE_STATIC_WEB_APPS_API_TOKEN -R "$GITHUB_REPO" --env "$GITHUB_ENVIRONMENT"
@@ -99,9 +82,6 @@ cat <<SUMMARY
 Provisioned.
   Backend API             : https://$api_fqdn
   Frontend                : https://$swa_host
-  Deploy identity clientId: $client_id
 
-Next:
-  1. Run deploy/qa/grant-github-identity.sh yourself (needs Owner) so the workflows can deploy.
-  2. Push the qa branch - the two workflows build and deploy both sides.
+Next: push the qa branch - the two workflows build and deploy both sides.
 SUMMARY

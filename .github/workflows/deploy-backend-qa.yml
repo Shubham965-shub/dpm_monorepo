@@ -15,7 +15,6 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  id-token: write   # OIDC token for azure/login
   contents: read
 
 jobs:
@@ -31,11 +30,11 @@ jobs:
           java-version: '21'
           cache: maven
 
+      # Service principal LH-Github (Contributor on the QA subscription); the secret is set by
+      # deploy/qa/set-github-azure-credentials.sh.
       - uses: azure/login@v2
         with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Install Container Apps CLI extension
         run: az extension add --name containerapp --upgrade --yes
