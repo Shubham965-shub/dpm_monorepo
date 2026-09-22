@@ -26,8 +26,7 @@ export function TopNav({ user, onLogout }: { user: UserPublic; onLogout: () => v
   const { theme, toggleTheme } = useTheme()
 
   return (
-    // #1f4e3d matches the Helios logo's own background exactly, so the icon doesn't stand out.
-    <header className="flex items-center justify-between bg-[#1f4e3d] px-6 py-3 text-white">
+    <header className="flex items-center justify-between border-b border-brand bg-brand-dark px-6 py-3 text-white">
       <div className="flex items-center gap-3">
         <img src={stridesLogo} alt="Strides" className="h-6 w-auto" />
         <NavDivider />
@@ -47,7 +46,7 @@ export function TopNav({ user, onLogout }: { user: UserPublic; onLogout: () => v
             key={tab}
             className={
               i === 0
-                ? 'rounded-full bg-emerald-600 px-3 py-1 font-medium'
+                ? 'rounded-full bg-brand px-3 py-1 font-medium'
                 : 'text-white/80 hover:text-white'
             }
           >
@@ -58,7 +57,7 @@ export function TopNav({ user, onLogout }: { user: UserPublic; onLogout: () => v
         <button
           onClick={onLogout}
           title={user.email}
-          className="flex size-7 items-center justify-center rounded-full bg-white/10 text-xs font-semibold"
+          className="flex size-7 items-center justify-center rounded-full bg-brand text-xs font-semibold"
         >
           {initials(user.fullName)}
         </button>
@@ -67,15 +66,33 @@ export function TopNav({ user, onLogout }: { user: UserPublic; onLogout: () => v
   )
 }
 
-export function SubNav() {
+export type SubNavView = 'dashboard' | 'performance'
+
+export function SubNav({
+  view,
+  onViewChange,
+}: {
+  view: SubNavView
+  onViewChange: (view: SubNavView) => void
+}) {
   return (
     <div className="flex items-center justify-between border-b border-border px-6 py-2">
       <div className="flex items-center gap-4 text-sm">
-        <span className="font-medium text-primary">Dashboard</span>
+        <button
+          onClick={() => onViewChange('dashboard')}
+          className={view === 'dashboard' ? 'font-semibold text-brand' : 'text-muted-foreground hover:text-foreground'}
+        >
+          Dashboard
+        </button>
         <NavDivider className="bg-border" />
-        <span className="text-muted-foreground">Performance</span>
+        <button
+          onClick={() => onViewChange('performance')}
+          className={view === 'performance' ? 'font-semibold text-brand' : 'text-muted-foreground hover:text-foreground'}
+        >
+          Performance
+        </button>
       </div>
-      <Button size="sm" className="gap-1.5" variant="default">
+      <Button size="sm" className="gap-1.5 bg-brand hover:bg-brand/90" variant="default">
         <Bell className="size-3.5" />
         Alerts &amp; Activities
         <Badge variant="secondary" className="bg-white/20 text-white">

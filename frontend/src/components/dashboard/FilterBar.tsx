@@ -15,7 +15,7 @@ export function FilterBar() {
       {FILTERS.map((f) => (
         <div
           key={f.label}
-          className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm"
+          className="flex items-center gap-1.5 rounded-lg border border-border bg-muted/50 px-3 py-1.5 text-sm"
         >
           <span className="text-muted-foreground">{f.label}:</span>
           <span className="font-medium">{f.value}</span>

@@ -39,3 +39,69 @@ export const POSITIVE_SIGNALS_MOCK = [
     detail: 'Best quarter in 18 months — People section score 89',
   },
 ]
+
+export interface NeedsAttentionItem {
+  id: string
+  status: 'no-action' | 'escalated'
+  category: string
+  date: string
+  kpiName: string
+  detail: string
+  assignee: string
+  action: 'nudge' | 'act-now'
+}
+
+// Same caveat as QC Score / Positive Signals - there's no "agenda" or nudge/escalation endpoint
+// server-side yet. Placeholder until that workflow exists.
+export const NEEDS_ATTENTION_MOCK: NeedsAttentionItem[] = [
+  {
+    id: 'sample-tat-jul',
+    status: 'no-action',
+    category: 'Lab Performance',
+    date: 'Jul 26',
+    kpiName: 'Sample TAT',
+    detail: '29.02 hrs vs 24 hrs Action limit',
+    assignee: 'Ravi',
+    action: 'nudge',
+  },
+  {
+    id: 'sample-tat-aug',
+    status: 'no-action',
+    category: 'Lab Performance',
+    date: 'Aug 26',
+    kpiName: 'Sample TAT',
+    detail: '33.44 hrs vs 24 hrs Action limit',
+    assignee: 'Ravi',
+    action: 'nudge',
+  },
+  {
+    id: 'sla-adherence-aug',
+    status: 'no-action',
+    category: 'Lab Performance',
+    date: 'Aug 26',
+    kpiName: 'SLA Adherence',
+    detail: '83.63% vs 95% Action limit',
+    assignee: 'Ravi',
+    action: 'nudge',
+  },
+  {
+    id: 'difot-jan',
+    status: 'escalated',
+    category: 'Lab Performance',
+    date: 'Jan 26',
+    kpiName: 'DIFOT Support Index',
+    detail: '79.9% vs 96% Action limit',
+    assignee: 'Ravi',
+    action: 'act-now',
+  },
+  {
+    id: 'tests-analyst-mar',
+    status: 'escalated',
+    category: 'Lab Performance',
+    date: 'Mar 26',
+    kpiName: 'Tests / Analyst / Day',
+    detail: '12.89 nos vs 15 nos Action limit',
+    assignee: 'Ravi',
+    action: 'act-now',
+  },
+]

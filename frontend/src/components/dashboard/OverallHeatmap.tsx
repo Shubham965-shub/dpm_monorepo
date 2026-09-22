@@ -1,6 +1,8 @@
 import { useState } from 'react'
+import { ChevronDown } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardAction } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import { useHeatmapData } from '@/hooks/useHeatmapData'
 import { RagDot } from './RagDot'
 import type { HeatmapRow } from './types'
@@ -8,6 +10,15 @@ import type { HeatmapRow } from './types'
 // Only 3M is wired to real data (trailing 3 calendar months - see useHeatmapData). 4M/5M are
 // kept visible to match the wireframe but disabled until a longer range is actually decided.
 const MONTH_RANGES = ['3M', '4M', '5M'] as const
+
+function LegendSwatch({ bg, border, label }: { bg: string; border: string; label: string }) {
+  return (
+    <span className="flex items-center gap-1.5">
+      <span className={cn('size-3 rounded-[4px] border', bg, border)} />
+      {label}
+    </span>
+  )
+}
 
 function SectionGrid({ title, rows }: { title: string; rows: HeatmapRow[] }) {
   return (
@@ -45,6 +56,7 @@ function SectionGrid({ title, rows }: { title: string; rows: HeatmapRow[] }) {
 export function OverallHeatmap({ site }: { site: string }) {
   const [onlyReds, setOnlyReds] = useState(false)
   const [range, setRange] = useState<(typeof MONTH_RANGES)[number]>('3M')
+  const [legendExpanded, setLegendExpanded] = useState(false)
   const { sections, isLoading, isError } = useHeatmapData(site)
 
   return (
@@ -77,19 +89,23 @@ export function OverallHeatmap({ site }: { site: string }) {
       </CardHeader>
       <CardContent>
         <div className="mb-3 flex items-center gap-4 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1.5">
-            <RagDot status="in-control" /> In Control
-          </span>
-          <span className="flex items-center gap-1.5">
-            <RagDot status="alert" /> Alert Limit
-          </span>
-          <span className="flex items-center gap-1.5">
-            <RagDot status="action" /> Action Limit
-          </span>
-          <span className="flex items-center gap-1.5">
-            <RagDot status="no-data" /> No data
-          </span>
+          <LegendSwatch bg="bg-[#dcfce7]" border="border-[#86efac]" label="In Control" />
+          <LegendSwatch bg="bg-[#fef3c7]" border="border-[#fde68a]" label="Alert Limit" />
+          <LegendSwatch bg="bg-[#fca5a5]" border="border-[#f87171]" label="Action Limit" />
+          <button
+            onClick={() => setLegendExpanded((v) => !v)}
+            className="flex items-center gap-1 hover:text-foreground"
+          >
+            View all legends
+            <ChevronDown className={cn('size-3 transition-transform', legendExpanded && 'rotate-180')} />
+          </button>
         </div>
+        {legendExpanded && (
+          <p className="mb-3 text-xs text-muted-foreground">
+            Per-KPI-group legend breakdown isn't built yet — the three status tiers above cover every
+            cell shown.
+          </p>
+        )}
         {isError && (
           <p className="mb-2 text-xs text-red-600">
             Some KPIs failed to load - showing whatever came back successfully.
