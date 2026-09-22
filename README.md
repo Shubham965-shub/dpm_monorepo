@@ -29,3 +29,7 @@ npm run dev
 ```
 
 This starts the frontend dev server (default `http://localhost:5173`).
+
+## Deployment (QA)
+
+Azure Static Web Apps (frontend) + Container Apps (backend), deployed from the `qa` branch by GitHub Actions. Runbook: `deploy/qa/README.md`.
