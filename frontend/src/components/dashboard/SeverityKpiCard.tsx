@@ -2,9 +2,10 @@ import { useState } from 'react'
 import { ArrowDown, ArrowUp, ChevronDown, Maximize2, SlidersHorizontal } from 'lucide-react'
 import { Bar, BarChart, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, YAxis } from 'recharts'
 import { cn } from '@/lib/utils'
-import { CATEGORICAL_PALETTE, MAX_SERIES } from '@/lib/chartPalette'
+import { CATEGORICAL_PALETTE, MAX_SERIES, TOOLTIP_Z_INDEX } from '@/lib/chartPalette'
 import type { ExtraFilter, KpiDomain } from '@/lib/kpiConfig'
 import type { Grain } from '@/lib/kpiSchemas'
+import { getGrainDateRange } from '@/lib/kpiDateRange'
 import { useKpiData, type GlobalKpiFilters } from '@/hooks/useKpiData'
 import { computeValueDomain, deriveKpiMetrics, type DomainTrendKpiResult } from '@/hooks/useDomainTrendKpis'
 import {
@@ -91,9 +92,18 @@ export function SeverityKpiCard({
   // Only fires once the user actually picks a different grain than the page's Timeline filter, or
   // sets an extra filter (e.g. HPLC's injectionStatus) - a real API call, not a cosmetic toggle.
   // The board-level `result` (default grain, no extra filters) still drives severity/banding.
-  const overrideQuery = useKpiData(domain, kpi, { ...globalFilters, grain }, extraParams, { enabled: isOverridden })
+  // The date range is recomputed for the picked grain (see kpiDateRange.ts's getGrainDateRange) -
+  // reusing globalFilters' own from/to would silently keep the previous grain's window (e.g. a
+  // 6-month monthly range while showing daily points).
+  const overrideQuery = useKpiData(
+    domain,
+    kpi,
+    { ...globalFilters, ...getGrainDateRange(grain), grain },
+    extraParams,
+    { enabled: isOverridden },
+  )
   const metrics = isOverridden && overrideQuery.data
-    ? deriveKpiMetrics(overrideQuery.data, { target, alertThreshold, actionThreshold })
+    ? deriveKpiMetrics(kpi.id, overrideQuery.data, { target, alertThreshold, actionThreshold })
     : result
   const { chartData, shownSeries, hiddenCount, latestValue, previousValue, severity, unit } = metrics
   // isFetching (not isLoading) so this still dims during a later switch too - keepPreviousData
@@ -206,7 +216,7 @@ export function SeverityKpiCard({
           {viewMode === 'line' ? (
             <LineChart data={chartData} margin={{ top: 2, right: 2, left: 2, bottom: 2 }}>
               <YAxis hide domain={valueDomain} />
-              <Tooltip contentStyle={{ fontSize: 11 }} />
+              <Tooltip contentStyle={{ fontSize: 11 }} wrapperStyle={{ zIndex: TOOLTIP_Z_INDEX }} />
               {shownSeries.length >= 2 && <Legend wrapperStyle={{ fontSize: 8 }} />}
               <ReferenceLine y={target} stroke={TARGET_LINE_HEX} strokeDasharray="4 3" strokeWidth={1} />
               <ReferenceLine y={alertThreshold} stroke={ALERT_LINE_HEX} strokeDasharray="4 3" strokeWidth={1} />
@@ -225,7 +235,7 @@ export function SeverityKpiCard({
             </LineChart>
           ) : (
             <BarChart data={chartData} margin={{ top: 2, right: 2, left: 2, bottom: 2 }}>
-              <Tooltip contentStyle={{ fontSize: 11 }} />
+              <Tooltip contentStyle={{ fontSize: 11 }} wrapperStyle={{ zIndex: TOOLTIP_Z_INDEX }} />
               {shownSeries.length >= 2 && <Legend wrapperStyle={{ fontSize: 8 }} />}
               <ReferenceLine y={target} stroke={TARGET_LINE_HEX} strokeDasharray="4 3" strokeWidth={1} />
               <ReferenceLine y={alertThreshold} stroke={ALERT_LINE_HEX} strokeDasharray="4 3" strokeWidth={1} />

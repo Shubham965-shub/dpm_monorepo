@@ -13,7 +13,7 @@ import {
 } from 'recharts'
 import type { KpiDomain, KpiDefinition } from '@/lib/kpiConfig'
 import { useKpiData, type GlobalKpiFilters } from '@/hooks/useKpiData'
-import { CATEGORICAL_PALETTE, MAX_SERIES, STATUS_COLORS } from '@/lib/chartPalette'
+import { CATEGORICAL_PALETTE, MAX_SERIES, STATUS_COLORS, TOOLTIP_Z_INDEX } from '@/lib/chartPalette'
 import {
   ExtraFilterControl,
   initialExtraFilterState,
@@ -152,7 +152,7 @@ export function KpiChartCard({ domain, kpi, globalFilters }: {
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                 <XAxis type="number" tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" />
                 <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" width={160} />
-                <Tooltip contentStyle={{ fontSize: 11 }} />
+                <Tooltip contentStyle={{ fontSize: 11 }} wrapperStyle={{ zIndex: TOOLTIP_Z_INDEX }} />
                 <Bar dataKey="value" fill={CATEGORICAL_PALETTE[0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -166,7 +166,7 @@ export function KpiChartCard({ domain, kpi, globalFilters }: {
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                 <XAxis dataKey="periodStart" tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" />
                 <YAxis tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" width={40} />
-                <Tooltip contentStyle={{ fontSize: 11 }} />
+                <Tooltip contentStyle={{ fontSize: 11 }} wrapperStyle={{ zIndex: TOOLTIP_Z_INDEX }} />
                 {shownSeries.length >= 2 && <Legend wrapperStyle={{ fontSize: 10 }} />}
                 {shownSeries.map((s, i) => (
                   <Line

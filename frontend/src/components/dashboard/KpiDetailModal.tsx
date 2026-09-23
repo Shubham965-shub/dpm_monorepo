@@ -10,14 +10,14 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { CATEGORICAL_PALETTE, MAX_SERIES } from '@/lib/chartPalette'
-import type { GRAINS } from '@/lib/kpiSchemas'
+import { CATEGORICAL_PALETTE, MAX_SERIES, TOOLTIP_Z_INDEX } from '@/lib/chartPalette'
+import type { Grain } from '@/lib/kpiSchemas'
+import { formatPeriodTick } from '@/lib/periodFormat'
 import type { KpiDefinition } from '@/lib/kpiConfig'
 import type { KpiMetrics } from '@/hooks/useDomainTrendKpis'
 import { ExtraFilterControl, type ExtraFilterState } from '@/components/kpi/ExtraFilterControl'
 import { ALERT_LINE_HEX, isLowerBetter, SEVERITY_META, TARGET_LINE_HEX, type Severity } from './types'
 
-type Grain = (typeof GRAINS)[number]
 const GRAIN_OPTIONS: { value: Grain; label: string }[] = [
   { value: 'daily', label: 'D' },
   { value: 'weekly', label: 'W' },
@@ -164,9 +164,15 @@ export function KpiDetailModal({
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData} margin={{ top: 8, right: 48, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                <XAxis dataKey="periodStart" tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" />
+                <XAxis
+                  dataKey="periodStart"
+                  tickFormatter={(v: string) => formatPeriodTick(v, grain)}
+                  interval="preserveStartEnd"
+                  tick={{ fontSize: 10 }}
+                  stroke="var(--muted-foreground)"
+                />
                 <YAxis tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" width={40} />
-                <Tooltip contentStyle={{ fontSize: 11 }} />
+                <Tooltip contentStyle={{ fontSize: 11 }} wrapperStyle={{ zIndex: TOOLTIP_Z_INDEX }} />
                 {shownSeries.length >= 2 && <Legend wrapperStyle={{ fontSize: 10 }} />}
                 <ReferenceLine
                   y={target}
