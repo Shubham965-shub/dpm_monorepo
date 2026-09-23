@@ -3,7 +3,11 @@ import type { ExtraParams } from '@/hooks/useKpiData'
 
 export type ExtraFilterState =
   | { kind: 'select'; value: string }
-  | { kind: 'multiSelect'; value: string[] }
+  /** allChecked only matters when value is empty (blank = every option combined either way, see
+   * resolveExtraParams) - it's purely which one of the two visually-identical-to-the-backend
+   * blank states the "All" checkbox last asked for: select-all (every box checked) or
+   * deselect-all (every box unchecked), so the master checkbox is a real toggle. */
+  | { kind: 'multiSelect'; value: string[]; allChecked: boolean }
   | { kind: 'repeatedText'; value: string }
   | { kind: 'freeText'; value: string }
   | { kind: 'numberInput'; value: string }
@@ -13,7 +17,7 @@ export function initialExtraFilterState(filter: ExtraFilter): ExtraFilterState {
     case 'select':
       return { kind: 'select', value: filter.required ? (filter.options[0] ?? '') : '' }
     case 'multiSelect':
-      return { kind: 'multiSelect', value: [] }
+      return { kind: 'multiSelect', value: [], allChecked: true }
     case 'repeatedText':
       return { kind: 'repeatedText', value: '' }
     case 'freeText':
@@ -81,26 +85,26 @@ export function ExtraFilterControl({
 
   if (filter.kind === 'multiSelect' && state.kind === 'multiSelect') {
     // Blank selection = every option combined (matches the backend's own "empty param = ALL"
-    // convention - see PeriodCombiner.parseSelection), so "All" reads as checked whenever nothing
-    // (or, equivalently, everything) is explicitly picked.
+    // convention - see PeriodCombiner.parseSelection) - so "All" clicked and every individual box
+    // clicked send the identical (empty) query either way. `allChecked` is a display-only toggle
+    // for which of those two states the master checkbox last asked for.
     const options = filter.options
     const selectedValues = state.value
     const isAll = selectedValues.length === 0
     const selected = new Set(selectedValues)
+    const allChecked = isAll && state.allChecked
 
-    function selectAll() {
-      onChange({ kind: 'multiSelect', value: [] })
+    function toggleAll() {
+      onChange({ kind: 'multiSelect', value: [], allChecked: !allChecked })
     }
 
     function toggleOption(option: string) {
-      const currentlySelected = isAll ? options : selectedValues
-      const next = currentlySelected.includes(option)
-        ? currentlySelected.filter((v) => v !== option)
-        : [...currentlySelected, option]
-      // Every option ends up checked -> collapse back to "All" instead of sending every option
-      // explicitly, so re-checking the last unchecked box returns to the same blank/ALL state
-      // this started from.
-      onChange({ kind: 'multiSelect', value: next.length === options.length ? [] : next })
+      const current = isAll ? [] : selectedValues
+      const next = current.includes(option) ? current.filter((v) => v !== option) : [...current, option]
+      // Every option ends up individually picked -> collapse back to blank/"All" instead of
+      // sending every option explicitly (equivalent, and re-checking the last box returns to the
+      // same state this started from).
+      onChange({ kind: 'multiSelect', value: next.length === options.length ? [] : next, allChecked: true })
     }
 
     return (
@@ -111,14 +115,14 @@ export function ExtraFilterControl({
         ) : (
           <div className="max-h-36 w-56 overflow-y-auto rounded-md border border-input bg-background p-1.5 text-xs">
             <label className="flex items-center gap-1.5 border-b border-border pb-1 font-medium">
-              <input type="checkbox" checked={isAll} onChange={selectAll} />
+              <input type="checkbox" checked={allChecked} onChange={toggleAll} />
               All
             </label>
             {options.map((o) => (
               <label key={o} className="flex items-center gap-1.5 py-0.5">
                 <input
                   type="checkbox"
-                  checked={isAll || selected.has(o)}
+                  checked={isAll ? allChecked : selected.has(o)}
                   onChange={() => toggleOption(o)}
                 />
                 <span className="truncate">{o}</span>

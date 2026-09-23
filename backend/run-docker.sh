@@ -43,9 +43,9 @@ echo "--- Building jar ---"
 echo "--- Building image ---"
 docker build -f src/main/docker/Dockerfile.jvm -t dpm-backend:local .
 
-echo "--- Running (http://localhost:8080) ---"
+echo "--- Running (http://localhost:8050) ---"
 docker rm -f dpm-backend >/dev/null 2>&1 || true
-docker run -d --name dpm-backend -p 8080:8080 --env-file .env dpm-backend:local
+docker run -d --name dpm-backend -p 8050:8080 --env-file .env dpm-backend:local
 
 echo "Started. Logs:  docker logs -f dpm-backend"
 echo "Stop:           docker stop dpm-backend"

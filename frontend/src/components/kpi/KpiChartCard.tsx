@@ -36,7 +36,7 @@ function seriesKeyFor(row: KpiCardResponse) {
   return `${row.kpiId}|${row.name}`
 }
 
-function toChartData(rows: KpiCardResponse[]) {
+export function toChartData(rows: KpiCardResponse[]) {
   const seriesByKey = new Map<string, Series>()
   const byPeriod = new Map<string, Record<string, number | string | null>>()
 
@@ -71,7 +71,7 @@ interface BarRow {
 
 // chartType 'bar' rows are already one-per-category, summed across the whole date range by the
 // backend (see backend/README.md) and pre-sorted worst-first - no per-period grouping needed.
-function toBarData(rows: KpiCardResponse[]): BarRow[] {
+export function toBarData(rows: KpiCardResponse[]): BarRow[] {
   return rows.map((row) => ({ name: row.name, value: row.value, unit: row.unit }))
 }
 
@@ -209,7 +209,7 @@ export function KpiChartCard({ domain, kpi, globalFilters }: {
   )
 }
 
-function emptyStateFor(
+export function emptyStateFor(
   requiredSelectMissing: boolean,
   query: Pick<ReturnType<typeof useKpiData>, 'isLoading' | 'isError' | 'error'>,
   isEmpty: boolean,
@@ -221,7 +221,7 @@ function emptyStateFor(
   return null
 }
 
-function EmptyState({ message, isError }: { message: string; isError?: boolean }) {
+export function EmptyState({ message, isError }: { message: string; isError?: boolean }) {
   return (
     <div className={`flex h-full items-center justify-center text-center text-xs ${isError ? 'text-destructive' : 'text-muted-foreground'}`}>
       {message}
@@ -229,7 +229,7 @@ function EmptyState({ message, isError }: { message: string; isError?: boolean }
   )
 }
 
-function errorMessage(error: unknown): string {
+export function errorMessage(error: unknown): string {
   if (error && typeof error === 'object' && 'response' in error) {
     const response = (error as { response?: { status?: number; data?: { detail?: string } } }).response
     if (response?.data?.detail) return `${response.status} ${response.data.detail}`

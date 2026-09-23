@@ -28,11 +28,18 @@ async function refreshAccessToken(): Promise<string> {
   return parsed.accessToken
 }
 
+// A 401 from one of these auth endpoints themselves must propagate directly to its caller
+// (restoreSession/loginMutation/logoutMutation already handle it) - retrying via ANOTHER refresh
+// call with the same token can only fail the same way again, and races a second single-use-token
+// rotation attempt against whichever call is already in flight for it.
+const AUTH_PATHS_EXEMPT_FROM_RETRY = ['/api/auth/login', '/api/auth/refresh', '/api/auth/logout']
+
 apiClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
     const config = error.config as (InternalAxiosRequestConfig & { _retried?: boolean }) | undefined
-    if (error.response?.status !== 401 || !config || config._retried) {
+    const isExemptAuthPath = AUTH_PATHS_EXEMPT_FROM_RETRY.some((path) => config?.url?.includes(path))
+    if (error.response?.status !== 401 || !config || config._retried || isExemptAuthPath) {
       throw error
     }
 
