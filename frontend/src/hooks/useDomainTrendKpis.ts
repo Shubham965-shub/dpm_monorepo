@@ -3,6 +3,7 @@ import { getValidated } from '@/lib/apiClient'
 import { kpiCardListSchema, type KpiCardResponse } from '@/lib/kpiSchemas'
 import { requiredSelectDefaults, type KpiDomain, type KpiDefinition } from '@/lib/kpiConfig'
 import { extractRowCategory } from '@/lib/kpiRowName'
+import { filterRootCauseRowsToDimension, pickMaximalRootCauseDimension } from '@/lib/rootCauseDimensions'
 import { KPI_THRESHOLD_MOCK } from '@/components/dashboard/mockData'
 import { classifySeverity, type Severity } from '@/components/dashboard/types'
 import { toChartData } from '@/components/kpi/KpiChartCard'
@@ -14,9 +15,19 @@ import type { GlobalKpiFilters } from './useKpiData'
 // Overall are dropped here, frontend-only; the backend still returns all of them.
 const HUMAN_ERROR_SEVERITY_KEEP = new Set(['Major', 'Critical'])
 
+/** Default (no user selection yet) reduction applied per-KPI before deriving chart metrics.
+ * Root Cause Breakdown defaults to its single highest-count-in-the-latest-period dimension rather
+ * than every dimension overlaid - SeverityKpiCard's own dimension dropdown re-slices the same
+ * already-fetched rows to a different one without needing this function at all. */
 function filterRowsForKpi(kpiId: string, rows: KpiCardResponse[]): KpiCardResponse[] {
-  if (kpiId !== 'human-error-severity') return rows
-  return rows.filter((row) => HUMAN_ERROR_SEVERITY_KEEP.has(extractRowCategory(row.name)))
+  if (kpiId === 'human-error-severity') {
+    return rows.filter((row) => HUMAN_ERROR_SEVERITY_KEEP.has(extractRowCategory(row.name)))
+  }
+  if (kpiId === 'root-cause') {
+    const maximal = pickMaximalRootCauseDimension(rows)
+    return maximal ? filterRootCauseRowsToDimension(rows, maximal) : rows
+  }
+  return rows
 }
 
 export interface KpiMetrics {

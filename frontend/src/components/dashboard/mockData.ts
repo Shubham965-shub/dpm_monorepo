@@ -237,11 +237,12 @@ export const KPI_THRESHOLD_MOCK: KpiThresholdMock[] = [
   // Real ~500 count - original 5/10/15 was ~50x too low (this endpoint sums across a wide window).
   { id: 'rci-beyond-timeline', domainKey: 'qms', target: 400, alertThreshold: 480, actionThreshold: 550 },
   { id: 'repeat-failure-rate', domainKey: 'qms', target: 5, alertThreshold: 10, actionThreshold: 15 },
-  // root-cause(-consolidated) are per-category breakdowns (14 series/period, real per-category
-  // counts 0-2) - the card uses the first series as primary, so thresholds are scaled to a single
-  // category's count, not a cross-category total.
+  // root-cause is a per-category breakdown (14 series/period, real per-category counts 0-2) - the
+  // card uses the first series as primary, so thresholds are scaled to a single category's count,
+  // not a cross-category total. root-cause-consolidated is absent here on purpose: it renders as
+  // RootCauseHeatmapCard's dimension x period matrix instead (see SectionSummaryList.tsx), which
+  // has no single trending value a target/alert/action zone could classify.
   { id: 'root-cause', domainKey: 'qms', target: 1, alertThreshold: 3, actionThreshold: 6 },
-  { id: 'root-cause-consolidated', domainKey: 'qms', target: 1, alertThreshold: 3, actionThreshold: 6 },
   { id: 'capa-open-by-date-opened', domainKey: 'qms', target: 10, alertThreshold: 20, actionThreshold: 30 },
   { id: 'capa-effectiveness', domainKey: 'qms', target: 90, alertThreshold: 80, actionThreshold: 72 },
   // Real ~19-33% - original 5/10/15 was too low a ceiling.
