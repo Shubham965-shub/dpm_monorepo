@@ -125,7 +125,10 @@ export function KpiRankingBarCard({
           <ResponsiveContainer width="100%" height={Math.max(RANKING_BAR_MIN_HEIGHT_PX, rankingData.length * BAR_ROW_HEIGHT_PX)}>
             <BarChart data={rankingData} layout="vertical" margin={{ top: 4, right: 12, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-              <XAxis type="number" tick={{ fontSize: 9 }} stroke="var(--muted-foreground)" />
+              {/* Without an explicit domain, Recharts can auto-pick a non-zero floor when every
+              category's value sits well above 0 - bars then start partway across the plot area
+              instead of flush against the axis, reading as a big empty gap on the left. */}
+              <XAxis type="number" domain={[0, 'dataMax']} tick={{ fontSize: 9 }} stroke="var(--muted-foreground)" />
               <YAxis type="category" dataKey="name" tick={truncatedCategoryTick} width={Y_AXIS_WIDTH_PX} interval={0} />
               <Tooltip contentStyle={{ fontSize: 11 }} />
               <Bar dataKey="value" fill={GREEN.solidHex} radius={[0, 3, 3, 0]} />
