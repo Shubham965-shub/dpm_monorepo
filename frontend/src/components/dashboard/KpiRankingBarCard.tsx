@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { ChevronDown, Maximize2, SlidersHorizontal } from 'lucide-react'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { cn } from '@/lib/utils'
+import { TOOLTIP_Z_INDEX } from '@/lib/chartPalette'
 import type { KpiDomain, KpiDefinition } from '@/lib/kpiConfig'
 import { useKpiData, type GlobalKpiFilters } from '@/hooks/useKpiData'
 import { toBarData, emptyStateFor } from '@/components/kpi/KpiChartCard'
@@ -130,7 +131,7 @@ export function KpiRankingBarCard({
               instead of flush against the axis, reading as a big empty gap on the left. */}
               <XAxis type="number" domain={[0, 'dataMax']} tick={{ fontSize: 9 }} stroke="var(--muted-foreground)" />
               <YAxis type="category" dataKey="name" tick={truncatedCategoryTick} width={Y_AXIS_WIDTH_PX} interval={0} />
-              <Tooltip contentStyle={{ fontSize: 11 }} />
+              <Tooltip contentStyle={{ fontSize: 11 }} wrapperStyle={{ zIndex: TOOLTIP_Z_INDEX }} />
               <Bar dataKey="value" fill={GREEN.solidHex} radius={[0, 3, 3, 0]} />
             </BarChart>
           </ResponsiveContainer>

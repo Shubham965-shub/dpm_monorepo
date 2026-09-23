@@ -40,6 +40,8 @@ export const HEATMAP_MOCK: HeatmapMockSection[] = [
 // (no endpoint, no aggregation logic) - this is a UI placeholder pending a product decision on
 // how that composite should be computed. Single source shared by QcScoreCard and
 // SectionSummaryList so the same mocked numbers aren't duplicated in two files.
+// "starred" used to live here as a static mock flag - it's now real, per-user state (see
+// useFavoriteSections.ts), so it's not part of this placeholder data anymore.
 export const SECTION_SCORE_MOCK: Record<
   SectionKey,
   {
@@ -47,17 +49,16 @@ export const SECTION_SCORE_MOCK: Record<
     category: string
     score: number
     deltaPts: number
-    starred: boolean
     // Exact hex from Figma (file T5oSGlK2eTYF8KvKP5M9lF, node 5024:20119 "Frame 128") - the
     // QcScoreCard breakdown's number color and its underline bar color aren't always the same hue.
     numberHex: string
     barHex: string
   }
 > = {
-  'lab-performance': { shortLabel: 'Lab', category: 'Operational Efficiency', score: 76, deltaPts: -2.1, starred: false, numberHex: '#bb4d00', barHex: '#f59e0b' },
-  'instrument-health': { shortLabel: 'Instrument', category: 'Asset Reliability', score: 82, deltaPts: 1.4, starred: false, numberHex: '#bb4d00', barHex: '#ef4444' },
-  qms: { shortLabel: 'QMS', category: 'Compliance System', score: 69, deltaPts: -4.8, starred: false, numberHex: '#c10007', barHex: '#ef4444' },
-  'people-performance': { shortLabel: 'People', category: 'Workforce', score: 89, deltaPts: 2.2, starred: false, numberHex: '#008236', barHex: '#028662' },
+  'lab-performance': { shortLabel: 'Lab', category: 'Operational Efficiency', score: 76, deltaPts: -2.1, numberHex: '#bb4d00', barHex: '#f59e0b' },
+  'instrument-health': { shortLabel: 'Instrument', category: 'Asset Reliability', score: 82, deltaPts: 1.4, numberHex: '#bb4d00', barHex: '#ef4444' },
+  qms: { shortLabel: 'QMS', category: 'Compliance System', score: 69, deltaPts: -4.8, numberHex: '#c10007', barHex: '#ef4444' },
+  'people-performance': { shortLabel: 'People', category: 'Workforce', score: 89, deltaPts: 2.2, numberHex: '#008236', barHex: '#028662' },
 }
 
 export const QC_SCORE_MOCK = {
@@ -165,12 +166,13 @@ export interface KpiThresholdMock {
   actionThreshold: number
 }
 
-// Covers every real KPI_DOMAINS entry (kpiConfig.ts) EXCEPT the 3 chartType:'bar' QMS KPIs
+// Covers every real KPI_DOMAINS entry (kpiConfig.ts) EXCEPT: the 3 chartType:'bar' QMS KPIs
 // (capa-aging-status, human-error-by-product, product-wise-failure) - those are category rankings
 // summed across the whole date range (see KpiChartCard's toBarData comment), not a per-period
 // single value/trend, so a target/alert/action zone doesn't apply to them; they stay on the plain
 // real-data ranking-bar card with no thresholds (see SectionSummaryList.tsx's "uncovered"
-// fallback).
+// fallback) - and priority-sample-compliance, which gets its own stacked-percentage card instead
+// (see the comment right above its excluded id below).
 //
 // Threshold numbers were sanity-checked against real observed values (see backend/DB_details.py-
 // style live curl of each endpoint, trailing 3 months, site=KRSG) so the target/alert/action scale
@@ -184,8 +186,10 @@ export const KPI_THRESHOLD_MOCK: KpiThresholdMock[] = [
   { id: 'tests-per-analyst', domainKey: 'lab-performance', target: 12, alertThreshold: 9, actionThreshold: 6 },
   // Real ~51-63% - original 82/90/98 assumed adherence was already high; real KRSG data runs low.
   { id: 'sla-adherence', domainKey: 'lab-performance', target: 85, alertThreshold: 70, actionThreshold: 55 },
-  // Real data is a raw sample COUNT per priority tier (100s), not a %.
-  { id: 'priority-sample-compliance', domainKey: 'lab-performance', target: 500, alertThreshold: 300, actionThreshold: 150 },
+  // priority-sample-compliance is deliberately absent here: the real data is a raw sample COUNT
+  // per priority tier (P1..P4, always summing to the period's total), not a single trending value
+  // a target/alert/action zone can classify - see PriorityComplianceCard.tsx's stacked-percentage
+  // breakdown instead (SectionSummaryList.tsx routes it there, not into DomainSeverityBoard).
   // Real ~56-86 sequences/analyst - original 20/30/40 was far too low.
   { id: 'hplc-sequences-per-analyst', domainKey: 'lab-performance', target: 90, alertThreshold: 70, actionThreshold: 50 },
   // Real ~7-11 injections/analyst - original 70/95/120 was ~10x too high.

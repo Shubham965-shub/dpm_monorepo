@@ -20,6 +20,7 @@ export interface SectionSummaryBarProps {
   score: number
   deltaPts: number
   starred: boolean
+  onToggleStar: () => void
   expanded: boolean
   onToggle: () => void
 }
@@ -33,6 +34,7 @@ export function SectionSummaryBar({
   score,
   deltaPts,
   starred,
+  onToggleStar,
   expanded,
   onToggle,
 }: SectionSummaryBarProps) {
@@ -46,9 +48,14 @@ export function SectionSummaryBar({
       )}
     >
       <div className="flex items-center gap-3">
-        <Star
-          className={cn('size-4 shrink-0', starred ? 'fill-emerald-400 text-emerald-400' : 'text-white/60')}
-        />
+        <button
+          onClick={onToggleStar}
+          aria-label={starred ? `Unfavorite ${title}` : `Favorite ${title}`}
+          aria-pressed={starred}
+          className="flex shrink-0 items-center justify-center"
+        >
+          <Star className={cn('size-4', starred ? 'fill-emerald-400 text-emerald-400' : 'text-white/60')} />
+        </button>
         <div>
           <div className="text-[11px] font-semibold tracking-wide text-white/70 uppercase">{category}</div>
           <div className="text-lg font-bold">{title}</div>

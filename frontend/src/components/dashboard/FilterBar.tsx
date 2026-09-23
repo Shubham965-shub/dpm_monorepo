@@ -18,10 +18,9 @@ const GRAIN_LABEL: Record<Grain, string> = {
   yearly: 'Yearly',
 }
 
-/** Only 1 plant/shift ever exists today (see DashboardPage's hardcoded site="KRSG" elsewhere) -
- * these two stay a fixed display rather than a dropdown with nothing to actually choose between.
- * Section/Timeline are real, since there are 4 real sections (KPI_DOMAINS) and 5 real grains
- * (GRAINS) to pick from. */
+/** Only 1 plant ever exists today (see DashboardPage's hardcoded site="KRSG" elsewhere) - stays a
+ * fixed display rather than a dropdown with nothing to actually choose between. Section/Timeline
+ * are real, since there are 4 real sections (KPI_DOMAINS) and 5 real grains (GRAINS) to pick from. */
 function FixedPill({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center gap-1.5 rounded-lg border border-border bg-muted/50 px-3 py-1.5 text-sm">
@@ -89,7 +88,6 @@ export function FilterBar({
         options={sectionOptions}
         onChange={(section) => onChange({ ...value, section })}
       />
-      <FixedPill label="Shift" value="All" />
       <FilterSelect
         label="Timeline"
         value={value.grain}
