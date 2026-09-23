@@ -4,11 +4,15 @@ import com.strides.model.PeriodSum;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @ApplicationScoped
 public class AggTwRciBeyondTimelineRepository extends AbstractAggRepository<PeriodSum> {
+
+    private static final String TABLE = "agg_tw_rci_beyond_timeline";
 
     /**
      * respDepts/initiatedThroughs empty = no filter on that dimension (every value combined). Sum
@@ -36,5 +40,18 @@ public class AggTwRciBeyondTimelineRepository extends AbstractAggRepository<Peri
                 rs.getString("grain"),
                 rs.getLong("total")),
                 params.toArray());
+    }
+
+    /** respDept/initiatedThrough live option lists, cross-filtered against each other - see AbstractAggRepository.distinctValues. */
+    public Map<String, List<String>> filterOptions(String site, String grain, LocalDate from, LocalDate to,
+            Set<String> respDepts, Set<String> initiatedThroughs) {
+        Map<String, Set<String>> selected = new LinkedHashMap<>();
+        selected.put("resp_dept", respDepts);
+        selected.put("initiated_through", initiatedThroughs);
+
+        Map<String, List<String>> options = new LinkedHashMap<>();
+        options.put("respDept", distinctValues(TABLE, "site", "resp_dept", site, grain, from, to, without(selected, "resp_dept")));
+        options.put("initiatedThrough", distinctValues(TABLE, "site", "initiated_through", site, grain, from, to, without(selected, "initiated_through")));
+        return options;
     }
 }

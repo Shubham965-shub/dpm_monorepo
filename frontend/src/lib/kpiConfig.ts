@@ -4,25 +4,23 @@
  *
  * `extraFilters` lists every endpoint-specific query param a KPI adds on top of the shared
  * site/grain/from/to (see backend KpiParams.java) - most have one, several now have two or more
- * (e.g. deviations has 6) since the backend filter set grew. Option lists below were read directly
- * from the live `dpm` Postgres DB (DISTINCT queries against the real filter column) - where a
- * column's full distinct-value list wasn't captured (too many values, e.g. 965 analyst codes, or
- * only a sample was checked), the filter is a free-text input instead of a dropdown, rather than
- * offering an incomplete/guessed option list.
+ * (e.g. deviations has 6) since the backend filter set grew. select/multiSelect option lists are
+ * NOT stored here - every KPI now has a matching `{basePath}/{kpiPath}/filter-options` backend
+ * endpoint that returns each param's live, cross-filtered option list (see useExtraFilters.ts and
+ * AbstractAggRepository.distinctValues), so this file only needs to declare which params exist
+ * and how each one's selections are sent (comma-joined vs repeated query params).
  */
 
 export type ExtraFilter =
-  | { kind: 'select'; param: string; options: string[]; required?: boolean }
+  | { kind: 'select'; param: string; required?: boolean }
   /** repeated: true sends selections as repeated params (?param=A&param=B) instead of comma-joined -
    * required when an option value can itself contain a comma (e.g. a department name), see
    * backend/README.md's "Filter syntax" note. */
-  | { kind: 'multiSelect'; param: string; options: string[]; repeated?: boolean }
-  /** Sent as repeated query params (?material=A&material=B), not comma-joined - see backend/README.md's "Filter syntax" note. */
-  | { kind: 'repeatedText'; param: string; placeholder?: string }
-  /** Comma-separated free text, sent as one comma-joined param (like multiSelect) - used where the
-   * full distinct-value list isn't known (too many values, or only a sample was ever queried). */
-  | { kind: 'freeText'; param: string; placeholder?: string }
+  | { kind: 'multiSelect'; param: string; repeated?: boolean }
   | { kind: 'numberInput'; param: string }
+  /** QC/All toggle (see backend/README.md's "Department scope" section) - not a DB column with a
+   * distinct-value list, so unlike select/multiSelect it never goes through the live filter-options fetch. */
+  | { kind: 'departmentScope'; param: 'departmentScope' }
 
 export interface KpiDefinition {
   id: string
@@ -51,172 +49,27 @@ export interface KpiDomain {
 /**
  * A required select filter (currently just Instrument Health's instGroup) has no backend-side
  * "combined" value to fall back to - the column is an exact-match required param with 3 real,
- * distinct values, no "All" row (see InstrumentHealthController). Rather than blocking the fetch
- * entirely, default to the first real option so the KPI still loads - same as
- * ExtraFilterControl's initialExtraFilterState already does for the ranking-bar cards - and let
- * the card's own Filters control switch it.
+ * distinct values, no "All" row (see InstrumentHealthController). Used only by the board-level
+ * batch fetch (useDomainTrendKpis), which has no interactive Filters UI of its own to resolve a
+ * live value from before its first render - the per-card Filters control (SeverityKpiCard) uses
+ * the live filter-options list instead (see useExtraFilters.ts) and can switch it from there.
  */
+const REQUIRED_SELECT_DEFAULTS: Record<string, string> = {
+  instGroup: 'Dissolution',
+}
+
 export function requiredSelectDefaults(kpi: KpiDefinition): [string, string][] {
   return kpi.extraFilters
     .filter((f): f is Extract<ExtraFilter, { kind: 'select' }> => f.kind === 'select' && !!f.required)
-    .map((f) => [f.param, f.options[0] ?? ''])
+    .map((f) => [f.param, REQUIRED_SELECT_DEFAULTS[f.param]] as [string, string])
+    .filter(([, value]) => value != null)
 }
 
-// Union of site/site_name distinct values across every agg_* table - confirmed live.
-export const SITE_OPTIONS = [
-  'Alathur',
-  'Belta',
-  'Chandapura',
-  'CMO',
-  'Corporate',
-  'EU Hub',
-  'KRSG',
-  'Pondicherry',
-  'R&D',
-  'SPUK',
-  'Strides Pharma Global Pte. Ltd',
-  'Strides Pharma Inc., Florida',
-  'UCL',
-  'Unknown',
-]
 export const DEFAULT_SITE = 'KRSG'
-
-const ROOT_CAUSE_BUCKETS_OOS_OOT = [
-  'By BMR-BPR',
-  'By Environment',
-  'By Equipment',
-  'By Facility',
-  'By Human',
-  'By Instrument',
-  'By Material',
-  'By Software',
-  'By SOP',
-  'By STP',
-  'By Vendor',
-  'Unbucketed',
-]
-
-const ROOT_CAUSE_BUCKETS_DEVIATIONS = [
-  'By BMR-BPR',
-  'By Data Integrity',
-  'By Environment',
-  'By Equipment',
-  'By Facility',
-  'By Human',
-  'By Instrument',
-  'By Material',
-  'By Software',
-  'By SOP',
-  'By STP',
-  'By Utility',
-  'By Vendor',
-  'Unbucketed',
-]
 
 // QC-versus-All department split (see backend/README.md's "Department scope" section) - blank
 // selection omits the param, which the backend defaults to ALL, so only "QC" needs to be offered.
-const DEPARTMENT_SCOPE_FILTER: ExtraFilter = { kind: 'select', param: 'departmentScope', options: ['QC'] }
-
-// agg_tw_investigation_closure_tat.resp_dept_slice's full distinct-value list (38, excluding the
-// 'All' sentinel) - confirmed live against the database. Picking any of these takes priority over
-// departmentScope (see AggTwInvestigationClosureTatRepository).
-const RESP_DEPT_INVESTIGATION_CLOSURE = [
-  'Administration Department',
-  'Analytical Services Department',
-  'Computer System Validation',
-  'Corporate Quality Assurance',
-  'Dispatch',
-  'EHS',
-  'Electrical',
-  'Engineering',
-  'Facilities & Engineering',
-  'Formulation Development Department',
-  'General Stores',
-  'Group Quality Assurance',
-  'Human Resource and Administration',
-  'Human Resource Department',
-  'Information Technology Department',
-  'Logistics',
-  'Manufacturing, Science & Technology',
-  'Master Data Management',
-  'Microbiology',
-  'Operations Department',
-  'Packaging Development Department',
-  'Packing Department',
-  'Pharmacovigilance',
-  'Planning Department',
-  'Process development and Transfer',
-  'Production Department',
-  'Quality Assurance Department',
-  'Quality Assurance - Validation Group',
-  'Quality Control Department',
-  'Raw Material Stores',
-  'Regulatory Affairs Department',
-  'Stores',
-  'Supply Chain Management',
-  'Technical Services Group',
-  'Technical Services Group Quality Assurance',
-  'Technology Absorption Group',
-  'Unknown',
-  'Utility Department',
-]
-
-const RESP_DEPT_RCI = ['Analytical Services Department', 'Microbiology', 'Quality Control Department']
-
-// agg_tw_rci_beyond_timeline.initiated_through is a true partition (no 'All' row) - full 6-value list confirmed live.
-const INITIATED_THROUGH_RCI = ['Alert', 'Customer Notification', 'Deviation', 'Out Of Specification', 'Out of Trend', 'StandAlone']
-
-const RECORD_TYPE_REPEAT_FAILURE = ['Deviation', 'OOS']
-const RECORD_TYPE_ROOT_CAUSE = ['Deviation', 'Out Of Specification', 'Out of Trend']
-const ORIGINATED_FROM = ['CAPA', 'Change Control']
-const MATERIAL_TYPE = ['FG', 'SFG']
-// agg_tw_product_wise_failure.disposition - confirmed live, true partition (no 'All' row).
-const DISPOSITION = ['Recall', 'Unknown', 'Release', 'Field Alert', 'Alert', 'Reject', 'Not Applicable']
-// agg_lims_turn_around_time.batch_category - confirmed live, true partition (no 'All' row).
-const BATCH_CATEGORY = ['commercial', 'other', 'exhibit', 'raw material', 'commercial validation']
-const CAPA_RECORD_STATUS = [
-  'CAPA In Progress',
-  'Closed - Done',
-  'Opened',
-  'Pending Approval of Parent',
-  'Pending CAPA Approval',
-  'Pending Change Control',
-  'Pending HOD Review',
-  'Pending QA Closure',
-]
-const CAPA_LEVEL = ['L1', 'L2', 'L3', 'L4', 'L5']
-
-const SAMPLE_TYPE_REPEAT_ANALYSIS = [
-  'AGW', 'AMV_MV', 'ARP', 'ATR', 'CB', 'CMCR', 'CMV', 'CSPR', 'CV', 'DMW', 'DPCR', 'DPR', 'DW',
-  'DWSPR', 'EL', 'EM', 'EX', 'EXC', 'FG', 'FGR', 'HDM', 'HT', 'INV_R', 'IP', 'ISP', 'LTSP', 'MAIP',
-  'MIS', 'MONIT', 'MV', 'NA', 'OVR', 'PAC', 'PC', 'PM', 'PMERR', 'PV', 'PW', 'RA', 'RM', 'ROW',
-  'RP1OPA', 'RP2ES', 'RPVUC', 'RWT', 'SFG', 'SFGR', 'ST', 'STABILITY', 'SW', 'VER',
-]
-
-const SAMPLE_TYPE_RFT = [
-  'AGW', 'AMV_MV', 'AQ', 'ARP', 'ATR', 'CC', 'CMCR', 'CSPR', 'CV', 'DMW', 'DPCR', 'DPR', 'DW',
-  'DWSPR', 'EM', 'FG', 'HDM', 'HT', 'IP', 'LTSP', 'MAIP', 'MIS', 'MONIT', 'MV', 'OVR', 'PAC', 'PC',
-  'PMERR', 'PV', 'PW', 'RA', 'RM', 'ROW', 'RP1OPA', 'RP2ES', 'RPVUC', 'RWT', 'SFG', 'SFGR', 'ST',
-  'STABILITY', 'SW', 'VS', 'WR', 'WS',
-]
-
-const SAMPLE_TYPE_TAT = [
-  'AGW', 'AMV_MV', 'ARP', 'ATR', 'CSPR', 'CV', 'DMW', 'DPCR', 'DPR', 'DW', 'DWSPR', 'EM', 'FG',
-  'FGR', 'HDM', 'HT', 'IP', 'LTSP', 'MAIP', 'MIS', 'MONIT', 'MV', 'OVR', 'PAC', 'PC', 'PMERR', 'PV',
-  'PW', 'RA', 'RM', 'ROW', 'RP1OPA', 'RP2ES', 'RPVUC', 'RWT', 'SFG', 'ST', 'STABILITY', 'SW',
-]
-
-const SAMPLE_TYPE_PRIORITY = ['CV', 'HT', 'MIS', 'PAC', 'PC', 'PV', 'PW', 'RA', 'RM', 'SFG', 'ST', 'STABILITY']
-
-const SAMPLE_CATEGORY_SLA = ['IP/FP', 'RM', 'Stability']
-
-/**
- * agg_lims_tests_per_analyst was 0 rows when first checked this session and had 251,896 rows a
- * few minutes later (pipeline actively backfilling mid-session) - these are the real current values.
- */
-const SAMPLE_CATEGORY_TESTS_PER_ANALYST = ['IP/FP', 'RM', 'Stability']
-
-const INST_GROUP = ['Dissolution', 'GC', 'HPLC']
+const DEPARTMENT_SCOPE_FILTER: ExtraFilter = { kind: 'departmentScope', param: 'departmentScope' }
 
 export const KPI_DOMAINS: KpiDomain[] = [
   {
@@ -226,27 +79,20 @@ export const KPI_DOMAINS: KpiDomain[] = [
     kpis: [
       {
         id: 'invalid-oos-rate', label: 'Invalid OOS Rate', path: 'invalid-oos-rate',
-        // sample_category has 5 distinct values total (incl. the 'All' sentinel); only "Other" was
-        // ever sampled - free-text rather than a 1-of-4 incomplete dropdown.
-        extraFilters: [{ kind: 'freeText', param: 'sampleCategory', placeholder: 'e.g. Other' }],
+        extraFilters: [{ kind: 'multiSelect', param: 'sampleCategory' }],
       },
       { id: 'confirmed-oos-rate', label: 'Confirmed OOS Rate', path: 'confirmed-oos-rate', extraFilters: [] },
-      { id: 'oos-trend', label: 'OOS Trend', path: 'oos-trend', extraFilters: [{ kind: 'multiSelect', param: 'rootCauseBucket', options: ROOT_CAUSE_BUCKETS_OOS_OOT }] },
-      { id: 'oot-trend', label: 'OOT Trend', path: 'oot-trend', extraFilters: [{ kind: 'multiSelect', param: 'rootCauseBucket', options: ROOT_CAUSE_BUCKETS_OOS_OOT }] },
+      { id: 'oos-trend', label: 'OOS Trend', path: 'oos-trend', extraFilters: [{ kind: 'multiSelect', param: 'rootCauseBucket' }] },
+      { id: 'oot-trend', label: 'OOT Trend', path: 'oot-trend', extraFilters: [{ kind: 'multiSelect', param: 'rootCauseBucket' }] },
       {
         id: 'deviations', label: 'Deviations', path: 'deviations',
         extraFilters: [
-          { kind: 'multiSelect', param: 'rootCauseBucket', options: ROOT_CAUSE_BUCKETS_DEVIATIONS },
-          // respDept (42 distinct), level (6, only 5 sampled), initialClassification/finalClassification
-          // (4 each, only 1 sampled), recurringByCause (3, only 1 sampled) - full lists never queried,
-          // so free-text rather than an incomplete dropdown. departmentScope=QC overrides respDept
-          // (additive pattern, see backend/README.md's "Department scope" section).
-          DEPARTMENT_SCOPE_FILTER,
-          { kind: 'freeText', param: 'respDept', placeholder: 'e.g. Quality Control Department' },
-          { kind: 'freeText', param: 'level', placeholder: 'e.g. NA, L1, L2...' },
-          { kind: 'freeText', param: 'initialClassification', placeholder: 'e.g. Minor' },
-          { kind: 'freeText', param: 'finalClassification', placeholder: 'e.g. Minor' },
-          { kind: 'freeText', param: 'recurringByCause', placeholder: 'e.g. No' },
+          { kind: 'multiSelect', param: 'rootCauseBucket' },
+          { kind: 'multiSelect', param: 'respDept' },
+          { kind: 'multiSelect', param: 'level' },
+          { kind: 'multiSelect', param: 'initialClassification' },
+          { kind: 'multiSelect', param: 'finalClassification' },
+          { kind: 'multiSelect', param: 'recurringByCause' },
         ],
       },
       {
@@ -257,27 +103,26 @@ export const KPI_DOMAINS: KpiDomain[] = [
           // toggle (see backend/README.md's "Department scope" section).
           // repeated: true - 'Manufacturing, Science & Technology' contains a comma, which would
           // break comma-joined parsing (confirmed live: it silently splits into two garbage values).
-          { kind: 'multiSelect', param: 'respDept', options: RESP_DEPT_INVESTIGATION_CLOSURE, repeated: true },
+          { kind: 'multiSelect', param: 'respDept', repeated: true },
           DEPARTMENT_SCOPE_FILTER,
-          // initiated_through_slice has 8 distinct values; only 'Deviation' was ever sampled - free-text.
-          { kind: 'freeText', param: 'initiatedThrough', placeholder: 'e.g. Deviation' },
+          { kind: 'multiSelect', param: 'initiatedThrough' },
         ],
       },
       {
         id: 'rci-beyond-timeline', label: 'RCIs Beyond Timeline', path: 'rci-beyond-timeline',
         extraFilters: [
-          { kind: 'multiSelect', param: 'respDept', options: RESP_DEPT_RCI },
-          { kind: 'multiSelect', param: 'initiatedThrough', options: INITIATED_THROUGH_RCI },
+          { kind: 'multiSelect', param: 'respDept' },
+          { kind: 'multiSelect', param: 'initiatedThrough' },
         ],
       },
-      { id: 'repeat-failure-rate', label: 'Repeat Failure Rate', path: 'repeat-failure-rate', extraFilters: [{ kind: 'multiSelect', param: 'recordType', options: RECORD_TYPE_REPEAT_FAILURE }, DEPARTMENT_SCOPE_FILTER] },
-      { id: 'root-cause', label: 'Root Cause Breakdown', path: 'root-cause', extraFilters: [{ kind: 'multiSelect', param: 'recordType', options: RECORD_TYPE_ROOT_CAUSE }] },
-      { id: 'root-cause-consolidated', label: 'Root Cause (Consolidated)', path: 'root-cause/consolidated', extraFilters: [{ kind: 'multiSelect', param: 'recordType', options: RECORD_TYPE_ROOT_CAUSE }] },
+      { id: 'repeat-failure-rate', label: 'Repeat Failure Rate', path: 'repeat-failure-rate', extraFilters: [{ kind: 'multiSelect', param: 'recordType' }, DEPARTMENT_SCOPE_FILTER] },
+      { id: 'root-cause', label: 'Root Cause Breakdown', path: 'root-cause', extraFilters: [{ kind: 'multiSelect', param: 'recordType' }] },
+      { id: 'root-cause-consolidated', label: 'Root Cause (Consolidated)', path: 'root-cause/consolidated', extraFilters: [{ kind: 'multiSelect', param: 'recordType' }] },
       {
         id: 'capa-aging-status', label: 'CAPA Aging Status', path: 'capa-aging-status',
         extraFilters: [
-          { kind: 'multiSelect', param: 'recordStatus', options: CAPA_RECORD_STATUS },
-          { kind: 'multiSelect', param: 'level', options: CAPA_LEVEL },
+          { kind: 'multiSelect', param: 'recordStatus' },
+          { kind: 'multiSelect', param: 'level' },
           { kind: 'numberInput', param: 'minAgingDays' },
           { kind: 'numberInput', param: 'maxAgingDays' },
           DEPARTMENT_SCOPE_FILTER,
@@ -290,28 +135,28 @@ export const KPI_DOMAINS: KpiDomain[] = [
         // without a pipeline change.
         id: 'capa-open-by-date-opened', label: 'Open CAPA by Date Opened', path: 'capa-aging-status/by-date-opened',
         extraFilters: [
-          { kind: 'multiSelect', param: 'recordStatus', options: CAPA_RECORD_STATUS },
-          { kind: 'multiSelect', param: 'level', options: CAPA_LEVEL },
+          { kind: 'multiSelect', param: 'recordStatus' },
+          { kind: 'multiSelect', param: 'level' },
           DEPARTMENT_SCOPE_FILTER,
         ],
       },
-      { id: 'capa-effectiveness', label: 'CAPA Effectiveness', path: 'capa-effectiveness', extraFilters: [{ kind: 'multiSelect', param: 'originatedFrom', options: ORIGINATED_FROM }, DEPARTMENT_SCOPE_FILTER] },
+      { id: 'capa-effectiveness', label: 'CAPA Effectiveness', path: 'capa-effectiveness', extraFilters: [{ kind: 'multiSelect', param: 'originatedFrom' }, DEPARTMENT_SCOPE_FILTER] },
       { id: 'capa-recurrence-rate', label: 'CAPA Recurrence Rate', path: 'capa-recurrence-rate', extraFilters: [DEPARTMENT_SCOPE_FILTER] },
       { id: 'human-error-rate', label: 'Human Error Rate', path: 'human-error-rate', extraFilters: [DEPARTMENT_SCOPE_FILTER] },
       { id: 'repeat-human-error-rate', label: 'Repeat Human Error Rate', path: 'repeat-human-error-rate', extraFilters: [DEPARTMENT_SCOPE_FILTER] },
       { id: 'human-error-severity', label: 'Human Error Severity', path: 'human-error-severity', extraFilters: [DEPARTMENT_SCOPE_FILTER] },
       {
         id: 'human-error-by-product', label: 'Human Error by Product', path: 'human-error-by-product',
-        extraFilters: [{ kind: 'repeatedText', param: 'material', placeholder: 'e.g. Acetazolamide Tablets USP 250mg' }, DEPARTMENT_SCOPE_FILTER],
+        extraFilters: [{ kind: 'multiSelect', param: 'material', repeated: true }, DEPARTMENT_SCOPE_FILTER],
         chartType: 'bar',
       },
       { id: 'method-failure-rate', label: 'Method Failure Rate', path: 'method-failure-rate', extraFilters: [] },
       {
         id: 'product-wise-failure', label: 'Product-wise Failure', path: 'product-wise-failure',
         extraFilters: [
-          { kind: 'multiSelect', param: 'materialType', options: MATERIAL_TYPE },
-          { kind: 'multiSelect', param: 'disposition', options: DISPOSITION },
-          { kind: 'repeatedText', param: 'product', placeholder: 'e.g. TenoDF,Lami & Dolute Tabs 300/300/50mg' },
+          { kind: 'multiSelect', param: 'materialType' },
+          { kind: 'multiSelect', param: 'disposition' },
+          { kind: 'multiSelect', param: 'product', repeated: true },
         ],
         chartType: 'bar',
       },
@@ -322,19 +167,16 @@ export const KPI_DOMAINS: KpiDomain[] = [
     label: 'People Performance',
     basePath: '/api/people-performance',
     kpis: [
-      { id: 'repeat-analysis-rate', label: 'Repeat Analysis Rate', path: 'repeat-analysis-rate', extraFilters: [{ kind: 'multiSelect', param: 'sampleType', options: SAMPLE_TYPE_REPEAT_ANALYSIS }] },
+      { id: 'repeat-analysis-rate', label: 'Repeat Analysis Rate', path: 'repeat-analysis-rate', extraFilters: [{ kind: 'multiSelect', param: 'sampleType' }] },
       { id: 'reviewer-productivity', label: 'Reviewer Productivity Index', path: 'reviewer-productivity', extraFilters: [] },
-      { id: 'rft-documentation', label: 'Right First Time (RFT) Documentation', path: 'rft-documentation', extraFilters: [{ kind: 'multiSelect', param: 'sampleType', options: SAMPLE_TYPE_RFT }] },
+      { id: 'rft-documentation', label: 'Right First Time (RFT) Documentation', path: 'rft-documentation', extraFilters: [{ kind: 'multiSelect', param: 'sampleType' }] },
       {
         id: 'training-completion-rate', label: 'Training Completion Rate', path: 'training-completion-rate',
+        // departmentScope=QC overrides department (additive pattern, see backend/README.md's "Department scope" section).
         extraFilters: [
-          // department (55 distinct) and trainingType (5 distinct) - only one sample value each was
-          // ever seen ("Quality Control", "Control Document"), full lists never queried - free-text.
-          // departmentScope=QC overrides department (additive pattern, see backend/README.md's
-          // "Department scope" section).
           DEPARTMENT_SCOPE_FILTER,
-          { kind: 'freeText', param: 'department', placeholder: 'e.g. Quality Control' },
-          { kind: 'freeText', param: 'trainingType', placeholder: 'e.g. Control Document' },
+          { kind: 'multiSelect', param: 'department' },
+          { kind: 'multiSelect', param: 'trainingType' },
         ],
       },
     ],
@@ -344,17 +186,16 @@ export const KPI_DOMAINS: KpiDomain[] = [
     label: 'Instrument Health',
     basePath: '/api/instrument-health',
     kpis: [
-      { id: 'utilization', label: 'Instrument Utilization %', path: 'utilization', extraFilters: [{ kind: 'select', param: 'instGroup', options: INST_GROUP, required: true }] },
-      { id: 'availability', label: 'Instrument Availability %', path: 'availability', extraFilters: [{ kind: 'select', param: 'instGroup', options: INST_GROUP, required: true }] },
-      { id: 'downtime', label: 'Instrument Downtime %', path: 'downtime', extraFilters: [{ kind: 'select', param: 'instGroup', options: INST_GROUP, required: true }] },
+      { id: 'utilization', label: 'Instrument Utilization %', path: 'utilization', extraFilters: [{ kind: 'select', param: 'instGroup', required: true }] },
+      { id: 'availability', label: 'Instrument Availability %', path: 'availability', extraFilters: [{ kind: 'select', param: 'instGroup', required: true }] },
+      { id: 'downtime', label: 'Instrument Downtime %', path: 'downtime', extraFilters: [{ kind: 'select', param: 'instGroup', required: true }] },
       { id: 'calibration-compliance', label: 'Calibration Compliance %', path: 'calibration-compliance', extraFilters: [] },
       { id: 'pm-adherence', label: 'PM Adherence %', path: 'pm-adherence', extraFilters: [] },
       { id: 'breakdown-frequency', label: 'Breakdown Frequency', path: 'breakdown-frequency', extraFilters: [] },
       { id: 'failure-rate', label: 'Instrument Failure Rate', path: 'failure-rate', extraFilters: [] },
       {
         id: 'qualification-cycle-time', label: 'Qualification Cycle Time', path: 'qualification-cycle-time',
-        // designation (6 distinct); only "Executive." was ever sampled - free-text rather than a partial list.
-        extraFilters: [{ kind: 'freeText', param: 'designation', placeholder: 'e.g. Executive.' }],
+        extraFilters: [{ kind: 'multiSelect', param: 'designation' }],
       },
     ],
   },
@@ -366,29 +207,26 @@ export const KPI_DOMAINS: KpiDomain[] = [
       {
         id: 'sample-tat', label: 'Sample TAT', path: 'sample-tat',
         extraFilters: [
-          { kind: 'multiSelect', param: 'sampleType', options: SAMPLE_TYPE_TAT },
-          { kind: 'multiSelect', param: 'batchCategory', options: BATCH_CATEGORY },
+          { kind: 'multiSelect', param: 'sampleType' },
+          { kind: 'multiSelect', param: 'batchCategory' },
         ],
       },
-      { id: 'sla-adherence', label: 'SLA Adherence', path: 'sla-adherence', extraFilters: [{ kind: 'multiSelect', param: 'sampleCategory', options: SAMPLE_CATEGORY_SLA }] },
-      { id: 'priority-sample-compliance', label: 'Priority Sample Compliance', path: 'priority-sample-compliance', extraFilters: [{ kind: 'multiSelect', param: 'sampleType', options: SAMPLE_TYPE_PRIORITY }] },
+      { id: 'sla-adherence', label: 'SLA Adherence', path: 'sla-adherence', extraFilters: [{ kind: 'multiSelect', param: 'sampleCategory' }] },
+      { id: 'priority-sample-compliance', label: 'Priority Sample Compliance', path: 'priority-sample-compliance', extraFilters: [{ kind: 'multiSelect', param: 'sampleType' }] },
       {
         id: 'tests-per-analyst', label: 'Tests per Analyst per Day', path: 'tests-per-analyst',
         extraFilters: [
-          { kind: 'multiSelect', param: 'sampleCategory', options: SAMPLE_CATEGORY_TESTS_PER_ANALYST },
-          // 965 distinct analyst codes - far too many for a dropdown, free-text (comma-separated to combine).
-          { kind: 'freeText', param: 'analyst', placeholder: 'e.g. 113962,114245' },
+          { kind: 'multiSelect', param: 'sampleCategory' },
+          { kind: 'multiSelect', param: 'analyst' },
         ],
       },
       {
         id: 'hplc-sequences-per-analyst', label: 'HPLC Sequences per Analyst', path: 'hplc-sequences-per-analyst',
-        // injection_status has only 3 distinct values total (incl. the 'All' sentinel), but only
-        // "Finished" was ever sampled - free-text rather than a 1-of-2 incomplete dropdown.
-        extraFilters: [{ kind: 'freeText', param: 'injectionStatus', placeholder: 'e.g. Finished' }],
+        extraFilters: [{ kind: 'multiSelect', param: 'injectionStatus' }],
       },
       {
         id: 'hplc-injections-per-analyst', label: 'HPLC Injections per Analyst', path: 'hplc-injections-per-analyst',
-        extraFilters: [{ kind: 'freeText', param: 'injectionStatus', placeholder: 'e.g. Finished' }],
+        extraFilters: [{ kind: 'multiSelect', param: 'injectionStatus' }],
       },
     ],
   },

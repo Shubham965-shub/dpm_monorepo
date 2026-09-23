@@ -5,10 +5,13 @@ import jakarta.enterprise.context.ApplicationScoped;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @ApplicationScoped
 public class AggLimsPrioritySampleComplianceRepository extends AbstractAggRepository<PeriodTierTotal> {
+
+    private static final String TABLE = "agg_lims_priority_sample_compliance";
 
     /**
      * sampleTypes empty = no filter (every sample type combined). priority_at_completion (the
@@ -32,5 +35,11 @@ public class AggLimsPrioritySampleComplianceRepository extends AbstractAggReposi
                 rs.getString("priority_at_completion"),
                 rs.getLong("total")),
                 params.toArray());
+    }
+
+    /** sampleType's live option list, scoped by site/grain/date range - see AbstractAggRepository.distinctValues. */
+    public Map<String, List<String>> filterOptions(String site, String grain, LocalDate from, LocalDate to) {
+        return Map.of("sampleType",
+                distinctValues(TABLE, "site", "sample_type", site, grain, from, to, Map.of()));
     }
 }

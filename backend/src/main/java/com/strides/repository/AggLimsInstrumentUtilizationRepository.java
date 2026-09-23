@@ -4,9 +4,12 @@ import com.strides.model.AggLimsInstrumentUtilizationRow;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 @ApplicationScoped
 public class AggLimsInstrumentUtilizationRepository extends AbstractAggRepository<AggLimsInstrumentUtilizationRow> {
+
+    private static final String TABLE = "agg_lims_instrument_utilization";
 
     public List<AggLimsInstrumentUtilizationRow> find(String siteName, String instGroup, String grain, LocalDate from, LocalDate to) {
         String sql = """
@@ -30,5 +33,15 @@ public class AggLimsInstrumentUtilizationRepository extends AbstractAggRepositor
                 rs.getBigDecimal("availability_pct"),
                 rs.getBigDecimal("downtime_pct")),
                 siteName, instGroup, grain, from, to);
+    }
+
+    /**
+     * instGroup's live option list, scoped by site/grain/date range - see
+     * AbstractAggRepository.distinctValues. Shared by utilization/availability/downtime (same
+     * table/columns, only the response mapping differs).
+     */
+    public Map<String, List<String>> filterOptions(String siteName, String grain, LocalDate from, LocalDate to) {
+        return Map.of("instGroup",
+                distinctValues(TABLE, "site_name", "inst_group", siteName, grain, from, to, Map.of()));
     }
 }

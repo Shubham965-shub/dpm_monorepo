@@ -8,26 +8,24 @@ export type ExtraFilterState =
    * blank states the "All" checkbox last asked for: select-all (every box checked) or
    * deselect-all (every box unchecked), so the master checkbox is a real toggle. */
   | { kind: 'multiSelect'; value: string[]; allChecked: boolean }
-  | { kind: 'repeatedText'; value: string }
-  | { kind: 'freeText'; value: string }
   | { kind: 'numberInput'; value: string }
+  /** '' = All, 'QC' = QC scope - see the departmentScope ExtraFilter kind. */
+  | { kind: 'departmentScope'; value: '' | 'QC' }
 
 export function initialExtraFilterState(filter: ExtraFilter): ExtraFilterState {
   switch (filter.kind) {
     case 'select':
-      return { kind: 'select', value: filter.required ? (filter.options[0] ?? '') : '' }
+      return { kind: 'select', value: '' }
     case 'multiSelect':
       return { kind: 'multiSelect', value: [], allChecked: true }
-    case 'repeatedText':
-      return { kind: 'repeatedText', value: '' }
-    case 'freeText':
-      return { kind: 'freeText', value: '' }
     case 'numberInput':
       return { kind: 'numberInput', value: '' }
+    case 'departmentScope':
+      return { kind: 'departmentScope', value: '' }
   }
 }
 
-/** One filter -> 0 or 1 query-param entries (repeatedText can still yield several, one per value). */
+/** One filter -> 0 or 1 query-param entries (a repeated multiSelect can still yield several, one per value). */
 export function resolveExtraParams(filter: ExtraFilter, state: ExtraFilterState): ExtraParams {
   if (filter.kind === 'select' && state.kind === 'select') {
     return state.value ? [[filter.param, state.value]] : []
@@ -36,22 +34,11 @@ export function resolveExtraParams(filter: ExtraFilter, state: ExtraFilterState)
     if (state.value.length === 0) return []
     return filter.repeated ? state.value.map((v) => [filter.param, v] as [string, string]) : [[filter.param, state.value.join(',')]]
   }
-  if (filter.kind === 'repeatedText' && state.kind === 'repeatedText') {
-    const values = state.value
-      .split(',')
-      .map((v) => v.trim())
-      .filter((v) => v.length > 0)
-    return values.map((v) => [filter.param, v] as [string, string])
-  }
-  if (filter.kind === 'freeText' && state.kind === 'freeText') {
-    const values = state.value
-      .split(',')
-      .map((v) => v.trim())
-      .filter((v) => v.length > 0)
-    return values.length > 0 ? [[filter.param, values.join(',')]] : []
-  }
   if (filter.kind === 'numberInput' && state.kind === 'numberInput') {
     return state.value !== '' ? [[filter.param, state.value]] : []
+  }
+  if (filter.kind === 'departmentScope' && state.kind === 'departmentScope') {
+    return state.value ? [[filter.param, state.value]] : []
   }
   return []
 }
@@ -63,10 +50,16 @@ const labelClass = 'text-muted-foreground text-[11px] font-medium'
 export function ExtraFilterControl({
   filter,
   state,
+  options,
+  loading,
   onChange,
 }: {
   filter: ExtraFilter
   state: ExtraFilterState
+  /** Live option list for select/multiSelect, fetched per-card and cross-filtered against this
+   * card's other current selections (see useExtraFilters) - ignored for numberInput/departmentScope. */
+  options: string[]
+  loading?: boolean
   onChange: (state: ExtraFilterState) => void
 }) {
   if (filter.kind === 'select' && state.kind === 'select') {
@@ -75,7 +68,10 @@ export function ExtraFilterControl({
         <span className={labelClass}>{filter.param}{filter.required ? ' *' : ''}</span>
         <select className={inputClass} value={state.value} onChange={(e) => onChange({ kind: 'select', value: e.target.value })}>
           {!filter.required && <option value="">All</option>}
-          {filter.options.map((o) => (
+          {filter.required && state.value === '' && (
+            <option value="" disabled>{loading ? 'Loading…' : 'Choose…'}</option>
+          )}
+          {options.map((o) => (
             <option key={o} value={o}>{o}</option>
           ))}
         </select>
@@ -88,7 +84,6 @@ export function ExtraFilterControl({
     // convention - see PeriodCombiner.parseSelection) - so "All" clicked and every individual box
     // clicked send the identical (empty) query either way. `allChecked` is a display-only toggle
     // for which of those two states the master checkbox last asked for.
-    const options = filter.options
     const selectedValues = state.value
     const isAll = selectedValues.length === 0
     const selected = new Set(selectedValues)
@@ -111,7 +106,7 @@ export function ExtraFilterControl({
       <fieldset className="flex flex-col gap-1">
         <span className={labelClass}>{filter.param}</span>
         {options.length === 0 ? (
-          <span className="text-muted-foreground text-xs italic">no values in DB yet</span>
+          <span className="text-muted-foreground text-xs italic">{loading ? 'Loading…' : 'no values in DB yet'}</span>
         ) : (
           <div className="max-h-36 w-56 overflow-y-auto rounded-md border border-input bg-background p-1.5 text-xs">
             <label className="flex items-center gap-1.5 border-b border-border pb-1 font-medium">
@@ -134,34 +129,6 @@ export function ExtraFilterControl({
     )
   }
 
-  if (filter.kind === 'repeatedText' && state.kind === 'repeatedText') {
-    return (
-      <label className="flex flex-col gap-1">
-        <span className={labelClass}>{filter.param} (comma-separated to combine, sent as repeated params)</span>
-        <input
-          className={inputClass}
-          placeholder={filter.placeholder}
-          value={state.value}
-          onChange={(e) => onChange({ kind: 'repeatedText', value: e.target.value })}
-        />
-      </label>
-    )
-  }
-
-  if (filter.kind === 'freeText' && state.kind === 'freeText') {
-    return (
-      <label className="flex flex-col gap-1">
-        <span className={labelClass}>{filter.param} (comma-separated to combine; full option list unknown)</span>
-        <input
-          className={inputClass}
-          placeholder={filter.placeholder}
-          value={state.value}
-          onChange={(e) => onChange({ kind: 'freeText', value: e.target.value })}
-        />
-      </label>
-    )
-  }
-
   if (filter.kind === 'numberInput' && state.kind === 'numberInput') {
     return (
       <label className="flex flex-col gap-1">
@@ -172,6 +139,19 @@ export function ExtraFilterControl({
           value={state.value}
           onChange={(e) => onChange({ kind: 'numberInput', value: e.target.value })}
         />
+      </label>
+    )
+  }
+
+  if (filter.kind === 'departmentScope' && state.kind === 'departmentScope') {
+    return (
+      <label className="flex items-center gap-1.5 rounded-md border border-input bg-background px-2 py-1.5 text-xs">
+        <input
+          type="checkbox"
+          checked={state.value === 'QC'}
+          onChange={(e) => onChange({ kind: 'departmentScope', value: e.target.checked ? 'QC' : '' })}
+        />
+        QC scope only
       </label>
     )
   }

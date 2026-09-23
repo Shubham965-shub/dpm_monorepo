@@ -4,11 +4,15 @@ import com.strides.model.AggCwTrainingCompletionRateRow;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @ApplicationScoped
 public class AggCwTrainingCompletionRateRepository extends AbstractAggRepository<AggCwTrainingCompletionRateRow> {
+
+    private static final String TABLE = "agg_cw_training_completion_rate";
 
     /**
      * departments/trainingTypes empty = no filter on that dimension (every value combined;
@@ -40,5 +44,18 @@ public class AggCwTrainingCompletionRateRepository extends AbstractAggRepository
                 rs.getString("assignment_status"),
                 rs.getLong("assignment_count")),
                 params.toArray());
+    }
+
+    /** department/trainingType live option lists, cross-filtered against each other - see AbstractAggRepository.distinctValues. */
+    public Map<String, List<String>> filterOptions(String site, String grain, LocalDate from, LocalDate to,
+            Set<String> departments, Set<String> trainingTypes) {
+        Map<String, Set<String>> selected = new LinkedHashMap<>();
+        selected.put("department", departments);
+        selected.put("training_type", trainingTypes);
+
+        Map<String, List<String>> options = new LinkedHashMap<>();
+        options.put("department", distinctValues(TABLE, "site", "department", site, grain, from, to, without(selected, "department")));
+        options.put("trainingType", distinctValues(TABLE, "site", "training_type", site, grain, from, to, without(selected, "training_type")));
+        return options;
     }
 }

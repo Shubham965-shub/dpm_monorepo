@@ -9,8 +9,10 @@ import com.strides.repository.AggLimsQualificationCycleTimeRepository;
 import com.strides.service.kpi.PeriodCombiner;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @ApplicationScoped
@@ -27,11 +29,13 @@ public class InstrumentHealthService {
     @Inject
     AggLimsQualificationCycleTimeRepository qualificationCycleTimeRepository;
 
+    /** utilization_pct = sum_capped_usage_hours / sum_available_time (used hours over available hours). */
     public List<KpiCardResponse> getUtilization(String siteName, String instGroup, String grain, LocalDate from, LocalDate to) {
         return utilizationRepository.find(siteName, instGroup, grain, from, to).stream()
                 .map(row -> new KpiCardResponse(
                         instGroup.toLowerCase() + "-utilization", instGroup + " Utilization %", row.utilizationPct(), "%",
-                        null, row.grain(), row.periodStart(), null))
+                        null, row.grain(), row.periodStart(), null,
+                        row.sumCappedUsageHours(), row.sumAvailableTime()))
                 .toList();
     }
 
@@ -45,7 +49,8 @@ public class InstrumentHealthService {
         return utilizationRepository.find(siteName, instGroup, grain, from, to).stream()
                 .map(row -> new KpiCardResponse(
                         "instrument-availability", "Instrument Availability %", row.availabilityPct(), "%",
-                        null, row.grain(), row.periodStart(), null))
+                        null, row.grain(), row.periodStart(), null,
+                        row.sumActualAvailableTime(), row.sumAvailableTime()))
                 .toList();
     }
 
@@ -53,7 +58,8 @@ public class InstrumentHealthService {
         return utilizationRepository.find(siteName, instGroup, grain, from, to).stream()
                 .map(row -> new KpiCardResponse(
                         "instrument-downtime", "Instrument Downtime %", row.downtimePct(), "%",
-                        null, row.grain(), row.periodStart(), null))
+                        null, row.grain(), row.periodStart(), null,
+                        row.sumBreakdownHours(), row.sumAvailableTime()))
                 .toList();
     }
 
@@ -61,7 +67,8 @@ public class InstrumentHealthService {
         return calPmComplianceRepository.find(siteName, "Calibration", grain, from, to).stream()
                 .map(row -> new KpiCardResponse(
                         "calibration-compliance", "Calibration Compliance %", row.compliancePct(), "%",
-                        null, row.grain(), row.periodStart(), null))
+                        null, row.grain(), row.periodStart(), null,
+                        BigDecimal.valueOf(row.ontimeCount()), BigDecimal.valueOf(row.dueCount())))
                 .toList();
     }
 
@@ -69,7 +76,8 @@ public class InstrumentHealthService {
         return calPmComplianceRepository.find(siteName, "PM", grain, from, to).stream()
                 .map(row -> new KpiCardResponse(
                         "pm-adherence", "PM Adherence %", row.compliancePct(), "%",
-                        null, row.grain(), row.periodStart(), null))
+                        null, row.grain(), row.periodStart(), null,
+                        BigDecimal.valueOf(row.ontimeCount()), BigDecimal.valueOf(row.dueCount())))
                 .toList();
     }
 
@@ -77,10 +85,18 @@ public class InstrumentHealthService {
         return breakdownsFrequencyRepository.find(siteName, grain, from, to).stream()
                 .map(row -> new KpiCardResponse(
                         "breakdown-frequency", "Breakdown Frequency", row.breakdownFrequency(), "breakdowns/day",
-                        null, row.grain(), row.periodStart(), null))
+                        null, row.grain(), row.periodStart(), null,
+                        BigDecimal.valueOf(row.breakdownCount()), BigDecimal.valueOf(row.dayCount())))
                 .toList();
     }
 
+    /**
+     * No numerator/denominator breakdown: failure_rate's source table carries 4 hour-like columns
+     * (effective_usage_hours, usage_hours, breakdown_hours, available_hours) alongside
+     * breakdown_count, and nothing in the DPM QC Notebook table/aggregation summary (the only
+     * source available here - see getAvailability's comment for what it DOES confirm) says which
+     * pair composes this particular rate - showing a guessed breakdown would be worse than none.
+     */
     public List<KpiCardResponse> getInstrumentFailureRate(String siteName, String grain, LocalDate from, LocalDate to) {
         return failureRateRepository.find(siteName, grain, from, to).stream()
                 .map(row -> new KpiCardResponse(
@@ -94,5 +110,14 @@ public class InstrumentHealthService {
         Set<String> selected = PeriodCombiner.parseSelection(designation);
         var totals = qualificationCycleTimeRepository.findTotals(siteName, selected, grain, from, to);
         return PeriodCombiner.fromTotals(totals, 1, "qualification-cycle-time", "Qualification Cycle Time", "days");
+    }
+
+    public Map<String, List<String>> getQualificationCycleTimeFilterOptions(String siteName, String grain, LocalDate from, LocalDate to) {
+        return qualificationCycleTimeRepository.filterOptions(siteName, grain, from, to);
+    }
+
+    /** instGroup's live option list - shared by utilization/availability/downtime (same underlying table/column). */
+    public Map<String, List<String>> getInstGroupFilterOptions(String siteName, String grain, LocalDate from, LocalDate to) {
+        return utilizationRepository.filterOptions(siteName, grain, from, to);
     }
 }

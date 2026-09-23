@@ -5,10 +5,13 @@ import jakarta.enterprise.context.ApplicationScoped;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @ApplicationScoped
 public class AggTwOotTrendRepository extends AbstractAggRepository<PeriodSum> {
+
+    private static final String TABLE = "agg_tw_oot_trend";
 
     /** rootCauseBuckets empty = no filter (every bucket combined). Sum happens in Postgres. */
     public List<PeriodSum> findTotals(String site, Set<String> rootCauseBuckets, String grain, LocalDate from, LocalDate to) {
@@ -28,5 +31,11 @@ public class AggTwOotTrendRepository extends AbstractAggRepository<PeriodSum> {
                 rs.getString("grain"),
                 rs.getLong("total")),
                 params.toArray());
+    }
+
+    /** rootCauseBucket's live option list, scoped by site/grain/date range - see AbstractAggRepository.distinctValues. */
+    public Map<String, List<String>> filterOptions(String site, String grain, LocalDate from, LocalDate to) {
+        return Map.of("rootCauseBucket",
+                distinctValues(TABLE, "site", "root_cause_bucket", site, grain, from, to, Map.of()));
     }
 }

@@ -5,13 +5,9 @@ import { cn } from '@/lib/utils'
 import { TOOLTIP_Z_INDEX } from '@/lib/chartPalette'
 import type { KpiDomain, KpiDefinition } from '@/lib/kpiConfig'
 import { useKpiData, type GlobalKpiFilters } from '@/hooks/useKpiData'
+import { useExtraFilters } from '@/hooks/useExtraFilters'
 import { toBarData, emptyStateFor } from '@/components/kpi/KpiChartCard'
-import {
-  ExtraFilterControl,
-  initialExtraFilterState,
-  resolveExtraParams,
-  type ExtraFilterState,
-} from '@/components/kpi/ExtraFilterControl'
+import { ExtraFilterControl } from '@/components/kpi/ExtraFilterControl'
 import { SEVERITY_META } from './types'
 
 // This is real, live-fetched data with no computed severity/status (unlike SeverityKpiCard's real
@@ -54,14 +50,9 @@ export function KpiRankingBarCard({
   kpi: KpiDefinition
   globalFilters: GlobalKpiFilters
 }) {
-  const [extraStates, setExtraStates] = useState<ExtraFilterState[]>(() =>
-    kpi.extraFilters.map(initialExtraFilterState),
-  )
+  const { extraStates, setExtraState, extraParams, requiredSelectMissing, filterOptions, filterOptionsLoading } =
+    useExtraFilters(domain, kpi, globalFilters)
   const [filtersOpen, setFiltersOpen] = useState(false)
-  const extraParams = kpi.extraFilters.flatMap((filter, i) => resolveExtraParams(filter, extraStates[i]))
-  const requiredSelectMissing = kpi.extraFilters.some(
-    (filter, i) => filter.kind === 'select' && filter.required && resolveExtraParams(filter, extraStates[i]).length === 0,
-  )
 
   const query = useKpiData(domain, kpi, globalFilters, extraParams)
   const rankingData = useMemo(() => toBarData(query.data ?? []), [query.data])
@@ -107,7 +98,9 @@ export function KpiRankingBarCard({
               key={filter.param}
               filter={filter}
               state={extraStates[i]}
-              onChange={(next) => setExtraStates((prev) => prev.map((s, idx) => (idx === i ? next : s)))}
+              options={filter.kind === 'select' || filter.kind === 'multiSelect' ? (filterOptions[filter.param] ?? []) : []}
+              loading={filterOptionsLoading}
+              onChange={(next) => setExtraState(i, next)}
             />
           ))}
         </div>

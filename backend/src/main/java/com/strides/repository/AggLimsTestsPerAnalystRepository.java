@@ -4,11 +4,15 @@ import com.strides.model.PeriodTotal;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @ApplicationScoped
 public class AggLimsTestsPerAnalystRepository extends AbstractAggRepository<PeriodTotal> {
+
+    private static final String TABLE = "agg_lims_tests_per_analyst";
 
     /**
      * sampleCategories/analysts empty = no filter on that dimension (every value combined).
@@ -39,5 +43,18 @@ public class AggLimsTestsPerAnalystRepository extends AbstractAggRepository<Peri
                 rs.getLong("numerator"),
                 rs.getLong("denominator")),
                 params.toArray());
+    }
+
+    /** sampleCategory/analyst live option lists, cross-filtered against each other - see AbstractAggRepository.distinctValues. */
+    public Map<String, List<String>> filterOptions(String siteName, String grain, LocalDate from, LocalDate to,
+            Set<String> sampleCategories, Set<String> analysts) {
+        Map<String, Set<String>> selected = new LinkedHashMap<>();
+        selected.put("sample_category", sampleCategories);
+        selected.put("analyst", analysts);
+
+        Map<String, List<String>> options = new LinkedHashMap<>();
+        options.put("sampleCategory", distinctValues(TABLE, "site_name", "sample_category", siteName, grain, from, to, without(selected, "sample_category")));
+        options.put("analyst", distinctValues(TABLE, "site_name", "analyst", siteName, grain, from, to, without(selected, "analyst")));
+        return options;
     }
 }

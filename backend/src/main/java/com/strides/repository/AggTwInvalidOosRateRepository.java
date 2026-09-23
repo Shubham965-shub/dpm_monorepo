@@ -5,10 +5,13 @@ import jakarta.enterprise.context.ApplicationScoped;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @ApplicationScoped
 public class AggTwInvalidOosRateRepository extends AbstractAggRepository<PeriodTotal> {
+
+    private static final String TABLE = "agg_tw_invalid_oos_rate";
 
     /**
      * sampleCategories empty = default to the sample_category = 'All' row (the table's own
@@ -40,5 +43,11 @@ public class AggTwInvalidOosRateRepository extends AbstractAggRepository<PeriodT
                 rs.getLong("numerator"),
                 rs.getLong("denominator")),
                 params.toArray());
+    }
+
+    /** sampleCategory's live option list, scoped by site/grain/date range - see AbstractAggRepository.distinctValues. */
+    public Map<String, List<String>> filterOptions(String siteName, String grain, LocalDate from, LocalDate to) {
+        return Map.of("sampleCategory",
+                distinctValues(TABLE, "site_name", "sample_category", siteName, grain, from, to, Map.of()));
     }
 }

@@ -13,12 +13,13 @@ export interface GlobalKpiFilters {
 /**
  * A KPI's extra filter(s) resolved to raw query-param pairs (see resolveExtraParams in
  * ExtraFilterControl.tsx). A plain [key, value][] rather than a single param/value because
- * capaAging needs up to 4 params (recordStatus, level, minAgingDays, maxAgingDays) and
- * repeatedText/multiSelect need the same key repeated (?material=A&material=B).
+ * capaAging needs up to 4 params (recordStatus, level, minAgingDays, maxAgingDays) and a
+ * `repeated: true` multiSelect needs the same key repeated (?material=A&material=B).
  */
 export type ExtraParams = [string, string][]
 
-function buildQueryString(globalFilters: GlobalKpiFilters, extraParams: ExtraParams) {
+/** Shared by useKpiData and useExtraFilters (its filter-options fetch takes the identical params, so cross-filtering reflects the same context the KPI's own query uses). */
+export function buildKpiQueryString(globalFilters: GlobalKpiFilters, extraParams: ExtraParams) {
   const params = new URLSearchParams()
   params.set('site', globalFilters.site)
   params.set('grain', globalFilters.grain)
@@ -35,7 +36,7 @@ export function useKpiData(
   extraParams: ExtraParams,
   options?: { enabled?: boolean },
 ) {
-  const queryString = buildQueryString(globalFilters, extraParams)
+  const queryString = buildKpiQueryString(globalFilters, extraParams)
   return useQuery({
     queryKey: ['kpi', domain.key, kpi.id, queryString],
     queryFn: () => getValidated(kpiCardListSchema, `${domain.basePath}/${kpi.path}?${queryString}`),

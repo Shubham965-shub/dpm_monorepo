@@ -5,10 +5,13 @@ import jakarta.enterprise.context.ApplicationScoped;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @ApplicationScoped
 public class AggLimsRightFirstTimeRepository extends AbstractAggRepository<PeriodTotal> {
+
+    private static final String TABLE = "agg_lims_right_first_time";
 
     /** sampleTypes empty = no filter (every sample type combined). Sums happen in Postgres. */
     public List<PeriodTotal> findTotals(String siteName, Set<String> sampleTypes, String grain, LocalDate from, LocalDate to) {
@@ -29,5 +32,11 @@ public class AggLimsRightFirstTimeRepository extends AbstractAggRepository<Perio
                 rs.getLong("numerator"),
                 rs.getLong("denominator")),
                 params.toArray());
+    }
+
+    /** sampleType's live option list, scoped by site/grain/date range - see AbstractAggRepository.distinctValues. */
+    public Map<String, List<String>> filterOptions(String siteName, String grain, LocalDate from, LocalDate to) {
+        return Map.of("sampleType",
+                distinctValues(TABLE, "site_name", "sample_type", siteName, grain, from, to, Map.of()));
     }
 }

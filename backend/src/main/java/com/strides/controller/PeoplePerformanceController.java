@@ -10,6 +10,7 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import java.util.List;
+import java.util.Map;
 
 @Path("/api/people-performance")
 @Produces(MediaType.APPLICATION_JSON)
@@ -23,6 +24,13 @@ public class PeoplePerformanceController {
     public List<KpiCardResponse> repeatAnalysisRate(@BeanParam KpiParams.WithSampleType p) {
         return service.getRepeatAnalysisRate(p.site, p.sampleType, RequiredParams.require(p.grain, "grain"),
                 RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
+    }
+
+    @GET
+    @Path("/repeat-analysis-rate/filter-options")
+    public Map<String, List<String>> repeatAnalysisRateFilterOptions(@BeanParam KpiParams.WithSampleType p) {
+        return service.getRepeatAnalysisRateFilterOptions(p.site,
+                RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
     }
 
     @GET
@@ -40,9 +48,23 @@ public class PeoplePerformanceController {
     }
 
     @GET
+    @Path("/rft-documentation/filter-options")
+    public Map<String, List<String>> rftDocumentationFilterOptions(@BeanParam KpiParams.WithSampleType p) {
+        return service.getRightFirstTimeFilterOptions(p.site,
+                RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
+    }
+
+    @GET
     @Path("/training-completion-rate")
     public List<KpiCardResponse> trainingCompletionRate(@BeanParam KpiParams.WithDepartmentAndTrainingType p) {
         return service.getTrainingCompletionRate(p.site, p.department, p.trainingType, p.departmentScope,
+                RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
+    }
+
+    @GET
+    @Path("/training-completion-rate/filter-options")
+    public Map<String, List<String>> trainingCompletionRateFilterOptions(@BeanParam KpiParams.WithDepartmentAndTrainingType p) {
+        return service.getTrainingCompletionRateFilterOptions(p.site, p.department, p.trainingType,
                 RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
     }
 }

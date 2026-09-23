@@ -1,5 +1,5 @@
 import { GRAINS } from '@/lib/kpiSchemas'
-import { SITE_OPTIONS } from '@/lib/kpiConfig'
+import { useSiteOptions } from '@/hooks/useSiteOptions'
 import type { GlobalKpiFilters } from '@/hooks/useKpiData'
 
 export function KpiFilterBar({
@@ -9,6 +9,13 @@ export function KpiFilterBar({
   value: GlobalKpiFilters
   onChange: (value: GlobalKpiFilters) => void
 }) {
+  const siteOptionsQuery = useSiteOptions()
+  // The current site may not be in the live list yet (still loading, or a stale value from before
+  // a site was retired) - keep it selectable so the select's value never goes out of sync with `value.site`.
+  const siteOptions = siteOptionsQuery.data?.includes(value.site)
+    ? siteOptionsQuery.data
+    : [value.site, ...(siteOptionsQuery.data ?? [])]
+
   return (
     <div className="border-border bg-card sticky top-0 z-10 flex flex-wrap items-end gap-4 border-b p-4">
       <label className="flex flex-col gap-1">
@@ -18,7 +25,7 @@ export function KpiFilterBar({
           value={value.site}
           onChange={(e) => onChange({ ...value, site: e.target.value })}
         >
-          {SITE_OPTIONS.map((s) => (
+          {siteOptions.map((s) => (
             <option key={s} value={s}>{s}</option>
           ))}
         </select>

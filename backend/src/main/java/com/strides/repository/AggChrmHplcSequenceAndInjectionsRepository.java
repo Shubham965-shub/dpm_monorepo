@@ -5,10 +5,13 @@ import jakarta.enterprise.context.ApplicationScoped;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @ApplicationScoped
 public class AggChrmHplcSequenceAndInjectionsRepository extends AbstractAggRepository<AggChrmHplcSequenceAndInjectionsRow> {
+
+    private static final String TABLE = "agg_chrm_hplc_sequence_and_injections";
 
     /**
      * injectionStatuses empty = default to the injection_status = 'All' row (the table's own
@@ -48,5 +51,15 @@ public class AggChrmHplcSequenceAndInjectionsRepository extends AbstractAggRepos
                 rs.getBigDecimal("injections_per_analyst"),
                 rs.getBigDecimal("sequences_per_analyst")),
                 params.toArray());
+    }
+
+    /**
+     * injectionStatus's live option list, scoped by site/grain/date range - see
+     * AbstractAggRepository.distinctValues. Shared by hplc-sequences-per-analyst and
+     * hplc-injections-per-analyst (same table/column, only the response mapping differs).
+     */
+    public Map<String, List<String>> filterOptions(String site, String grain, LocalDate from, LocalDate to) {
+        return Map.of("injectionStatus",
+                distinctValues(TABLE, "site", "injection_status", site, grain, from, to, Map.of()));
     }
 }

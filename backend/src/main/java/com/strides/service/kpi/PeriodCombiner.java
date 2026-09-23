@@ -37,14 +37,19 @@ public final class PeriodCombiner {
         return fromTotals(totals, multiplier, kpiId, name, unit, null);
     }
 
-    /** Same as the 5-arg overload, but every row carries the given caveat note (or null for none) - see KpiCardResponse.note. */
+    /**
+     * Same as the 5-arg overload, but every row carries the given caveat note (or null for none) -
+     * see KpiCardResponse.note. Also carries the raw numerator/denominator PeriodTotal was already
+     * built from (see KpiCardResponse.numerator/denominator) so the UI can show "45 / 120" alongside "37.5%".
+     */
     public static List<KpiCardResponse> fromTotals(List<PeriodTotal> totals, double multiplier,
             String kpiId, String name, String unit, String note) {
         return totals.stream()
                 .map(t -> {
                     BigDecimal value = t.denominator() == 0 ? null
                             : BigDecimal.valueOf(t.numerator() * multiplier / t.denominator()).setScale(2, RoundingMode.HALF_UP);
-                    return new KpiCardResponse(kpiId, name, value, unit, null, t.grain(), t.periodStart(), note);
+                    return new KpiCardResponse(kpiId, name, value, unit, null, t.grain(), t.periodStart(), note,
+                            BigDecimal.valueOf(t.numerator()), BigDecimal.valueOf(t.denominator()));
                 })
                 .toList();
     }

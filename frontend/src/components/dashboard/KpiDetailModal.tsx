@@ -14,8 +14,10 @@ import { CATEGORICAL_PALETTE, MAX_SERIES, TOOLTIP_Z_INDEX } from '@/lib/chartPal
 import type { Grain } from '@/lib/kpiSchemas'
 import { formatPeriodTick } from '@/lib/periodFormat'
 import type { KpiDefinition } from '@/lib/kpiConfig'
+import type { FilterOptions } from '@/lib/kpiSchemas'
 import type { KpiMetrics } from '@/hooks/useDomainTrendKpis'
 import { ExtraFilterControl, type ExtraFilterState } from '@/components/kpi/ExtraFilterControl'
+import { KpiLineTooltip } from '@/components/kpi/KpiLineTooltip'
 import { ALERT_LINE_HEX, isLowerBetter, SEVERITY_META, TARGET_LINE_HEX, type Severity } from './types'
 
 const GRAIN_OPTIONS: { value: Grain; label: string }[] = [
@@ -52,6 +54,8 @@ export function KpiDetailModal({
   onGrainChange,
   extraStates,
   onExtraStateChange,
+  filterOptions,
+  filterOptionsLoading,
   onClose,
 }: {
   domainLabel: string
@@ -67,6 +71,9 @@ export function KpiDetailModal({
    * shows up on the card once this closes, instead of the modal keeping its own separate copy. */
   extraStates: ExtraFilterState[]
   onExtraStateChange: (i: number, next: ExtraFilterState) => void
+  /** Shares the compact card's live filter-options fetch (see useExtraFilters) rather than the modal re-fetching its own copy. */
+  filterOptions: FilterOptions
+  filterOptionsLoading: boolean
   onClose: () => void
 }) {
   const { chartData, shownSeries, latestValue, previousValue, unit } = metrics
@@ -142,6 +149,8 @@ export function KpiDetailModal({
                 key={filter.param}
                 filter={filter}
                 state={extraStates[i]}
+                options={filter.kind === 'select' || filter.kind === 'multiSelect' ? (filterOptions[filter.param] ?? []) : []}
+                loading={filterOptionsLoading}
                 onChange={(next) => onExtraStateChange(i, next)}
               />
             ))}
@@ -172,7 +181,7 @@ export function KpiDetailModal({
                   stroke="var(--muted-foreground)"
                 />
                 <YAxis tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" width={40} />
-                <Tooltip contentStyle={{ fontSize: 11 }} wrapperStyle={{ zIndex: TOOLTIP_Z_INDEX }} />
+                <Tooltip content={<KpiLineTooltip grain={grain} />} wrapperStyle={{ zIndex: TOOLTIP_Z_INDEX }} />
                 {shownSeries.length >= 2 && <Legend wrapperStyle={{ fontSize: 10 }} />}
                 <ReferenceLine
                   y={target}

@@ -3,18 +3,14 @@ import { ChevronDown, SlidersHorizontal } from 'lucide-react'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { cn } from '@/lib/utils'
 import { TOOLTIP_Z_INDEX, greenGradient } from '@/lib/chartPalette'
-import { formatPeriodTick } from '@/lib/periodFormat'
+import { formatPeriodTick, formatPeriodLabel } from '@/lib/periodFormat'
 import { extractRowCategory } from '@/lib/kpiRowName'
 import type { KpiDomain, KpiDefinition } from '@/lib/kpiConfig'
 import type { Grain, KpiCardResponse } from '@/lib/kpiSchemas'
 import { useKpiData, type GlobalKpiFilters } from '@/hooks/useKpiData'
+import { useExtraFilters } from '@/hooks/useExtraFilters'
 import { emptyStateFor } from '@/components/kpi/KpiChartCard'
-import {
-  ExtraFilterControl,
-  initialExtraFilterState,
-  resolveExtraParams,
-  type ExtraFilterState,
-} from '@/components/kpi/ExtraFilterControl'
+import { ExtraFilterControl } from '@/components/kpi/ExtraFilterControl'
 import { SEVERITY_META } from './types'
 
 const GREEN = SEVERITY_META['in-control']
@@ -88,7 +84,7 @@ function ComplianceTooltip({
   if (!active || !payload || payload.length === 0 || label == null) return null
   return (
     <div className="rounded-md border border-border bg-card p-2 text-[11px] shadow-md">
-      <div className="mb-1 font-semibold">{formatPeriodTick(String(label), grain as Grain)}</div>
+      <div className="mb-1 font-semibold">{formatPeriodLabel(String(label), grain as Grain)}</div>
       <div className="flex flex-col gap-0.5">
         {payload.map((entry) => {
           const tier = String(entry.name ?? '')
@@ -122,11 +118,9 @@ export function PriorityComplianceCard({
   kpi: KpiDefinition
   globalFilters: GlobalKpiFilters
 }) {
-  const [extraStates, setExtraStates] = useState<ExtraFilterState[]>(() =>
-    kpi.extraFilters.map(initialExtraFilterState),
-  )
+  const { extraStates, setExtraState, extraParams, filterOptions, filterOptionsLoading } =
+    useExtraFilters(domain, kpi, globalFilters)
   const [filtersOpen, setFiltersOpen] = useState(false)
-  const extraParams = kpi.extraFilters.flatMap((filter, i) => resolveExtraParams(filter, extraStates[i]))
 
   const query = useKpiData(domain, kpi, globalFilters, extraParams)
   const { tiers, points } = useMemo(() => toStackedData(query.data ?? []), [query.data])
@@ -177,7 +171,9 @@ export function PriorityComplianceCard({
               key={filter.param}
               filter={filter}
               state={extraStates[i]}
-              onChange={(next) => setExtraStates((prev) => prev.map((s, idx) => (idx === i ? next : s)))}
+              options={filter.kind === 'select' || filter.kind === 'multiSelect' ? (filterOptions[filter.param] ?? []) : []}
+              loading={filterOptionsLoading}
+              onChange={(next) => setExtraState(i, next)}
             />
           ))}
         </div>

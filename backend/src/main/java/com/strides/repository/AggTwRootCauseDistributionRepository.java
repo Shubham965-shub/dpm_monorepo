@@ -5,10 +5,13 @@ import jakarta.enterprise.context.ApplicationScoped;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @ApplicationScoped
 public class AggTwRootCauseDistributionRepository extends AbstractAggRepository<RootCauseTotal> {
+
+    private static final String TABLE = "agg_tw_root_cause_distribution";
 
     /** recordTypes empty = no filter (Deviation + OOS + OOT all combined). All 14 dimensions + total summed in Postgres. */
     public List<RootCauseTotal> findTotals(String site, Set<String> recordTypes, String grain, LocalDate from, LocalDate to) {
@@ -50,5 +53,11 @@ public class AggTwRootCauseDistributionRepository extends AbstractAggRepository<
                 rs.getLong("by_medical_product"),
                 rs.getLong("total_count")),
                 params.toArray());
+    }
+
+    /** recordType's live option list, scoped by site/grain/date range - see AbstractAggRepository.distinctValues. */
+    public Map<String, List<String>> filterOptions(String site, String grain, LocalDate from, LocalDate to) {
+        return Map.of("recordType",
+                distinctValues(TABLE, "site", "record_type", site, grain, from, to, Map.of()));
     }
 }

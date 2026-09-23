@@ -7,10 +7,14 @@ import jakarta.inject.Inject;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @ApplicationScoped
 public class AggTwHumanErrorByProductRepository extends AbstractAggRepository<NamedCount> {
+
+    private static final String TABLE = "agg_tw_human_error_by_product";
+    private static final String NOT_APPLICABLE = "Not Applicable";
 
     @Inject
     DepartmentScopeLiterals deptLiterals;
@@ -47,5 +51,16 @@ public class AggTwHumanErrorByProductRepository extends AbstractAggRepository<Na
                 rs.getString("material_description"),
                 rs.getLong("total")),
                 params.toArray());
+    }
+
+    /**
+     * material's live option list, scoped by site/grain/date range - see
+     * AbstractAggRepository.distinctValues. Excludes the same 'Not Applicable' sentinel findByProduct
+     * itself excludes (it isn't a real product), so it's never offered as a selectable option.
+     */
+    public Map<String, List<String>> filterOptions(String site, String grain, LocalDate from, LocalDate to) {
+        List<String> materials = distinctValues(TABLE, "site", "material_description", site, grain, from, to, Map.of())
+                .stream().filter(v -> !NOT_APPLICABLE.equals(v)).toList();
+        return Map.of("material", materials);
     }
 }

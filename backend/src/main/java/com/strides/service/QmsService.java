@@ -91,6 +91,10 @@ public class QmsService {
         return PeriodCombiner.fromTotals(totals, 1000, "invalid-oos-rate", "Invalid OOS Rate", "per 1000 tests");
     }
 
+    public Map<String, List<String>> getInvalidOosRateFilterOptions(String siteName, String grain, LocalDate from, LocalDate to) {
+        return invalidOosRateRepository.filterOptions(siteName, grain, from, to);
+    }
+
     /**
      * Same per-1000 vs percent scale caveat as Invalid OOS Rate.
      * KNOWN GAP: no productType/eventType filter is possible even though both columns now exist -
@@ -103,7 +107,8 @@ public class QmsService {
         return validOosRateRepository.find(siteName, grain, from, to).stream()
                 .map(row -> new KpiCardResponse(
                         "confirmed-oos-rate", "Confirmed OOS Rate", row.validOosRate(), "per 1000 tests",
-                        null, row.grain(), row.periodStart(), null))
+                        null, row.grain(), row.periodStart(), null,
+                        BigDecimal.valueOf(row.oosCount()), BigDecimal.valueOf(row.testCount())))
                 .toList();
     }
 
@@ -118,10 +123,18 @@ public class QmsService {
         return PeriodCombiner.fromSums(totals, "oos-trend", "OOS Trend", "count");
     }
 
+    public Map<String, List<String>> getOosTrendFilterOptions(String site, String grain, LocalDate from, LocalDate to) {
+        return oosTrendRepository.filterOptions(site, grain, from, to);
+    }
+
     public List<KpiCardResponse> getOotTrend(String site, String rootCauseBucket, String grain, LocalDate from, LocalDate to) {
         Set<String> selected = PeriodCombiner.parseSelection(rootCauseBucket);
         var totals = ootTrendRepository.findTotals(site, selected, grain, from, to);
         return PeriodCombiner.fromSums(totals, "oot-trend", "OOT Trend", "count");
+    }
+
+    public Map<String, List<String>> getOotTrendFilterOptions(String site, String grain, LocalDate from, LocalDate to) {
+        return ootTrendRepository.filterOptions(site, grain, from, to);
     }
 
     /**
@@ -149,6 +162,19 @@ public class QmsService {
                 PeriodCombiner.parseSelection(recurringByCause),
                 grain, from, to);
         return PeriodCombiner.fromSums(totals, "deviations", "Deviations", "count");
+    }
+
+    /** departmentScope isn't a DB-driven column filter (see sliceValueFor) - not part of the cross-filtered option set below, unlike respDept etc. */
+    public Map<String, List<String>> getDeviationsFilterOptions(String site, String rootCauseBucket, String respDept,
+            String level, String initialClassification, String finalClassification, String recurringByCause,
+            String grain, LocalDate from, LocalDate to) {
+        return deviationsRepository.filterOptions(site, grain, from, to,
+                PeriodCombiner.parseSelection(rootCauseBucket),
+                PeriodCombiner.parseSelection(respDept),
+                PeriodCombiner.parseSelection(level),
+                PeriodCombiner.parseSelection(initialClassification),
+                PeriodCombiner.parseSelection(finalClassification),
+                PeriodCombiner.parseSelection(recurringByCause));
     }
 
     /**
@@ -198,6 +224,14 @@ public class QmsService {
                 .toList();
     }
 
+    /** departmentScope isn't a DB-driven column filter - not part of the cross-filtered option set below. */
+    public Map<String, List<String>> getInvestigationClosureTatFilterOptions(String site, List<String> respDept,
+            String initiatedThrough, String grain, LocalDate from, LocalDate to) {
+        Set<String> selectedDepts = respDept == null ? Set.of() : Set.copyOf(respDept);
+        return investigationClosureTatRepository.filterOptions(site, grain, from, to,
+                selectedDepts, PeriodCombiner.parseSelection(initiatedThrough));
+    }
+
     /**
      * respDept/initiatedThrough: each an independent comma-separated combine filter, or
      * null/blank for ALL. No total-RCI-count column to compute a percentage against - raw
@@ -208,6 +242,12 @@ public class QmsService {
         var totals = rciBeyondTimelineRepository.findTotals(site,
                 PeriodCombiner.parseSelection(respDept), PeriodCombiner.parseSelection(initiatedThrough), grain, from, to);
         return PeriodCombiner.fromSums(totals, "rci-beyond-timeline", "RCIs Beyond Timeline", "count");
+    }
+
+    public Map<String, List<String>> getRciBeyondTimelineFilterOptions(String site, String respDept,
+            String initiatedThrough, String grain, LocalDate from, LocalDate to) {
+        return rciBeyondTimelineRepository.filterOptions(site, grain, from, to,
+                PeriodCombiner.parseSelection(respDept), PeriodCombiner.parseSelection(initiatedThrough));
     }
 
     /**
@@ -229,6 +269,11 @@ public class QmsService {
         return PeriodCombiner.fromTotals(totals, 100, "repeat-failure-rate", "Repeat Failure Rate", "%", note);
     }
 
+    /** departmentScope isn't a DB-driven column filter - not part of the option set below. */
+    public Map<String, List<String>> getRepeatFailureRateFilterOptions(String site, String grain, LocalDate from, LocalDate to) {
+        return repeatFailureRateRepository.filterOptions(site, grain, from, to);
+    }
+
     /** recordType: comma-separated list (Deviation, Out Of Specification, Out of Trend) to combine, or null/blank for ALL. */
     public List<KpiCardResponse> getRootCauseBreakdown(String site, String recordType, String grain, LocalDate from, LocalDate to) {
         return rootCauseShares(site, recordType, grain, from, to, "root-cause-by-");
@@ -236,6 +281,11 @@ public class QmsService {
 
     public List<KpiCardResponse> getConsolidatedRootCause(String site, String recordType, String grain, LocalDate from, LocalDate to) {
         return rootCauseShares(site, recordType, grain, from, to, "root-cause-consolidated-");
+    }
+
+    /** Shared by both root-cause and root-cause-consolidated - same underlying table/column. */
+    public Map<String, List<String>> getRootCauseFilterOptions(String site, String grain, LocalDate from, LocalDate to) {
+        return rootCauseDistributionRepository.filterOptions(site, grain, from, to);
     }
 
     /**
@@ -316,6 +366,18 @@ public class QmsService {
     }
 
     /**
+     * Shared by both capa-aging-status and capa-open-by-date-opened - same underlying
+     * table/columns. departmentScope/minAgingDays/maxAgingDays aren't part of the option set
+     * below (departmentScope isn't a DB-driven column filter; the aging-days bounds are a numeric
+     * range, not a categorical dropdown).
+     */
+    public Map<String, List<String>> getCapaAgingStatusFilterOptions(String site, String recordStatus, String level,
+            String grain, LocalDate from, LocalDate to) {
+        return capaAgingStatusRepository.filterOptions(site, grain, from, to,
+                PeriodCombiner.parseSelection(recordStatus), PeriodCombiner.parseSelection(level));
+    }
+
+    /**
      * originatedFrom: comma-separated list (CAPA, Change Control) to combine, or null/blank for ALL.
      * departmentScope: QC | ALL (default ALL) - slice pattern on resp_dept_slice, see
      * backend/README.md's "Department scope" section. Every response carries a note that the
@@ -329,12 +391,17 @@ public class QmsService {
         return PeriodCombiner.fromTotals(totals, 100, "capa-effectiveness", "CAPA Effectiveness", "%", note);
     }
 
+    public Map<String, List<String>> getCapaEffectivenessFilterOptions(String site, String grain, LocalDate from, LocalDate to) {
+        return capaEffectivenessRepository.filterOptions(site, grain, from, to);
+    }
+
     /** departmentScope: QC | ALL (default ALL) - slice pattern on resp_dept_slice, see backend/README.md's "Department scope" section. */
     public List<KpiCardResponse> getCapaRecurrenceRate(String site, String departmentScope, String grain, LocalDate from, LocalDate to) {
         return capaRecurrenceRateRepository.find(site, DepartmentScope.parse(departmentScope), grain, from, to).stream()
                 .map(row -> new KpiCardResponse(
                         "capa-recurrence-rate", "CAPA Recurrence Rate", row.recurrencePct(), "%",
-                        null, row.grain(), row.periodStart(), null))
+                        null, row.grain(), row.periodStart(), null,
+                        BigDecimal.valueOf(row.recurringCount()), BigDecimal.valueOf(row.capaCount())))
                 .toList();
     }
 
@@ -352,7 +419,8 @@ public class QmsService {
         return humanErrorRateRepository.find(site, DepartmentScope.parse(departmentScope), grain, from, to).stream()
                 .map(row -> new KpiCardResponse(
                         "human-error-rate", "Human Error Rate", row.humanErrorRate(), "per 1000 tests",
-                        null, row.grain(), row.periodStart(), null))
+                        null, row.grain(), row.periodStart(), null,
+                        BigDecimal.valueOf(row.humanErrorCount()), BigDecimal.valueOf(row.testCount())))
                 .toList();
     }
 
@@ -360,7 +428,8 @@ public class QmsService {
         return humanErrorRateRepository.find(site, DepartmentScope.parse(departmentScope), grain, from, to).stream()
                 .map(row -> new KpiCardResponse(
                         "repeat-human-error-rate", "Repeat Human Error Rate", row.repeatHumanErrorRate(), "per 1000 tests",
-                        null, row.grain(), row.periodStart(), null))
+                        null, row.grain(), row.periodStart(), null,
+                        BigDecimal.valueOf(row.recurringCount()), BigDecimal.valueOf(row.testCount())))
                 .toList();
     }
 
@@ -417,6 +486,10 @@ public class QmsService {
                 .toList();
     }
 
+    public Map<String, List<String>> getHumanErrorByProductFilterOptions(String site, String grain, LocalDate from, LocalDate to) {
+        return humanErrorByProductRepository.filterOptions(site, grain, from, to);
+    }
+
     /** No total-tests denominator in this table to compute a percentage - raw count only. */
     public List<KpiCardResponse> getMethodFailureRate(String site, String grain, LocalDate from, LocalDate to) {
         return methodFailureRateRepository.find(site, grain, from, to).stream()
@@ -441,5 +514,12 @@ public class QmsService {
                         "product-wise-failure", nc.name(), BigDecimal.valueOf(nc.count()), "count",
                         null, grain, to, null))
                 .toList();
+    }
+
+    public Map<String, List<String>> getProductWiseFailureFilterOptions(String site, String materialType,
+            String disposition, List<String> product, String grain, LocalDate from, LocalDate to) {
+        Set<String> selectedProducts = product == null ? Set.of() : Set.copyOf(product);
+        return productWiseFailureRepository.filterOptions(site, grain, from, to,
+                PeriodCombiner.parseSelection(materialType), PeriodCombiner.parseSelection(disposition), selectedProducts);
     }
 }

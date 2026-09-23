@@ -7,13 +7,10 @@ import type { ExtraFilter, KpiDomain } from '@/lib/kpiConfig'
 import type { Grain } from '@/lib/kpiSchemas'
 import { getGrainDateRange } from '@/lib/kpiDateRange'
 import { useKpiData, type GlobalKpiFilters } from '@/hooks/useKpiData'
+import { useExtraFilters } from '@/hooks/useExtraFilters'
 import { computeValueDomain, deriveKpiMetrics, type DomainTrendKpiResult } from '@/hooks/useDomainTrendKpis'
-import {
-  ExtraFilterControl,
-  initialExtraFilterState,
-  resolveExtraParams,
-  type ExtraFilterState,
-} from '@/components/kpi/ExtraFilterControl'
+import { ExtraFilterControl, type ExtraFilterState } from '@/components/kpi/ExtraFilterControl'
+import { KpiLineTooltip } from '@/components/kpi/KpiLineTooltip'
 import { ALERT_LINE_HEX, SEVERITY_META, TARGET_LINE_HEX } from './types'
 import { KpiDetailModal } from './KpiDetailModal'
 
@@ -67,15 +64,13 @@ export function SeverityKpiCard({
   const [filtersOpen, setFiltersOpen] = useState(false)
 
   const { kpi, isLoading, isError, target, alertThreshold, actionThreshold } = result
-  const [extraStates, setExtraStates] = useState<ExtraFilterState[]>(() =>
-    kpi.extraFilters.map(initialExtraFilterState),
-  )
+  const { extraStates, setExtraState, extraParams, filterOptions, filterOptionsLoading } =
+    useExtraFilters(domain, kpi, globalFilters)
   // A required select (e.g. instGroup) already defaults to a real option (see
   // requiredSelectDefaults) and is included in the board-level `result` fetch - only count the
   // filter as "overridden" once the user actually touches it, so mount doesn't immediately refire
   // an identical fetch.
   const [filtersTouched, setFiltersTouched] = useState(false)
-  const extraParams = kpi.extraFilters.flatMap((filter, i) => resolveExtraParams(filter, extraStates[i]))
   // Surfaced next to the title (not just inside the collapsed Filters panel) so it's always clear
   // which instGroup (or other required-select value) the card's data currently reflects.
   const requiredSelects = kpi.extraFilters
@@ -86,7 +81,7 @@ export function SeverityKpiCard({
   const isGrainOverridden = grain !== globalFilters.grain
   const isOverridden = isGrainOverridden || filtersTouched
   function handleExtraStateChange(i: number, next: ExtraFilterState) {
-    setExtraStates((prev) => prev.map((s, idx) => (idx === i ? next : s)))
+    setExtraState(i, next)
     setFiltersTouched(true)
   }
   // Only fires once the user actually picks a different grain than the page's Timeline filter, or
@@ -198,6 +193,8 @@ export function SeverityKpiCard({
               key={filter.param}
               filter={filter}
               state={extraStates[i]}
+              options={filter.kind === 'select' || filter.kind === 'multiSelect' ? (filterOptions[filter.param] ?? []) : []}
+              loading={filterOptionsLoading}
               onChange={(next) => handleExtraStateChange(i, next)}
             />
           ))}
@@ -216,7 +213,7 @@ export function SeverityKpiCard({
           {viewMode === 'line' ? (
             <LineChart data={chartData} margin={{ top: 2, right: 2, left: 2, bottom: 2 }}>
               <YAxis hide domain={valueDomain} />
-              <Tooltip contentStyle={{ fontSize: 11 }} wrapperStyle={{ zIndex: TOOLTIP_Z_INDEX }} />
+              <Tooltip content={<KpiLineTooltip grain={grain} />} wrapperStyle={{ zIndex: TOOLTIP_Z_INDEX }} />
               {shownSeries.length >= 2 && <Legend wrapperStyle={{ fontSize: 8 }} />}
               <ReferenceLine y={target} stroke={TARGET_LINE_HEX} strokeDasharray="4 3" strokeWidth={1} />
               <ReferenceLine y={alertThreshold} stroke={ALERT_LINE_HEX} strokeDasharray="4 3" strokeWidth={1} />
@@ -235,7 +232,7 @@ export function SeverityKpiCard({
             </LineChart>
           ) : (
             <BarChart data={chartData} margin={{ top: 2, right: 2, left: 2, bottom: 2 }}>
-              <Tooltip contentStyle={{ fontSize: 11 }} wrapperStyle={{ zIndex: TOOLTIP_Z_INDEX }} />
+              <Tooltip content={<KpiLineTooltip grain={grain} />} wrapperStyle={{ zIndex: TOOLTIP_Z_INDEX }} />
               {shownSeries.length >= 2 && <Legend wrapperStyle={{ fontSize: 8 }} />}
               <ReferenceLine y={target} stroke={TARGET_LINE_HEX} strokeDasharray="4 3" strokeWidth={1} />
               <ReferenceLine y={alertThreshold} stroke={ALERT_LINE_HEX} strokeDasharray="4 3" strokeWidth={1} />
@@ -290,6 +287,8 @@ export function SeverityKpiCard({
           onGrainChange={setGrain}
           extraStates={extraStates}
           onExtraStateChange={handleExtraStateChange}
+          filterOptions={filterOptions}
+          filterOptionsLoading={filterOptionsLoading}
           onClose={() => setDetailOpen(false)}
         />
       )}
