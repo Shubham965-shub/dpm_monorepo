@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from 'react'
+import { useState, type CSSProperties, type ReactNode } from 'react'
 import { useHeatmapData } from '@/hooks/useHeatmapData'
 import { useFavoriteSections } from '@/hooks/useFavoriteSections'
 import { KPI_DOMAINS } from '@/lib/kpiConfig'
@@ -7,16 +7,26 @@ import type { Grain } from '@/lib/kpiSchemas'
 import type { GlobalKpiFilters } from '@/hooks/useKpiData'
 import { KpiRankingBarCard } from './KpiRankingBarCard'
 import { PriorityComplianceCard } from './PriorityComplianceCard'
+import { RootCauseHeatmapCard } from './RootCauseHeatmapCard'
 import { SECTION_SCORE_MOCK, KPI_THRESHOLD_MOCK } from './mockData'
 import { SectionSummaryBar } from './SectionSummaryBar'
 import { DomainSeverityBoard } from './DomainSeverityBoard'
 import type { SectionFilterValue } from './FilterBar'
+import type { Severity } from './types'
 
 // KPIs whose real shape is a per-category share of a period's total (not a single trending value
 // or a whole-range ranking) - routed to their own dedicated card instead of DomainSeverityBoard or
 // KpiRankingBarCard. See mockData.ts's KPI_THRESHOLD_MOCK comment for why priority-sample-compliance
 // specifically doesn't fit either of those.
 const STACKED_SHARE_KPI_IDS = new Set(['priority-sample-compliance'])
+
+// KPIs whose real shape is a dimension x period matrix best read as a heatmap, not a trendline or
+// ranking - see mockData.ts's KPI_THRESHOLD_MOCK comment for why root-cause-consolidated
+// specifically doesn't fit either of those. Rendered as a DomainSeverityBoard "companion" (see
+// below) of its paired host id, not as its own grid card - per product decision, it should always
+// sit beside that host wherever the host's live severity currently places it.
+const HEATMAP_KPI_IDS = new Set(['root-cause-consolidated'])
+const HEATMAP_COMPANION_HOST_ID: Record<string, string> = { 'root-cause-consolidated': 'root-cause' }
 
 export function SectionSummaryList({
   site,
@@ -71,16 +81,34 @@ export function SectionSummaryList({
         const thresholdIds = new Set(KPI_THRESHOLD_MOCK.filter((t) => t.domainKey === sec.key).map((t) => t.id))
         // KPIs with a mock threshold entry get the real-data severity-card treatment
         // (DomainSeverityBoard); STACKED_SHARE_KPI_IDS get PriorityComplianceCard's stacked-
-        // percentage view instead; the rest - currently each domain's chartType:'bar' KPIs
-        // (category rankings, not a per-period single value - see mockData.ts's KPI_THRESHOLD_MOCK
-        // caveat) - get the plain real-data KpiRankingBarCard instead.
-        let trendKpis = domain?.kpis.filter((kpi) => thresholdIds.has(kpi.id) && !STACKED_SHARE_KPI_IDS.has(kpi.id)) ?? []
+        // percentage view; HEATMAP_KPI_IDS get RootCauseHeatmapCard's dimension x period matrix;
+        // the rest - currently each domain's chartType:'bar' KPIs (category rankings, not a
+        // per-period single value - see mockData.ts's KPI_THRESHOLD_MOCK caveat) - get the plain
+        // real-data KpiRankingBarCard instead.
+        const isSpecialCased = (id: string) => STACKED_SHARE_KPI_IDS.has(id) || HEATMAP_KPI_IDS.has(id)
+        let trendKpis = domain?.kpis.filter((kpi) => thresholdIds.has(kpi.id) && !isSpecialCased(kpi.id)) ?? []
         let stackedKpis = domain?.kpis.filter((kpi) => STACKED_SHARE_KPI_IDS.has(kpi.id)) ?? []
-        let rankingKpis = domain?.kpis.filter((kpi) => !thresholdIds.has(kpi.id) && !STACKED_SHARE_KPI_IDS.has(kpi.id)) ?? []
+        const heatmapKpis = domain?.kpis.filter((kpi) => HEATMAP_KPI_IDS.has(kpi.id)) ?? []
+        let rankingKpis = domain?.kpis.filter((kpi) => !thresholdIds.has(kpi.id) && !isSpecialCased(kpi.id)) ?? []
         if (isSearching) {
           trendKpis = trendKpis.filter((kpi) => kpi.label.toLowerCase().includes(query))
           stackedKpis = stackedKpis.filter((kpi) => kpi.label.toLowerCase().includes(query))
           rankingKpis = rankingKpis.filter((kpi) => kpi.label.toLowerCase().includes(query))
+        }
+        // Always paired with its host (see HEATMAP_COMPANION_HOST_ID) - not independently
+        // searchable/rendered, so it isn't part of the search filter or hasMatch above. A function
+        // (not a plain node) so DomainSeverityBoard can pass the host's own live severity through -
+        // the heatmap's color follows it rather than computing (or hardcoding) one of its own.
+        const companions = new Map<string, (severity: Severity | null) => ReactNode>()
+        if (domain) {
+          for (const kpi of heatmapKpis) {
+            const hostId = HEATMAP_COMPANION_HOST_ID[kpi.id]
+            if (hostId) {
+              companions.set(hostId, (severity) => (
+                <RootCauseHeatmapCard key={kpi.id} domain={domain} kpi={kpi} globalFilters={globalFilters} severity={severity} />
+              ))
+            }
+          }
         }
         const hasMatch = trendKpis.length > 0 || stackedKpis.length > 0 || rankingKpis.length > 0
         if (isSearching && !hasMatch) return null
@@ -107,7 +135,7 @@ export function SectionSummaryList({
             {expanded && domain && (
               <div className="rounded-b-lg border border-t-0 border-border bg-card">
                 {trendKpis.length > 0 && (
-                  <DomainSeverityBoard domain={domain} kpis={trendKpis} globalFilters={globalFilters} />
+                  <DomainSeverityBoard domain={domain} kpis={trendKpis} globalFilters={globalFilters} companions={companions} />
                 )}
                 {stackedKpis.length > 0 && (
                   <div className="flex flex-col gap-3 p-4">

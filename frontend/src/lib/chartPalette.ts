@@ -18,25 +18,29 @@ export const MAX_SERIES = CATEGORICAL_PALETTE.length
 export const TOOLTIP_Z_INDEX = 50
 
 const GREEN_GRADIENT_LIGHT: [number, number, number] = [209, 250, 229] // emerald-100
-const GREEN_GRADIENT_DARK: [number, number, number] = [6, 95, 70] // emerald-800
+const GREEN_GRADIENT_DARK: [number, number, number] = [6, 78, 59] // emerald-900
 
 function rgbToHex([r, g, b]: [number, number, number]): string {
   return `#${[r, g, b].map((v) => Math.round(v).toString(16).padStart(2, '0')).join('')}`
+}
+
+/** `t` in [0,1] -> a color along the light->dark green ramp, index 0 = lightest (emerald-100),
+ * 1 = darkest (emerald-900). */
+export function sequentialGreen(t: number): string {
+  const clamped = Math.min(1, Math.max(0, t))
+  return rgbToHex([
+    GREEN_GRADIENT_LIGHT[0] + (GREEN_GRADIENT_DARK[0] - GREEN_GRADIENT_LIGHT[0]) * clamped,
+    GREEN_GRADIENT_LIGHT[1] + (GREEN_GRADIENT_DARK[1] - GREEN_GRADIENT_LIGHT[1]) * clamped,
+    GREEN_GRADIENT_LIGHT[2] + (GREEN_GRADIENT_DARK[2] - GREEN_GRADIENT_LIGHT[2]) * clamped,
+  ])
 }
 
 /** `count` evenly-spaced shades from light to dark green, index 0 = lightest. Used to color an
  * ordered set of tiers (e.g. a priority breakdown P4..P1) on one consistent gradient regardless of
  * how many tiers actually exist, rather than a fixed palette sized for exactly 4. */
 export function greenGradient(count: number): string[] {
-  if (count <= 1) return [rgbToHex(GREEN_GRADIENT_DARK)]
-  return Array.from({ length: count }, (_, i) => {
-    const t = i / (count - 1)
-    return rgbToHex([
-      GREEN_GRADIENT_LIGHT[0] + (GREEN_GRADIENT_DARK[0] - GREEN_GRADIENT_LIGHT[0]) * t,
-      GREEN_GRADIENT_LIGHT[1] + (GREEN_GRADIENT_DARK[1] - GREEN_GRADIENT_LIGHT[1]) * t,
-      GREEN_GRADIENT_LIGHT[2] + (GREEN_GRADIENT_DARK[2] - GREEN_GRADIENT_LIGHT[2]) * t,
-    ])
-  })
+  if (count <= 1) return [sequentialGreen(1)]
+  return Array.from({ length: count }, (_, i) => sequentialGreen(i / (count - 1)))
 }
 
 // Status palette (fixed, never themed) - mirrors backend KpiStatus (RED/AMBER/GREEN).
@@ -44,4 +48,44 @@ export const STATUS_COLORS: Record<'GREEN' | 'AMBER' | 'RED', string> = {
   GREEN: '#0ca30c',
   AMBER: '#fab219',
   RED: '#d03b3b',
+}
+
+// Documented sequential ramp (dataviz skill, references/palette.md's "Sequential hue" - default
+// single hue: blue, light->dark, steps 100->700). Used for magnitude heatmaps/choropleths - a
+// continuous multi-hue ("rainbow") ramp is a listed anti-pattern for this job, so this is the one
+// hue the app's validated palette designates for it, not a hand-picked scale.
+export const SEQUENTIAL_BLUE_STOPS = [
+  '#cde2fb', '#b7d3f6', '#9ec5f4', '#86b6ef', '#6da7ec', '#5598e7',
+  '#3987e5', '#2a78d6', '#256abf', '#1c5cab', '#184f95', '#104281', '#0d366b',
+]
+
+function hexToRgb(hex: string): [number, number, number] {
+  const n = parseInt(hex.slice(1), 16)
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255]
+}
+
+/** `t` in [0,1] -> a color along SEQUENTIAL_BLUE_STOPS, interpolated piecewise through all 13
+ * documented stops (not just the two endpoints) for closer fidelity to the designed ramp. */
+export function sequentialBlue(t: number): string {
+  const clamped = Math.min(1, Math.max(0, t))
+  const scaled = clamped * (SEQUENTIAL_BLUE_STOPS.length - 1)
+  const i = Math.min(Math.floor(scaled), SEQUENTIAL_BLUE_STOPS.length - 2)
+  const frac = scaled - i
+  const a = hexToRgb(SEQUENTIAL_BLUE_STOPS[i])
+  const b = hexToRgb(SEQUENTIAL_BLUE_STOPS[i + 1])
+  return rgbToHex([a[0] + (b[0] - a[0]) * frac, a[1] + (b[1] - a[1]) * frac, a[2] + (b[2] - a[2]) * frac])
+}
+
+// Same primary-ink tokens as palette.md's "Chart chrome & ink" table - not a separate eyeballed
+// black/white pair.
+const INK_ON_LIGHT = '#0b0b0b'
+const INK_ON_DARK = '#ffffff'
+// Perceptual (not linear) luminance threshold for picking readable text over an arbitrary fill -
+// a heatmap cell's background can land anywhere along the ramp, so the ink color must follow it.
+const READABLE_LUMINANCE_THRESHOLD = 150
+
+export function readableTextColor(bgHex: string): string {
+  const [r, g, b] = hexToRgb(bgHex)
+  const luminance = 0.299 * r + 0.587 * g + 0.114 * b
+  return luminance > READABLE_LUMINANCE_THRESHOLD ? INK_ON_LIGHT : INK_ON_DARK
 }
