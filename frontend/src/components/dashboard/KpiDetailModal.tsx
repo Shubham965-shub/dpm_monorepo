@@ -13,8 +13,7 @@ import {
 import { CATEGORICAL_PALETTE, MAX_SERIES, TOOLTIP_Z_INDEX } from '@/lib/chartPalette'
 import type { Grain } from '@/lib/kpiSchemas'
 import { formatPeriodTick } from '@/lib/periodFormat'
-import type { KpiDefinition } from '@/lib/kpiConfig'
-import type { FilterOptions } from '@/lib/kpiSchemas'
+import type { ExtraFilter, KpiDefinition } from '@/lib/kpiConfig'
 import type { KpiMetrics } from '@/hooks/useDomainTrendKpis'
 import { ExtraFilterControl, type ExtraFilterState } from '@/components/kpi/ExtraFilterControl'
 import { KpiLineTooltip } from '@/components/kpi/KpiLineTooltip'
@@ -54,7 +53,7 @@ export function KpiDetailModal({
   onGrainChange,
   extraStates,
   onExtraStateChange,
-  filterOptions,
+  optionsFor,
   filterOptionsLoading,
   onClose,
 }: {
@@ -72,7 +71,7 @@ export function KpiDetailModal({
   extraStates: ExtraFilterState[]
   onExtraStateChange: (i: number, next: ExtraFilterState) => void
   /** Shares the compact card's live filter-options fetch (see useExtraFilters) rather than the modal re-fetching its own copy. */
-  filterOptions: FilterOptions
+  optionsFor: (filter: ExtraFilter) => string[]
   filterOptionsLoading: boolean
   onClose: () => void
 }) {
@@ -149,7 +148,7 @@ export function KpiDetailModal({
                 key={filter.param}
                 filter={filter}
                 state={extraStates[i]}
-                options={filter.kind === 'select' || filter.kind === 'multiSelect' ? (filterOptions[filter.param] ?? []) : []}
+                options={optionsFor(filter)}
                 loading={filterOptionsLoading}
                 onChange={(next) => onExtraStateChange(i, next)}
               />

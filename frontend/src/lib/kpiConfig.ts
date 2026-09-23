@@ -49,10 +49,9 @@ export interface KpiDomain {
 /**
  * A required select filter (currently just Instrument Health's instGroup) has no backend-side
  * "combined" value to fall back to - the column is an exact-match required param with 3 real,
- * distinct values, no "All" row (see InstrumentHealthController). Used only by the board-level
- * batch fetch (useDomainTrendKpis), which has no interactive Filters UI of its own to resolve a
- * live value from before its first render - the per-card Filters control (SeverityKpiCard) uses
- * the live filter-options list instead (see useExtraFilters.ts) and can switch it from there.
+ * distinct values, no "All" row (see InstrumentHealthController). Used by the board-level batch
+ * fetch (useDomainTrendKpis) and as the per-card default too (useExtraFilters.ts), so a card's
+ * shown value always matches the data the board fetched for it.
  */
 const REQUIRED_SELECT_DEFAULTS: Record<string, string> = {
   instGroup: 'Dissolution',
@@ -77,10 +76,8 @@ export const KPI_DOMAINS: KpiDomain[] = [
     label: 'QMS',
     basePath: '/api/qms',
     kpis: [
-      {
-        id: 'invalid-oos-rate', label: 'Invalid OOS Rate', path: 'invalid-oos-rate',
-        extraFilters: [{ kind: 'multiSelect', param: 'sampleCategory' }],
-      },
+      // Returns three series (RISE / Commercial / All tests) - see QmsService.getInvalidOosRate.
+      { id: 'invalid-oos-rate', label: 'Invalid OOS Rate', path: 'invalid-oos-rate', extraFilters: [] },
       { id: 'confirmed-oos-rate', label: 'Confirmed OOS Rate', path: 'confirmed-oos-rate', extraFilters: [] },
       { id: 'oos-trend', label: 'OOS Trend', path: 'oos-trend', extraFilters: [{ kind: 'multiSelect', param: 'rootCauseBucket' }] },
       { id: 'oot-trend', label: 'OOT Trend', path: 'oot-trend', extraFilters: [{ kind: 'multiSelect', param: 'rootCauseBucket' }] },
@@ -88,7 +85,9 @@ export const KPI_DOMAINS: KpiDomain[] = [
         id: 'deviations', label: 'Deviations', path: 'deviations',
         extraFilters: [
           { kind: 'multiSelect', param: 'rootCauseBucket' },
-          { kind: 'multiSelect', param: 'respDept' },
+          // departmentScope=QC overrides respDept (see QmsService.getDeviations).
+          DEPARTMENT_SCOPE_FILTER,
+          { kind: 'multiSelect', param: 'respDept', repeated: true },
           { kind: 'multiSelect', param: 'level' },
           { kind: 'multiSelect', param: 'initialClassification' },
           { kind: 'multiSelect', param: 'finalClassification' },
@@ -111,7 +110,7 @@ export const KPI_DOMAINS: KpiDomain[] = [
       {
         id: 'rci-beyond-timeline', label: 'RCIs Beyond Timeline', path: 'rci-beyond-timeline',
         extraFilters: [
-          { kind: 'multiSelect', param: 'respDept' },
+          { kind: 'multiSelect', param: 'respDept', repeated: true },
           { kind: 'multiSelect', param: 'initiatedThrough' },
         ],
       },

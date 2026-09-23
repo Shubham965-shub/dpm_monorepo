@@ -8,13 +8,9 @@ import type { KpiDomain, KpiDefinition } from '@/lib/kpiConfig'
 import type { Grain } from '@/lib/kpiSchemas'
 import type { KpiCardResponse } from '@/lib/kpiSchemas'
 import { useKpiData, type GlobalKpiFilters } from '@/hooks/useKpiData'
+import { useExtraFilters } from '@/hooks/useExtraFilters'
 import { emptyStateFor } from '@/components/kpi/KpiChartCard'
-import {
-  ExtraFilterControl,
-  initialExtraFilterState,
-  resolveExtraParams,
-  type ExtraFilterState,
-} from '@/components/kpi/ExtraFilterControl'
+import { ExtraFilterControl } from '@/components/kpi/ExtraFilterControl'
 import { SEVERITY_META, type Severity } from './types'
 import { RootCauseHeatmapDetailModal } from './RootCauseHeatmapDetailModal'
 
@@ -163,16 +159,14 @@ export function RootCauseHeatmapCard({
   globalFilters: GlobalKpiFilters
   severity: Severity | null
 }) {
-  const [extraStates, setExtraStates] = useState<ExtraFilterState[]>(() =>
-    kpi.extraFilters.map(initialExtraFilterState),
-  )
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [detailOpen, setDetailOpen] = useState(false)
-  const extraParams = kpi.extraFilters.flatMap((filter, i) => resolveExtraParams(filter, extraStates[i]))
+  const { extraStates, setExtraState, extraParams, requiredSelectMissing, optionsFor, filterOptionsLoading } =
+    useExtraFilters(domain, kpi, globalFilters, filtersOpen || detailOpen)
 
   const query = useKpiData(domain, kpi, globalFilters, extraParams)
   const { dimensionRows, periods, max } = useMemo(() => buildHeatmap(query.data ?? []), [query.data])
-  const emptyState = emptyStateFor(false, query, dimensionRows.length === 0)
+  const emptyState = emptyStateFor(requiredSelectMissing, query, dimensionRows.length === 0)
   const grain = globalFilters.grain as Grain
   const meta = SEVERITY_META[severity ?? 'in-control']
 
@@ -210,7 +204,9 @@ export function RootCauseHeatmapCard({
               key={filter.param}
               filter={filter}
               state={extraStates[i]}
-              onChange={(next) => setExtraStates((prev) => prev.map((s, idx) => (idx === i ? next : s)))}
+              options={optionsFor(filter)}
+              loading={filterOptionsLoading}
+              onChange={(next) => setExtraState(i, next)}
             />
           ))}
         </div>
@@ -232,9 +228,9 @@ export function RootCauseHeatmapCard({
           max={max}
           grain={grain}
           extraStates={extraStates}
-          onExtraStateChange={(i: number, next: ExtraFilterState) =>
-            setExtraStates((prev) => prev.map((s, idx) => (idx === i ? next : s)))
-          }
+          onExtraStateChange={setExtraState}
+          optionsFor={optionsFor}
+          filterOptionsLoading={filterOptionsLoading}
           onClose={() => setDetailOpen(false)}
         />
       )}

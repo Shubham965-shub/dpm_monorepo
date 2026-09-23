@@ -21,15 +21,8 @@ public class QmsController {
 
     @GET
     @Path("/invalid-oos-rate")
-    public List<KpiCardResponse> invalidOosRate(@BeanParam KpiParams.WithSampleCategory p) {
-        return service.getInvalidOosRate(p.site, p.sampleCategory,
-                RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
-    }
-
-    @GET
-    @Path("/invalid-oos-rate/filter-options")
-    public Map<String, List<String>> invalidOosRateFilterOptions(@BeanParam KpiParams.WithSampleCategory p) {
-        return service.getInvalidOosRateFilterOptions(p.site,
+    public List<KpiCardResponse> invalidOosRate(@BeanParam KpiParams.DateRange p) {
+        return service.getInvalidOosRate(p.site,
                 RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
     }
 

@@ -118,9 +118,9 @@ export function PriorityComplianceCard({
   kpi: KpiDefinition
   globalFilters: GlobalKpiFilters
 }) {
-  const { extraStates, setExtraState, extraParams, filterOptions, filterOptionsLoading } =
-    useExtraFilters(domain, kpi, globalFilters)
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const { extraStates, setExtraState, extraParams, optionsFor, filterOptionsLoading } =
+    useExtraFilters(domain, kpi, globalFilters, filtersOpen)
 
   const query = useKpiData(domain, kpi, globalFilters, extraParams)
   const { tiers, points } = useMemo(() => toStackedData(query.data ?? []), [query.data])
@@ -171,7 +171,7 @@ export function PriorityComplianceCard({
               key={filter.param}
               filter={filter}
               state={extraStates[i]}
-              options={filter.kind === 'select' || filter.kind === 'multiSelect' ? (filterOptions[filter.param] ?? []) : []}
+              options={optionsFor(filter)}
               loading={filterOptionsLoading}
               onChange={(next) => setExtraState(i, next)}
             />

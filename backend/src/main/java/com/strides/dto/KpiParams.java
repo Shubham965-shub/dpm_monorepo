@@ -87,10 +87,14 @@ public final class KpiParams {
         public String rootCauseBucket;
     }
 
-    /** respDept/initiatedThrough: each an independent comma-separated combine filter, or null/blank for ALL. rci-beyond-timeline only - true partition, no department-scope split. */
+    /**
+     * initiatedThrough: comma-separated combine filter, or null/blank for ALL. respDept: repeated
+     * params, not comma-joined - same comma-in-names reason as WithInitiatedThroughAndDepartmentScope.
+     * rci-beyond-timeline only - true partition, no department-scope split.
+     */
     public static class WithRespDept extends DateRange {
         @QueryParam("respDept")
-        public String respDept;
+        public List<String> respDept;
         @QueryParam("initiatedThrough")
         public String initiatedThrough;
     }
@@ -115,13 +119,14 @@ public final class KpiParams {
 
     /**
      * All five extra dimensions on agg_tw_deviations, each a comma-separated combine filter, or
-     * null/blank for ALL. departmentScope: QC | ALL (default ALL) - additive pattern, see
+     * null/blank for ALL - except respDept, which is repeated params (same comma-in-names reason as
+     * WithInitiatedThroughAndDepartmentScope). departmentScope: QC | ALL (default ALL) - additive pattern, see
      * backend/README.md's "Department scope" section; QC takes priority over an explicit respDept
      * selection when both are given.
      */
     public static class Deviations extends WithRootCauseBucket {
         @QueryParam("respDept")
-        public String respDept;
+        public List<String> respDept;
         @QueryParam("level")
         public String level;
         @QueryParam("initialClassification")

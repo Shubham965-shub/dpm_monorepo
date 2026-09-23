@@ -86,8 +86,8 @@ export function KpiChartCard({ domain, kpi, globalFilters }: {
   kpi: KpiDefinition
   globalFilters: GlobalKpiFilters
 }) {
-  const { extraStates, setExtraState, extraParams, requiredSelectMissing, filterOptions, filterOptionsLoading } =
-    useExtraFilters(domain, kpi, globalFilters)
+  const { extraStates, setExtraState, extraParams, requiredSelectMissing, optionsFor, filterOptionsLoading } =
+    useExtraFilters(domain, kpi, globalFilters, true)
 
   const isBarChart = kpi.chartType === 'bar'
   const query = useKpiData(domain, kpi, globalFilters, extraParams)
@@ -127,7 +127,7 @@ export function KpiChartCard({ domain, kpi, globalFilters }: {
               key={filter.param}
               filter={filter}
               state={extraStates[i]}
-              options={filter.kind === 'select' || filter.kind === 'multiSelect' ? (filterOptions[filter.param] ?? []) : []}
+              options={optionsFor(filter)}
               loading={filterOptionsLoading}
               onChange={(next) => setExtraState(i, next)}
             />

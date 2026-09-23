@@ -1,5 +1,5 @@
 import { X } from 'lucide-react'
-import type { KpiDefinition } from '@/lib/kpiConfig'
+import type { ExtraFilter, KpiDefinition } from '@/lib/kpiConfig'
 import type { Grain } from '@/lib/kpiSchemas'
 import { ExtraFilterControl, type ExtraFilterState } from '@/components/kpi/ExtraFilterControl'
 import { SEVERITY_META, type Severity } from './types'
@@ -19,6 +19,8 @@ export function RootCauseHeatmapDetailModal({
   grain,
   extraStates,
   onExtraStateChange,
+  optionsFor,
+  filterOptionsLoading,
   onClose,
 }: {
   domainLabel: string
@@ -30,6 +32,8 @@ export function RootCauseHeatmapDetailModal({
   grain: Grain
   extraStates: ExtraFilterState[]
   onExtraStateChange: (i: number, next: ExtraFilterState) => void
+  optionsFor: (filter: ExtraFilter) => string[]
+  filterOptionsLoading: boolean
   onClose: () => void
 }) {
   const meta = SEVERITY_META[severity ?? 'in-control']
@@ -62,6 +66,8 @@ export function RootCauseHeatmapDetailModal({
                 key={filter.param}
                 filter={filter}
                 state={extraStates[i]}
+                options={optionsFor(filter)}
+                loading={filterOptionsLoading}
                 onChange={(next) => onExtraStateChange(i, next)}
               />
             ))}

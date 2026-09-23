@@ -111,6 +111,7 @@ class UserAdminServiceTest {
         var updated = service.updateUser(targetId, req, actor);
 
         assertEquals(false, updated.isActive());
+        verify(refreshTokens).revokeAllActiveForUser(targetId);
     }
 
     @Test

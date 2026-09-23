@@ -43,6 +43,11 @@ export function resolveExtraParams(filter: ExtraFilter, state: ExtraFilterState)
   return []
 }
 
+function withSelected(options: string[], selectedValues: string[]): string[] {
+  const missing = selectedValues.filter((v) => !options.includes(v))
+  return missing.length === 0 ? options : [...options, ...missing]
+}
+
 const inputClass =
   'w-full rounded-md border border-input bg-background px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-ring'
 const labelClass = 'text-muted-foreground text-[11px] font-medium'
@@ -71,7 +76,7 @@ export function ExtraFilterControl({
           {filter.required && state.value === '' && (
             <option value="" disabled>{loading ? 'Loading…' : 'Choose…'}</option>
           )}
-          {options.map((o) => (
+          {withSelected(options, state.value ? [state.value] : []).map((o) => (
             <option key={o} value={o}>{o}</option>
           ))}
         </select>
@@ -88,24 +93,30 @@ export function ExtraFilterControl({
     const isAll = selectedValues.length === 0
     const selected = new Set(selectedValues)
     const allChecked = isAll && state.allChecked
+    // Cross-filtering can drop an already-picked value from the live list - keep it listed so it
+    // stays visible and un-checkable instead of being silently sent.
+    const shownOptions = withSelected(options, selectedValues)
 
     function toggleAll() {
       onChange({ kind: 'multiSelect', value: [], allChecked: !allChecked })
     }
 
     function toggleOption(option: string) {
-      const current = isAll ? [] : selectedValues
+      // Starting from "All checked", clicking a box means unchecking it -> every other option.
+      const current = allChecked ? shownOptions : selectedValues
       const next = current.includes(option) ? current.filter((v) => v !== option) : [...current, option]
-      // Every option ends up individually picked -> collapse back to blank/"All" instead of
-      // sending every option explicitly (equivalent, and re-checking the last box returns to the
-      // same state this started from).
-      onChange({ kind: 'multiSelect', value: next.length === options.length ? [] : next, allChecked: true })
+      // Every shown option picked -> collapse back to blank/"All" (equivalent to sending each explicitly).
+      if (next.length === shownOptions.length) {
+        onChange({ kind: 'multiSelect', value: [], allChecked: true })
+      } else {
+        onChange({ kind: 'multiSelect', value: next, allChecked: false })
+      }
     }
 
     return (
       <fieldset className="flex flex-col gap-1">
         <span className={labelClass}>{filter.param}</span>
-        {options.length === 0 ? (
+        {shownOptions.length === 0 ? (
           <span className="text-muted-foreground text-xs italic">{loading ? 'Loading…' : 'no values in DB yet'}</span>
         ) : (
           <div className="max-h-36 w-56 overflow-y-auto rounded-md border border-input bg-background p-1.5 text-xs">
@@ -113,7 +124,7 @@ export function ExtraFilterControl({
               <input type="checkbox" checked={allChecked} onChange={toggleAll} />
               All
             </label>
-            {options.map((o) => (
+            {shownOptions.map((o) => (
               <label key={o} className="flex items-center gap-1.5 py-0.5">
                 <input
                   type="checkbox"

@@ -31,6 +31,17 @@ public final class PeriodCombiner {
                 .collect(Collectors.toSet());
     }
 
+    /** Repeated query params (?x=A&x=B) -> the set of selected values, for dimensions whose values can contain commas. Empty/null means ALL. */
+    public static Set<String> parseSelection(List<String> repeated) {
+        if (repeated == null) {
+            return Set.of();
+        }
+        return repeated.stream()
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .collect(Collectors.toSet());
+    }
+
     /** multiplier is 100 for percentages (numerator/denominator * 100), 1 for plain ratios (days, tests/analyst). */
     public static List<KpiCardResponse> fromTotals(List<PeriodTotal> totals, double multiplier,
             String kpiId, String name, String unit) {

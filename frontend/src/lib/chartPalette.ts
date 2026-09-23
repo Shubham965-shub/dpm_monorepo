@@ -50,30 +50,9 @@ export const STATUS_COLORS: Record<'GREEN' | 'AMBER' | 'RED', string> = {
   RED: '#d03b3b',
 }
 
-// Documented sequential ramp (dataviz skill, references/palette.md's "Sequential hue" - default
-// single hue: blue, light->dark, steps 100->700). Used for magnitude heatmaps/choropleths - a
-// continuous multi-hue ("rainbow") ramp is a listed anti-pattern for this job, so this is the one
-// hue the app's validated palette designates for it, not a hand-picked scale.
-export const SEQUENTIAL_BLUE_STOPS = [
-  '#cde2fb', '#b7d3f6', '#9ec5f4', '#86b6ef', '#6da7ec', '#5598e7',
-  '#3987e5', '#2a78d6', '#256abf', '#1c5cab', '#184f95', '#104281', '#0d366b',
-]
-
 function hexToRgb(hex: string): [number, number, number] {
   const n = parseInt(hex.slice(1), 16)
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255]
-}
-
-/** `t` in [0,1] -> a color along SEQUENTIAL_BLUE_STOPS, interpolated piecewise through all 13
- * documented stops (not just the two endpoints) for closer fidelity to the designed ramp. */
-export function sequentialBlue(t: number): string {
-  const clamped = Math.min(1, Math.max(0, t))
-  const scaled = clamped * (SEQUENTIAL_BLUE_STOPS.length - 1)
-  const i = Math.min(Math.floor(scaled), SEQUENTIAL_BLUE_STOPS.length - 2)
-  const frac = scaled - i
-  const a = hexToRgb(SEQUENTIAL_BLUE_STOPS[i])
-  const b = hexToRgb(SEQUENTIAL_BLUE_STOPS[i + 1])
-  return rgbToHex([a[0] + (b[0] - a[0]) * frac, a[1] + (b[1] - a[1]) * frac, a[2] + (b[2] - a[2]) * frac])
 }
 
 // Same primary-ink tokens as palette.md's "Chart chrome & ink" table - not a separate eyeballed

@@ -63,14 +63,19 @@ export function SeverityKpiCard({
   globalFilters: GlobalKpiFilters
   result: DomainTrendKpiResult
 }) {
-  const [grain, setGrain] = useState<Grain>(globalFilters.grain as Grain)
+  // Stores only the card's own pick, tagged with the page grain it was made under - so the card
+  // follows the page Timeline until picked, and a later Timeline change drops a stale pick.
+  const [grainPick, setGrainPick] = useState<{ pageGrain: string; grain: Grain } | null>(null)
+  const grain = grainPick?.pageGrain === globalFilters.grain ? grainPick.grain : (globalFilters.grain as Grain)
+  const setGrain = (next: Grain) => setGrainPick({ pageGrain: globalFilters.grain, grain: next })
   const [viewMode, setViewMode] = useState<ViewMode>('line')
   const [detailOpen, setDetailOpen] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
 
   const { kpi, isLoading, isError, target, alertThreshold, actionThreshold } = result
-  const { extraStates, setExtraState, extraParams, filterOptions, filterOptionsLoading } =
-    useExtraFilters(domain, kpi, globalFilters)
+  const cardFilters = { ...globalFilters, ...getGrainDateRange(grain), grain }
+  const { extraStates, setExtraState, extraParams, optionsFor, filterOptionsLoading } =
+    useExtraFilters(domain, kpi, cardFilters, filtersOpen || detailOpen)
   // A required select (e.g. instGroup) already defaults to a real option (see
   // requiredSelectDefaults) and is included in the board-level `result` fetch - only count the
   // filter as "overridden" once the user actually touches it, so mount doesn't immediately refire
@@ -109,7 +114,7 @@ export function SeverityKpiCard({
   const overrideQuery = useKpiData(
     domain,
     kpi,
-    { ...globalFilters, ...getGrainDateRange(grain), grain },
+    cardFilters,
     extraParams,
     { enabled: isOverridden || isRootCause },
   )
@@ -227,7 +232,7 @@ export function SeverityKpiCard({
               key={filter.param}
               filter={filter}
               state={extraStates[i]}
-              options={filter.kind === 'select' || filter.kind === 'multiSelect' ? (filterOptions[filter.param] ?? []) : []}
+              options={optionsFor(filter)}
               loading={filterOptionsLoading}
               onChange={(next) => handleExtraStateChange(i, next)}
             />
@@ -344,7 +349,7 @@ export function SeverityKpiCard({
           onGrainChange={setGrain}
           extraStates={extraStates}
           onExtraStateChange={handleExtraStateChange}
-          filterOptions={filterOptions}
+          optionsFor={optionsFor}
           filterOptionsLoading={filterOptionsLoading}
           onClose={() => setDetailOpen(false)}
         />

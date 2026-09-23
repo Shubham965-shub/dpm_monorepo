@@ -16,7 +16,7 @@ class PeriodCombinerTest {
 
     @Test
     void parseSelection_nullOrBlank_meansAll() {
-        assertTrue(PeriodCombiner.parseSelection(null).isEmpty());
+        assertTrue(PeriodCombiner.parseSelection((String) null).isEmpty());
         assertTrue(PeriodCombiner.parseSelection("").isEmpty());
         assertTrue(PeriodCombiner.parseSelection("   ").isEmpty());
     }

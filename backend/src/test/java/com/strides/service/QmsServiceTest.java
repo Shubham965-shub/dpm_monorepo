@@ -12,6 +12,7 @@ import static org.mockito.Mockito.when;
 import com.strides.dto.DepartmentScope;
 import com.strides.dto.KpiCardResponse;
 import com.strides.model.AggTwHumanErrorSeverityRow;
+import com.strides.model.InvalidOosTotals;
 import com.strides.model.PeriodSum;
 import com.strides.model.MedianTatRow;
 import com.strides.model.PeriodTotal;
@@ -19,6 +20,7 @@ import com.strides.model.RootCauseTotal;
 import com.strides.repository.AggTwCapaEffectivenessRepository;
 import com.strides.repository.AggTwDeviationsRepository;
 import com.strides.repository.AggTwHumanErrorSeverityRepository;
+import com.strides.repository.AggTwInvalidOosRateRepository;
 import com.strides.repository.AggTwInvestigationClosureTatRepository;
 import com.strides.repository.AggTwRepeatFailureRateRepository;
 import com.strides.repository.AggTwRootCauseDistributionRepository;
@@ -57,11 +59,40 @@ class QmsServiceTest {
     AggTwDeviationsRepository deviationsRepository;
     @Mock
     DepartmentScopeLiterals deptLiterals;
+    @Mock
+    AggTwInvalidOosRateRepository invalidOosRateRepository;
 
     @InjectMocks
     QmsService service;
 
     private static final LocalDate PERIOD = LocalDate.of(2026, 8, 1);
+
+    @Test
+    void invalidOosRateReturnsRiseCommercialAndAllTestsSeriesInThatOrder() {
+        when(invalidOosRateRepository.findTotals("KRSG", "monthly", PERIOD, PERIOD))
+                .thenReturn(List.of(new InvalidOosTotals(PERIOD, "monthly", 8, 7, 12433, 4257)));
+
+        List<KpiCardResponse> result = service.getInvalidOosRate("KRSG", "monthly", PERIOD, PERIOD);
+
+        assertEquals(List.of("invalid-oos-rate-rise", "invalid-oos-rate-commercial", "invalid-oos-rate"),
+                result.stream().map(KpiCardResponse::kpiId).toList());
+        assertEquals(new BigDecimal("1.64"), result.get(0).value());
+        assertEquals(new BigDecimal("1.88"), result.get(1).value());
+        assertEquals(new BigDecimal("0.64"), result.get(2).value());
+        assertEquals(BigDecimal.valueOf(4257), result.get(1).denominator());
+    }
+
+    @Test
+    void invalidOosRateIsNullNotZeroWhenThereAreNoCommercialTests() {
+        when(invalidOosRateRepository.findTotals("R&D", "monthly", PERIOD, PERIOD))
+                .thenReturn(List.of(new InvalidOosTotals(PERIOD, "monthly", 0, 0, 40, 0)));
+
+        List<KpiCardResponse> result = service.getInvalidOosRate("R&D", "monthly", PERIOD, PERIOD);
+
+        assertNull(result.get(0).value());
+        assertNull(result.get(1).value());
+        assertEquals(new BigDecimal("0.00"), result.get(2).value());
+    }
 
     private static KpiCardResponse overallOf(List<KpiCardResponse> result) {
         return result.stream()
@@ -183,7 +214,7 @@ class QmsServiceTest {
                 anySet(), anySet(), anySet(), anySet(), eq("monthly"), any(), any()))
                 .thenReturn(List.of(new PeriodSum(PERIOD, "monthly", 7)));
 
-        var result = service.getDeviations("KRSG", null, "Microbiology", null, null, null, null, "QC", "monthly", PERIOD, PERIOD.plusMonths(1));
+        var result = service.getDeviations("KRSG", null, List.of("Microbiology"), null, null, null, null, "QC", "monthly", PERIOD, PERIOD.plusMonths(1));
 
         assertEquals(BigDecimal.valueOf(7), result.get(0).value());
     }
@@ -194,7 +225,7 @@ class QmsServiceTest {
                 anySet(), anySet(), anySet(), anySet(), eq("monthly"), any(), any()))
                 .thenReturn(List.of(new PeriodSum(PERIOD, "monthly", 3)));
 
-        var result = service.getDeviations("KRSG", null, "Microbiology", null, null, null, null, null, "monthly", PERIOD, PERIOD.plusMonths(1));
+        var result = service.getDeviations("KRSG", null, List.of("Microbiology"), null, null, null, null, null, "monthly", PERIOD, PERIOD.plusMonths(1));
 
         assertEquals(BigDecimal.valueOf(3), result.get(0).value());
     }

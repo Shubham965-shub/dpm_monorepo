@@ -126,6 +126,9 @@ public class UserAdminService {
             existing.setDepartment(blankToNull(req.department()));
         }
         existing.setEmployeeCode(employeeCode);
+        if (existing.isActive() && !isActive) {
+            refreshTokens.revokeAllActiveForUser(id);
+        }
         existing.setActive(isActive);
         existing.setUpdatedAt(OffsetDateTime.now());
 

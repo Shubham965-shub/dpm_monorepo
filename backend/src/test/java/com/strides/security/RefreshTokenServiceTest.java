@@ -107,9 +107,10 @@ class RefreshTokenServiceTest {
     }
 
     @Test
-    void rotate_alreadyRevokedToken_isReuseSignal_revokesAllActiveSessionsForUser() {
+    void rotate_alreadyRotatedToken_isReuseSignal_revokesAllActiveSessionsForUser() {
         User owner = user(UUID.randomUUID());
         RefreshToken existing = existingToken(owner, OffsetDateTime.now().plusDays(1), OffsetDateTime.now().minusMinutes(5));
+        existing.setReplacedById(UUID.randomUUID());
         when(tokens.findByTokenHash(anyString())).thenReturn(Optional.of(existing));
         RefreshToken otherActiveSession = existingToken(owner, OffsetDateTime.now().plusDays(2), null);
         when(tokens.findActiveForUser(owner.getId())).thenReturn(List.of(otherActiveSession));
@@ -118,6 +119,31 @@ class RefreshTokenServiceTest {
 
         assertTrue(otherActiveSession.isRevoked());
         verify(tokens, never()).persist(any(RefreshToken.class)); // no new token issued on a reuse/theft signal
+    }
+
+    @Test
+    void rotate_tokenRevokedByLogout_failsWithoutRevokingOtherSessions() {
+        User owner = user(UUID.randomUUID());
+        RefreshToken loggedOut = existingToken(owner, OffsetDateTime.now().plusDays(1), OffsetDateTime.now().minusMinutes(5));
+        when(tokens.findByTokenHash(anyString())).thenReturn(Optional.of(loggedOut));
+
+        assertTrue(service.rotate("logged-out-token").isEmpty());
+
+        verify(tokens, never()).findActiveForUser(any());
+        verify(tokens, never()).persist(any(RefreshToken.class));
+    }
+
+    @Test
+    void rotate_deactivatedUser_returnsEmptyAndRevokesToken() {
+        User owner = user(UUID.randomUUID());
+        owner.setActive(false);
+        RefreshToken existing = existingToken(owner, OffsetDateTime.now().plusDays(1), null);
+        when(tokens.findByTokenHash(anyString())).thenReturn(Optional.of(existing));
+
+        assertTrue(service.rotate("deactivated-users-token").isEmpty());
+
+        assertTrue(existing.isRevoked());
+        verify(tokens, never()).persist(any(RefreshToken.class));
     }
 
     @Test
