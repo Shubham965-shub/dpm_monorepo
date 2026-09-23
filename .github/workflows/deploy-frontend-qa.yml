@@ -1,0 +1,50 @@
+name: Deploy frontend (QA)
+
+on:
+  push:
+    branches: [qa]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/deploy-frontend-qa.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-frontend-qa
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: qa
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run test
+
+      - name: Build
+        run: npm run build
+        env:
+          VITE_API_URL: ${{ vars.QA_API_URL }}
+
+      # Upload only: the build already happened above with the QA API URL baked in.
+      - uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          action: upload
+          app_location: frontend/dist
+          skip_app_build: true
+          skip_api_build: true
