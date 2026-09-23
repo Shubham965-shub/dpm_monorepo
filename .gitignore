@@ -29,3 +29,9 @@ DB_details.py
 
 # Playwright MCP session artifacts (page snapshots, console logs from interactive testing)
 .playwright-mcp/
+
+# Ad-hoc screenshots saved at the repo root during manual/UI testing - real image assets live
+# under frontend/public and frontend/src/assets, never here.
+/*.png
+/*.jpg
+/*.jpeg

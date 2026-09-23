@@ -1,10 +1,9 @@
-import { Button } from '@/components/ui/button'
 import { LoginPage } from '@/components/LoginPage'
-import { KpiValidationDashboard } from '@/components/kpi/KpiValidationDashboard'
+import { DashboardPage } from '@/components/dashboard/DashboardPage'
 import { useAuth } from '@/hooks/useAuth'
 
 function App() {
-  const { user, isLoading, logout } = useAuth()
+  const { user, isLoading } = useAuth()
 
   if (isLoading) {
     return (
@@ -18,20 +17,7 @@ function App() {
     return <LoginPage />
   }
 
-  return (
-    <div className="flex min-h-svh flex-col">
-      <div className="border-border flex items-center justify-between border-b p-4">
-        <div>
-          <h1 className="text-lg font-semibold">dpm_monorepo — KPI Validation</h1>
-          <p className="text-muted-foreground text-xs">Signed in as {user.email}</p>
-        </div>
-        <Button variant="outline" onClick={() => void logout()}>
-          Sign out
-        </Button>
-      </div>
-      <KpiValidationDashboard />
-    </div>
-  )
+  return <DashboardPage />
 }
 
 export default App
