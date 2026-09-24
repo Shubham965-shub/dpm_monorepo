@@ -1,6 +1,7 @@
 package com.strides.service;
 
 import com.strides.dto.DepartmentScope;
+import com.strides.dto.InvalidOosTestScope;
 import com.strides.dto.KpiCardResponse;
 import com.strides.model.AggTwHumanErrorSeverityRow;
 import com.strides.model.MedianTatRow;
@@ -24,6 +25,7 @@ import com.strides.repository.AggTwRepeatFailureRateRepository;
 import com.strides.repository.AggTwRootCauseDistributionRepository;
 import com.strides.repository.AggTwValidOosRateRepository;
 import com.strides.repository.DepartmentScopeLiterals;
+import com.strides.service.kpi.AppliesKpiThresholds;
 import com.strides.service.kpi.PeriodCombiner;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -33,12 +35,14 @@ import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @ApplicationScoped
+@AppliesKpiThresholds
 public class QmsService {
 
     @Inject
@@ -82,26 +86,31 @@ public class QmsService {
     private static final String PER_1000_TESTS_UNIT = "per 1000 tests";
 
     /**
-     * Three variants as separate series (per-1000-tests, not percent - catalogue thresholds don't
-     * apply directly). RISE comes first because the card's headline/severity follow the first series.
+     * One variant per request (per-1000-tests, not percent - catalogue thresholds don't apply
+     * directly), picked by testScope - All tests by default:
+     *   ALL:        all OOS / every test.
      *   RISE:       OOS excluding RM/PM product types / commercial tests (IP, FG, SFG, Stability).
-     *   Commercial: all OOS / the same commercial tests.
-     *   All tests:  all OOS / every test.
+     *   COMMERCIAL: all OOS / the same commercial tests.
      */
-    public List<KpiCardResponse> getInvalidOosRate(String siteName, String grain, LocalDate from, LocalDate to) {
+    public List<KpiCardResponse> getInvalidOosRate(String siteName, String testScope, String grain, LocalDate from, LocalDate to) {
+        InvalidOosTestScope scope = InvalidOosTestScope.parse(testScope);
         var totals = invalidOosRateRepository.findTotals(siteName, grain, from, to);
-        return Stream.of(
-                PeriodCombiner.fromTotals(
-                        totals.stream().map(t -> new PeriodTotal(t.periodStart(), t.grain(), t.oosCountRise(), t.testCountCommercial())).toList(),
-                        PER_1000_TESTS, "invalid-oos-rate-rise", "Invalid OOS Rate (RISE)", PER_1000_TESTS_UNIT),
-                PeriodCombiner.fromTotals(
-                        totals.stream().map(t -> new PeriodTotal(t.periodStart(), t.grain(), t.oosCount(), t.testCountCommercial())).toList(),
-                        PER_1000_TESTS, "invalid-oos-rate-commercial", "Invalid OOS Rate (Commercial)", PER_1000_TESTS_UNIT),
-                PeriodCombiner.fromTotals(
-                        totals.stream().map(t -> new PeriodTotal(t.periodStart(), t.grain(), t.oosCount(), t.testCount())).toList(),
-                        PER_1000_TESTS, "invalid-oos-rate", "Invalid OOS Rate (All tests)", PER_1000_TESTS_UNIT))
-                .flatMap(List::stream)
-                .toList();
+        return switch (scope) {
+            case ALL -> PeriodCombiner.fromTotals(
+                    totals.stream().map(t -> new PeriodTotal(t.periodStart(), t.grain(), t.oosCount(), t.testCount())).toList(),
+                    PER_1000_TESTS, "invalid-oos-rate", "Invalid OOS Rate (All tests)", PER_1000_TESTS_UNIT);
+            case RISE -> PeriodCombiner.fromTotals(
+                    totals.stream().map(t -> new PeriodTotal(t.periodStart(), t.grain(), t.oosCountRise(), t.testCountCommercial())).toList(),
+                    PER_1000_TESTS, "invalid-oos-rate-rise", "Invalid OOS Rate (RISE)", PER_1000_TESTS_UNIT);
+            case COMMERCIAL -> PeriodCombiner.fromTotals(
+                    totals.stream().map(t -> new PeriodTotal(t.periodStart(), t.grain(), t.oosCount(), t.testCountCommercial())).toList(),
+                    PER_1000_TESTS, "invalid-oos-rate-commercial", "Invalid OOS Rate (Commercial)", PER_1000_TESTS_UNIT);
+        };
+    }
+
+    /** Static, not DB-driven - the variants are fixed formulas over the same row, not a column's values. */
+    public Map<String, List<String>> getInvalidOosRateFilterOptions() {
+        return Map.of("testScope", InvalidOosTestScope.FILTER_OPTIONS);
     }
 
     /**
@@ -308,7 +317,7 @@ public class QmsService {
         return rootCauseDistributionRepository.findTotals(site, selected, grain, from, to).stream()
                 .flatMap(total -> dimensionCounts(total).entrySet().stream().map(dimension ->
                         new KpiCardResponse(
-                                kpiIdPrefix + dimension.getKey().toLowerCase().replaceAll("[^a-z0-9]+", "-"),
+                                kpiIdPrefix + dimension.getKey().toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "-"),
                                 "Root Cause: " + dimension.getKey(), BigDecimal.valueOf(dimension.getValue()), "count",
                                 null, total.grain(), total.periodStart(), null)))
                 .toList();

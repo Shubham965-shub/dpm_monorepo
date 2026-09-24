@@ -63,8 +63,8 @@ export const KPI_DOMAINS: KpiDomain[] = [
     label: 'QMS',
     basePath: '/api/qms',
     kpis: [
-      // Returns three series (RISE / Commercial / All tests) - see QmsService.getInvalidOosRate.
-      { id: 'invalid-oos-rate', label: 'Invalid OOS Rate', path: 'invalid-oos-rate', extraFilters: [] },
+      // Blank testScope = All tests; RISE / Commercial are the switchable variants (QmsService.getInvalidOosRate).
+      { id: 'invalid-oos-rate', label: 'Invalid OOS Rate', path: 'invalid-oos-rate', extraFilters: [{ kind: 'select', param: 'testScope' }] },
       { id: 'confirmed-oos-rate', label: 'Confirmed OOS Rate', path: 'confirmed-oos-rate', extraFilters: [{ kind: 'multiSelect', param: 'productType' }] },
       { id: 'oos-trend', label: 'OOS Trend', path: 'oos-trend', extraFilters: [{ kind: 'multiSelect', param: 'rootCauseBucket' }] },
       { id: 'oot-trend', label: 'OOT Trend', path: 'oot-trend', extraFilters: [{ kind: 'multiSelect', param: 'rootCauseBucket' }] },
@@ -172,10 +172,10 @@ export const KPI_DOMAINS: KpiDomain[] = [
     label: 'Instrument Health',
     basePath: '/api/instrument-health',
     kpis: [
-      { id: 'utilization', label: 'Instrument Utilization %', path: 'utilization', extraFilters: [INST_GROUP_FILTER] },
-      { id: 'dissolution-availability', label: 'Dissolution Availability %', path: 'availability', extraFilters: [], fixedParams: [['instGroup', 'Dissolution']] },
-      { id: 'gc-availability', label: 'GC Availability %', path: 'availability', extraFilters: [], fixedParams: [['instGroup', 'GC']] },
-      { id: 'hplc-availability', label: 'HPLC Availability %', path: 'availability', extraFilters: [], fixedParams: [['instGroup', 'HPLC']] },
+      { id: 'dissolution-utilization', label: 'Dissolution Utilization %', path: 'utilization', extraFilters: [], fixedParams: [['instGroup', 'Dissolution']] },
+      { id: 'gc-utilization', label: 'GC Utilization %', path: 'utilization', extraFilters: [], fixedParams: [['instGroup', 'GC']] },
+      { id: 'hplc-utilization', label: 'HPLC Utilization %', path: 'utilization', extraFilters: [], fixedParams: [['instGroup', 'HPLC']] },
+      { id: 'availability', label: 'Instrument Availability %', path: 'availability', extraFilters: [INST_GROUP_FILTER] },
       { id: 'downtime', label: 'Instrument Downtime %', path: 'downtime', extraFilters: [INST_GROUP_FILTER] },
       { id: 'calibration-compliance', label: 'Calibration Compliance %', path: 'calibration-compliance', extraFilters: [] },
       { id: 'pm-adherence', label: 'PM Adherence %', path: 'pm-adherence', extraFilters: [] },

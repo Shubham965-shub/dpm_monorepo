@@ -1,6 +1,7 @@
 package com.strides.dto;
 
 import jakarta.ws.rs.BadRequestException;
+import java.util.Locale;
 
 /**
  * QC-versus-All department split (see backend/README.md's "Department scope" section). Every
@@ -16,7 +17,7 @@ public enum DepartmentScope {
             return ALL;
         }
         try {
-            return valueOf(raw.trim().toUpperCase());
+            return valueOf(raw.trim().toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException e) {
             throw new BadRequestException("Invalid departmentScope '" + raw + "' - expected QC or ALL");
         }

@@ -3,15 +3,10 @@ import { getValidated } from '@/lib/apiClient'
 import { kpiCardListSchema, type KpiCardResponse } from '@/lib/kpiSchemas'
 import { KPI_DOMAINS } from '@/lib/kpiConfig'
 import { getTrailing3MonthRange, type MonthColumn } from '@/lib/kpiDateRange'
-import type { HeatmapCell, HeatmapRow, RagStatus } from '@/components/dashboard/types'
+import { severityFromStatus, type HeatmapCell, type HeatmapRow, type RagStatus } from '@/components/dashboard/types'
 import type { SectionKey } from '@/components/dashboard/mockData'
 import { buildKpiQueryString } from './useKpiData'
 
-const STATUS_MAP: Record<'RED' | 'AMBER' | 'GREEN', RagStatus> = {
-  RED: 'action',
-  AMBER: 'alert',
-  GREEN: 'in-control',
-}
 // Worse-first, so a breakdown-style KPI (root-cause, capa-aging-status, human-error-severity,
 // human-error-by-product) that returns several rows for the same period - one per category - is
 // summarized by its worst category rather than an arbitrary one.
@@ -20,8 +15,8 @@ const SEVERITY_ORDER: RagStatus[] = ['action', 'alert', 'in-control']
 function worstStatus(cards: KpiCardResponse[]): RagStatus {
   let worst: RagStatus | null = null
   for (const card of cards) {
-    if (!card.status) continue
-    const mapped = STATUS_MAP[card.status]
+    const mapped = severityFromStatus(card.status)
+    if (!mapped) continue
     if (!worst || SEVERITY_ORDER.indexOf(mapped) < SEVERITY_ORDER.indexOf(worst)) {
       worst = mapped
     }

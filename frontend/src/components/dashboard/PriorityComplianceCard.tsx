@@ -105,8 +105,8 @@ function ComplianceTooltip({
 }
 
 /** Priority Sample Compliance's real shape - a raw sample count per priority tier (P1..P4) that
- * always sums to the period's total - doesn't fit SeverityKpiCard's single-value/target-alert-
- * action model (see mockData.ts's KPI_THRESHOLD_MOCK comment), so it gets this dedicated 100%
+ * always sums to the period's total - doesn't fit SeverityKpiCard's single-value/threshold
+ * model, so it gets this dedicated 100%
  * stacked-percentage view instead: each bar always fills to 100%, one gradient-shaded segment per
  * tier, hover shows both the segment's share and its real sample count. */
 export function PriorityComplianceCard({

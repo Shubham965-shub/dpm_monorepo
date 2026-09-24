@@ -59,14 +59,15 @@ class InstrumentHealthServiceTest {
     }
 
     @Test
-    void getUtilization_mapsUtilizationPct() {
+    void getUtilization_singleGroupGetsItsOwnKpiId() {
         when(utilizationRepository.find(eq("KRSG"), eq(Set.of("HPLC")), eq("monthly"), any(), any()))
                 .thenReturn(List.of(utilizationRow()));
 
         var result = service.getUtilization("KRSG", "HPLC", "monthly", FROM, TO);
 
         assertEquals(1, result.size());
-        assertEquals("instrument-utilization", result.get(0).kpiId());
+        assertEquals("hplc-utilization", result.get(0).kpiId());
+        assertEquals("HPLC Utilization %", result.get(0).name());
         assertEquals(BigDecimal.valueOf(71.43), result.get(0).value());
         assertEquals("%", result.get(0).unit());
         assertNull(result.get(0).status());
@@ -80,6 +81,7 @@ class InstrumentHealthServiceTest {
         var result = service.getUtilization("KRSG", null, "monthly", FROM, TO);
 
         assertEquals(1, result.size());
+        assertEquals("instrument-utilization", result.get(0).kpiId());
     }
 
     @Test

@@ -5,6 +5,20 @@ import { z } from 'zod'
 export const kpiStatusSchema = z.enum(['RED', 'AMBER', 'GREEN']).nullable()
 export type KpiStatus = z.infer<typeof kpiStatusSchema>
 
+// Mirrors backend com.strides.dto.KpiThresholds - the KPI threshold config row this series is
+// linked to: band boundaries the row's status was computed against (a null boundary = unbounded
+// side; all null = no threshold yet). configKpiId is what the expanded chart uses to fetch the
+// KPI's source system / description once (kpiThresholdConfigSchema) - not repeated per data row.
+export const kpiThresholdsSchema = z.object({
+  configKpiId: z.string(),
+  direction: z.string(),
+  redLow: z.coerce.number().nullable(),
+  greenLow: z.coerce.number().nullable(),
+  greenHigh: z.coerce.number().nullable(),
+  redHigh: z.coerce.number().nullable(),
+})
+export type KpiThresholds = z.infer<typeof kpiThresholdsSchema>
+
 // Mirrors backend com.strides.dto.KpiCardResponse - the one uniform shape every KPI GET
 // endpoint returns, regardless of domain.
 export const kpiCardResponseSchema = z.object({
@@ -24,10 +38,20 @@ export const kpiCardResponseSchema = z.object({
   // (see backend InstrumentHealthService.getInstrumentFailureRate). Shown as a tooltip breakdown.
   numerator: z.coerce.number().nullable(),
   denominator: z.coerce.number().nullable(),
+  // nullish, not nullable: a backend deployed before this field existed simply omits it.
+  thresholds: kpiThresholdsSchema.nullish(),
 })
 export type KpiCardResponse = z.infer<typeof kpiCardResponseSchema>
 
 export const kpiCardListSchema = z.array(kpiCardResponseSchema)
+
+// The slice of GET /api/kpi-thresholds/{kpiId} (backend KpiThresholdConfigRow) the expanded chart
+// shows; zod drops every other column.
+export const kpiThresholdConfigSchema = z.object({
+  kpiId: z.string(),
+  sourceSystem: z.string().nullable(),
+  description: z.string().nullable(),
+})
 
 // The 5 grains every agg_*/fact_* table is rolled up to (confirmed live against the dpm DB).
 export const GRAINS = ['daily', 'weekly', 'monthly', 'quarterly', 'yearly'] as const

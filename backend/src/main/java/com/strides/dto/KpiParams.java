@@ -88,6 +88,12 @@ public final class KpiParams {
         public String productType;
     }
 
+    /** testScope: RISE or Commercial, or null/blank for All tests (see InvalidOosTestScope). invalid-oos-rate only. */
+    public static class WithTestScope extends DateRange {
+        @QueryParam("testScope")
+        public String testScope;
+    }
+
     public static class WithRootCauseBucket extends DateRange {
         @QueryParam("rootCauseBucket")
         public String rootCauseBucket;

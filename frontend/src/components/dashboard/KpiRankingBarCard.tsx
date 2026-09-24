@@ -64,7 +64,7 @@ function truncatedCategoryTick(props: { x?: string | number; y?: string | number
 
 /** Same card chrome/left-accent as SeverityKpiCard, for the 3 chartType:'bar' KPIs (category
  * rankings summed over the whole date range, e.g. CAPA Aging Status) that structurally can't use
- * SeverityKpiCard's per-period trend shape - see mockData.ts's KPI_THRESHOLD_MOCK caveat. Real
+ * SeverityKpiCard's per-period trend shape or a per-period threshold. Real
  * data via useKpiData; filters collapse behind a toggle so the default view stays compact. */
 export function KpiRankingBarCard({
   domain,

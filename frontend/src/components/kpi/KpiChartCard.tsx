@@ -18,6 +18,7 @@ import { CATEGORICAL_PALETTE, MAX_SERIES, STATUS_COLORS, TOOLTIP_Z_INDEX } from 
 import { ExtraFilterControl } from './ExtraFilterControl'
 import { KpiLineTooltip } from './KpiLineTooltip'
 import { formatPeriodTick } from '@/lib/periodFormat'
+import { seriesKeyFor } from '@/lib/kpiRowName'
 import type { Grain, KpiCardResponse } from '@/lib/kpiSchemas'
 
 interface Series {
@@ -27,12 +28,6 @@ interface Series {
   latestStatus: KpiCardResponse['status']
 }
 
-// Some endpoints (capa-aging-status, human-error-severity, human-error-by-product) return many
-// rows per period under one shared kpiId, differing only by `name` (one per level/classification/
-// material) - kpiId alone is not a unique series identity for those, so it's combined with `name`.
-function seriesKeyFor(row: KpiCardResponse) {
-  return `${row.kpiId}|${row.name}`
-}
 
 export function toChartData(rows: KpiCardResponse[]) {
   const seriesByKey = new Map<string, Series>()

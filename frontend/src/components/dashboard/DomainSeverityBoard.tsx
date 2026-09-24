@@ -9,9 +9,9 @@ import { SeverityKpiCard } from './SeverityKpiCard'
 const SEVERITY_ORDER: Severity[] = ['action', 'alert', 'in-control']
 
 /** Renders one domain's severity-tier bands (Figma node 5024:13253's expanded-strip content),
- * fed by real backend data (useDomainTrendKpis) - severity is computed per KPI from its live value
- * against its (mocked) target/alert/action thresholds, not fixed. KPIs still loading, erroring, or
- * blocked by a required filter (see useDomainTrendKpis) have no severity yet and render in a plain
+ * fed by real backend data (useDomainTrendKpis) - severity is each KPI's backend status (from its
+ * KPI threshold config), not fixed. KPIs still loading, erroring, or with no configured
+ * threshold (see useDomainTrendKpis) have no severity and render in a plain
  * ungrouped row below the tiers.
  *
  * `companions` (keyed by kpi.id) renders extra content immediately after that KPI's own card, as

@@ -17,16 +17,6 @@ const EXCLUDED_OPTIONS: Record<string, Record<string, Set<string>>> = {
   },
 }
 
-// Per-KPI option inclusions - values a KPI's filter should offer that the backend's live
-// distinct-value list doesn't itself provide. Instrument Downtime's instGroup is a strict
-// exact-match column with no combined "All" row (see InstrumentHealthController.downtime) - "All"
-// here is a pure UI sentinel; SeverityKpiCard special-cases selecting it into one request per real
-// instGroup value merged client-side, rather than ever sending instGroup=All to the backend.
-const ALL_OPTION_KPI_PARAMS: Record<string, Set<string>> = {
-  downtime: new Set(['instGroup']),
-}
-export const ALL_OPTION_SENTINEL = 'All'
-
 /**
  * One place for the extraFilters state + live cross-filtered option lists every KPI card needs -
  * shared by KpiChartCard/KpiRankingBarCard/PriorityComplianceCard/SeverityKpiCard/KpiDetailModal
@@ -83,8 +73,7 @@ export function useExtraFilters(
     if (!DYNAMIC_KINDS.has(filter.kind)) return []
     const raw = filterOptions[filter.param] ?? []
     const excluded = EXCLUDED_OPTIONS[kpi.id]?.[filter.param]
-    const filtered = excluded ? raw.filter((o) => !excluded.has(o)) : raw
-    return ALL_OPTION_KPI_PARAMS[kpi.id]?.has(filter.param) ? [ALL_OPTION_SENTINEL, ...filtered] : filtered
+    return excluded ? raw.filter((o) => !excluded.has(o)) : raw
   }
 
   const extraParams = kpi.extraFilters.flatMap((filter, i) => resolveExtraParams(filter, effectiveStates[i]))

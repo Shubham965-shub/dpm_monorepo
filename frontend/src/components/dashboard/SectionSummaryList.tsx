@@ -1,14 +1,14 @@
 import { useState, type CSSProperties, type ReactNode } from 'react'
 import { useHeatmapData } from '@/hooks/useHeatmapData'
 import { useFavoriteSections } from '@/hooks/useFavoriteSections'
-import { KPI_DOMAINS } from '@/lib/kpiConfig'
+import { KPI_DOMAINS, type KpiDefinition } from '@/lib/kpiConfig'
 import { getGrainDateRange } from '@/lib/kpiDateRange'
 import type { Grain } from '@/lib/kpiSchemas'
 import type { GlobalKpiFilters } from '@/hooks/useKpiData'
 import { KpiRankingBarCard } from './KpiRankingBarCard'
 import { PriorityComplianceCard } from './PriorityComplianceCard'
 import { RootCauseHeatmapCard } from './RootCauseHeatmapCard'
-import { SECTION_SCORE_MOCK, KPI_THRESHOLD_MOCK } from './mockData'
+import { SECTION_SCORE_MOCK } from './mockData'
 import { SectionSummaryBar } from './SectionSummaryBar'
 import { DomainSeverityBoard } from './DomainSeverityBoard'
 import type { SectionFilterValue } from './FilterBar'
@@ -16,13 +16,12 @@ import type { Severity } from './types'
 
 // KPIs whose real shape is a per-category share of a period's total (not a single trending value
 // or a whole-range ranking) - routed to their own dedicated card instead of DomainSeverityBoard or
-// KpiRankingBarCard. See mockData.ts's KPI_THRESHOLD_MOCK comment for why priority-sample-compliance
-// specifically doesn't fit either of those.
+// KpiRankingBarCard - its real data is a raw sample count per priority tier (P1..P4) that always
+// sums to the period's total, not one trending value a threshold could colour.
 const STACKED_SHARE_KPI_IDS = new Set(['priority-sample-compliance'])
 
 // KPIs whose real shape is a dimension x period matrix best read as a heatmap, not a trendline or
-// ranking - see mockData.ts's KPI_THRESHOLD_MOCK comment for why root-cause-consolidated
-// specifically doesn't fit either of those. Rendered as a DomainSeverityBoard "companion" (see
+// ranking - root-cause-consolidated has no single trending value a threshold could colour. Rendered as a DomainSeverityBoard "companion" (see
 // below) of its paired host id, not as its own grid card - per product decision, it should always
 // sit beside that host wherever the host's live severity currently places it.
 const HEATMAP_KPI_IDS = new Set(['root-cause-consolidated'])
@@ -78,18 +77,17 @@ export function SectionSummaryList({
           else if (latest === 'in-control') onTrack++
         }
         const domain = KPI_DOMAINS.find((d) => d.key === sec.key)
-        const thresholdIds = new Set(KPI_THRESHOLD_MOCK.filter((t) => t.domainKey === sec.key).map((t) => t.id))
-        // KPIs with a mock threshold entry get the real-data severity-card treatment
-        // (DomainSeverityBoard); STACKED_SHARE_KPI_IDS get PriorityComplianceCard's stacked-
-        // percentage view; HEATMAP_KPI_IDS get RootCauseHeatmapCard's dimension x period matrix;
-        // the rest - currently each domain's chartType:'bar' KPIs (category rankings, not a
-        // per-period single value - see mockData.ts's KPI_THRESHOLD_MOCK caveat) - get the plain
-        // real-data KpiRankingBarCard instead.
+        // Per-period trend KPIs get the severity-card treatment (DomainSeverityBoard);
+        // STACKED_SHARE_KPI_IDS get PriorityComplianceCard's stacked-percentage view;
+        // HEATMAP_KPI_IDS get RootCauseHeatmapCard's dimension x period matrix; chartType:'bar'
+        // KPIs (category rankings summed over the range, not a per-period single value) get the
+        // plain KpiRankingBarCard instead.
         const isSpecialCased = (id: string) => STACKED_SHARE_KPI_IDS.has(id) || HEATMAP_KPI_IDS.has(id)
-        let trendKpis = domain?.kpis.filter((kpi) => thresholdIds.has(kpi.id) && !isSpecialCased(kpi.id)) ?? []
+        const isRanking = (kpi: KpiDefinition) => kpi.chartType === 'bar'
+        let trendKpis = domain?.kpis.filter((kpi) => !isRanking(kpi) && !isSpecialCased(kpi.id)) ?? []
         let stackedKpis = domain?.kpis.filter((kpi) => STACKED_SHARE_KPI_IDS.has(kpi.id)) ?? []
         const heatmapKpis = domain?.kpis.filter((kpi) => HEATMAP_KPI_IDS.has(kpi.id)) ?? []
-        let rankingKpis = domain?.kpis.filter((kpi) => !thresholdIds.has(kpi.id) && !isSpecialCased(kpi.id)) ?? []
+        let rankingKpis = domain?.kpis.filter((kpi) => isRanking(kpi) && !isSpecialCased(kpi.id)) ?? []
         if (isSearching) {
           trendKpis = trendKpis.filter((kpi) => kpi.label.toLowerCase().includes(query))
           stackedKpis = stackedKpis.filter((kpi) => kpi.label.toLowerCase().includes(query))
