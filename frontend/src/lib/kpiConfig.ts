@@ -29,6 +29,8 @@ export interface KpiDefinition {
   path: string
   /** Empty = no filter beyond the shared site/grain/from/to. */
   extraFilters: ExtraFilter[]
+  /** Sent on every fetch and not user-changeable - lets one endpoint back several cards, each pinned to one slice. */
+  fixedParams?: [string, string][]
   /**
    * 'line' (default) = one point per period, one line per series - a time series.
    * 'bar' = one horizontal bar per row's `name`, summed across the whole date range rather than
@@ -46,29 +48,14 @@ export interface KpiDomain {
   kpis: KpiDefinition[]
 }
 
-/**
- * A required select filter (currently just Instrument Health's instGroup) has no backend-side
- * "combined" value to fall back to - the column is an exact-match required param with 3 real,
- * distinct values, no "All" row (see InstrumentHealthController). Used by the board-level batch
- * fetch (useDomainTrendKpis) and as the per-card default too (useExtraFilters.ts), so a card's
- * shown value always matches the data the board fetched for it.
- */
-const REQUIRED_SELECT_DEFAULTS: Record<string, string> = {
-  instGroup: 'Dissolution',
-}
-
-export function requiredSelectDefaults(kpi: KpiDefinition): [string, string][] {
-  return kpi.extraFilters
-    .filter((f): f is Extract<ExtraFilter, { kind: 'select' }> => f.kind === 'select' && !!f.required)
-    .map((f) => [f.param, REQUIRED_SELECT_DEFAULTS[f.param]] as [string, string])
-    .filter(([, value]) => value != null)
-}
-
 export const DEFAULT_SITE = 'KRSG'
 
 // QC-versus-All department split (see backend/README.md's "Department scope" section) - blank
 // selection omits the param, which the backend defaults to ALL, so only "QC" needs to be offered.
 const DEPARTMENT_SCOPE_FILTER: ExtraFilter = { kind: 'departmentScope', param: 'departmentScope' }
+
+// Blank = every group combined (hours summed, % recomputed - see AggLimsInstrumentUtilizationRepository).
+const INST_GROUP_FILTER: ExtraFilter = { kind: 'multiSelect', param: 'instGroup' }
 
 export const KPI_DOMAINS: KpiDomain[] = [
   {
@@ -78,7 +65,7 @@ export const KPI_DOMAINS: KpiDomain[] = [
     kpis: [
       // Returns three series (RISE / Commercial / All tests) - see QmsService.getInvalidOosRate.
       { id: 'invalid-oos-rate', label: 'Invalid OOS Rate', path: 'invalid-oos-rate', extraFilters: [] },
-      { id: 'confirmed-oos-rate', label: 'Confirmed OOS Rate', path: 'confirmed-oos-rate', extraFilters: [] },
+      { id: 'confirmed-oos-rate', label: 'Confirmed OOS Rate', path: 'confirmed-oos-rate', extraFilters: [{ kind: 'multiSelect', param: 'productType' }] },
       { id: 'oos-trend', label: 'OOS Trend', path: 'oos-trend', extraFilters: [{ kind: 'multiSelect', param: 'rootCauseBucket' }] },
       { id: 'oot-trend', label: 'OOT Trend', path: 'oot-trend', extraFilters: [{ kind: 'multiSelect', param: 'rootCauseBucket' }] },
       {
@@ -185,9 +172,11 @@ export const KPI_DOMAINS: KpiDomain[] = [
     label: 'Instrument Health',
     basePath: '/api/instrument-health',
     kpis: [
-      { id: 'utilization', label: 'Instrument Utilization %', path: 'utilization', extraFilters: [{ kind: 'select', param: 'instGroup', required: true }] },
-      { id: 'availability', label: 'Instrument Availability %', path: 'availability', extraFilters: [{ kind: 'select', param: 'instGroup', required: true }] },
-      { id: 'downtime', label: 'Instrument Downtime %', path: 'downtime', extraFilters: [{ kind: 'select', param: 'instGroup', required: true }] },
+      { id: 'utilization', label: 'Instrument Utilization %', path: 'utilization', extraFilters: [INST_GROUP_FILTER] },
+      { id: 'dissolution-availability', label: 'Dissolution Availability %', path: 'availability', extraFilters: [], fixedParams: [['instGroup', 'Dissolution']] },
+      { id: 'gc-availability', label: 'GC Availability %', path: 'availability', extraFilters: [], fixedParams: [['instGroup', 'GC']] },
+      { id: 'hplc-availability', label: 'HPLC Availability %', path: 'availability', extraFilters: [], fixedParams: [['instGroup', 'HPLC']] },
+      { id: 'downtime', label: 'Instrument Downtime %', path: 'downtime', extraFilters: [INST_GROUP_FILTER] },
       { id: 'calibration-compliance', label: 'Calibration Compliance %', path: 'calibration-compliance', extraFilters: [] },
       { id: 'pm-adherence', label: 'PM Adherence %', path: 'pm-adherence', extraFilters: [] },
       { id: 'breakdown-frequency', label: 'Breakdown Frequency', path: 'breakdown-frequency', extraFilters: [] },

@@ -12,6 +12,7 @@ import static org.mockito.Mockito.when;
 import com.strides.dto.DepartmentScope;
 import com.strides.dto.KpiCardResponse;
 import com.strides.model.AggTwHumanErrorSeverityRow;
+import com.strides.model.AggTwValidOosRateRow;
 import com.strides.model.InvalidOosTotals;
 import com.strides.model.PeriodSum;
 import com.strides.model.MedianTatRow;
@@ -24,6 +25,7 @@ import com.strides.repository.AggTwInvalidOosRateRepository;
 import com.strides.repository.AggTwInvestigationClosureTatRepository;
 import com.strides.repository.AggTwRepeatFailureRateRepository;
 import com.strides.repository.AggTwRootCauseDistributionRepository;
+import com.strides.repository.AggTwValidOosRateRepository;
 import com.strides.repository.DepartmentScopeLiterals;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -61,6 +63,8 @@ class QmsServiceTest {
     DepartmentScopeLiterals deptLiterals;
     @Mock
     AggTwInvalidOosRateRepository invalidOosRateRepository;
+    @Mock
+    AggTwValidOosRateRepository validOosRateRepository;
 
     @InjectMocks
     QmsService service;
@@ -92,6 +96,26 @@ class QmsServiceTest {
         assertNull(result.get(0).value());
         assertNull(result.get(1).value());
         assertEquals(new BigDecimal("0.00"), result.get(2).value());
+    }
+
+    @Test
+    void confirmedOosRateParsesProductTypeSelectionAndMapsCounts() {
+        when(validOosRateRepository.find("KRSG", Set.of("Commercial", "Exhibit"), "monthly", PERIOD, PERIOD))
+                .thenReturn(List.of(new AggTwValidOosRateRow("monthly", PERIOD, "KRSG", 14, 7062, new BigDecimal("1.9824"))));
+
+        List<KpiCardResponse> result = service.getConfirmedOosRate("KRSG", "Commercial,Exhibit", "monthly", PERIOD, PERIOD);
+
+        assertEquals("confirmed-oos-rate", result.get(0).kpiId());
+        assertEquals(new BigDecimal("1.9824"), result.get(0).value());
+        assertEquals(BigDecimal.valueOf(14), result.get(0).numerator());
+        assertEquals(BigDecimal.valueOf(7062), result.get(0).denominator());
+    }
+
+    @Test
+    void confirmedOosRateBlankProductTypeMeansAll() {
+        when(validOosRateRepository.find("KRSG", Set.of(), "monthly", PERIOD, PERIOD)).thenReturn(List.of());
+
+        assertTrue(service.getConfirmedOosRate("KRSG", null, "monthly", PERIOD, PERIOD).isEmpty());
     }
 
     private static KpiCardResponse overallOf(List<KpiCardResponse> result) {

@@ -1,13 +1,13 @@
 import { useQueries } from '@tanstack/react-query'
 import { getValidated } from '@/lib/apiClient'
 import { kpiCardListSchema, type KpiCardResponse } from '@/lib/kpiSchemas'
-import { requiredSelectDefaults, type KpiDomain, type KpiDefinition } from '@/lib/kpiConfig'
+import type { KpiDomain, KpiDefinition } from '@/lib/kpiConfig'
 import { extractRowCategory } from '@/lib/kpiRowName'
 import { filterRootCauseRowsToDimension, pickMaximalRootCauseDimension } from '@/lib/rootCauseDimensions'
 import { KPI_THRESHOLD_MOCK } from '@/components/dashboard/mockData'
 import { classifySeverity, type Severity } from '@/components/dashboard/types'
 import { toChartData } from '@/components/kpi/KpiChartCard'
-import type { GlobalKpiFilters } from './useKpiData'
+import { buildKpiQueryString, type GlobalKpiFilters } from './useKpiData'
 
 // Human Error Severity's real classifications (confirmed live: Critical/Major/Minor/Unclassified,
 // plus a synthetic null-valued "Overall" row - see QmsService.getHumanErrorSeverity) are more than
@@ -120,9 +120,8 @@ export interface DomainTrendKpiResult extends KpiMetrics {
  * fixed regardless of how many KPIs a domain has) and classifies each one's severity against its
  * mock threshold (see mockData.ts's KPI_THRESHOLD_MOCK and types.ts's classifySeverity) - "linked
  * to the backend APIs, thresholds mocked, severity computed from the real trend" per the product
- * decision this replaces the old all-mock SEVERITY_KPI_MOCK with. A required select filter (e.g.
- * instGroup) defaults to its first real option (see kpiConfig.ts's requiredSelectDefaults) rather
- * than blocking the fetch - the card's own Filters control (SeverityKpiCard) can switch it. */
+ * decision this replaces the old all-mock SEVERITY_KPI_MOCK with. Every extra filter starts at
+ * All (param omitted) - the card's own Filters control (SeverityKpiCard) can narrow it. */
 export function useDomainTrendKpis(
   domain: KpiDomain,
   kpis: KpiDefinition[],
@@ -130,14 +129,7 @@ export function useDomainTrendKpis(
 ): DomainTrendKpiResult[] {
   const results = useQueries({
     queries: kpis.map((kpi) => {
-      const params = new URLSearchParams({
-        site: globalFilters.site,
-        grain: globalFilters.grain,
-        from: globalFilters.from,
-        to: globalFilters.to,
-      })
-      requiredSelectDefaults(kpi).forEach(([key, value]) => params.append(key, value))
-      const queryString = params.toString()
+      const queryString = buildKpiQueryString(globalFilters, kpi)
       return {
         queryKey: ['kpi', domain.key, kpi.id, queryString] as const,
         queryFn: () => getValidated(kpiCardListSchema, `${domain.basePath}/${kpi.path}?${queryString}`),

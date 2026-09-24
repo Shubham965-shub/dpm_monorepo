@@ -179,6 +179,8 @@ export interface KpiThresholdMock {
 // at least sits in the same ballpark as what the KPI actually reports - direction (higher/lower-
 // is-better) inferred from each KPI's meaning. Still placeholders (no real business-defined zone
 // boundary exists anywhere), just no longer off by 10-100x from the real unit/scale.
+const AVAILABILITY_THRESHOLDS = { target: 40, alertThreshold: 25, actionThreshold: 10 }
+
 export const KPI_THRESHOLD_MOCK: KpiThresholdMock[] = [
   // --- Lab Performance (real unit: days/tests/%/samples/sequences,injections per analyst) ---
   { id: 'sample-tat', domainKey: 'lab-performance', target: 24, alertThreshold: 28, actionThreshold: 34 },
@@ -198,14 +200,17 @@ export const KPI_THRESHOLD_MOCK: KpiThresholdMock[] = [
   // --- Instrument Health (real unit: breakdowns/day, %, ratio, days) ---
   // Real ~1.4-1.6 breakdowns/DAY - original 3/6/10 assumed a monthly count.
   { id: 'breakdown-frequency', domainKey: 'instrument-health', target: 0.8, alertThreshold: 1.2, actionThreshold: 1.8 },
-  // downtime/availability/utilization require an instGroup value (Dissolution/GC/HPLC) - each
-  // defaults to the first real option rather than blocking (see kpiConfig.ts's
-  // requiredSelectDefaults); real ranges below checked across all 3 groups, trailing 3 months.
+  // downtime/utilization default to all instGroups combined (Dissolution/GC/HPLC); availability is
+  // one card per group. Real per-group ranges below checked across all 3 groups, trailing 3 months.
   // Real ~1.2-17.7% across groups (Dissolution best, GC worst) - close to the original 2/5/8 scale.
   { id: 'downtime', domainKey: 'instrument-health', target: 2, alertThreshold: 5, actionThreshold: 8 },
   // Real ~3-47% (Dissolution's "actual_available_time/(rows*24)" formula runs far lower than a
   // typical uptime % - see InstrumentHealthService's javadoc) - original 98/93/88 assumed near-100%.
-  { id: 'availability', domainKey: 'instrument-health', target: 40, alertThreshold: 25, actionThreshold: 10 },
+  // One shared threshold for all 3 groups (confirmed) - Dissolution (~5%) sits far below GC/HPLC
+  // (~35-40%), so it reads red by design.
+  ...(['dissolution', 'gc', 'hplc'] as const).map((group) => ({
+    id: `${group}-availability`, domainKey: 'instrument-health' as const, ...AVAILABILITY_THRESHOLDS,
+  })),
   // Real ~52-96% (Dissolution highest, GC/HPLC ~50-60) - close to the original 85/75/65 scale.
   { id: 'utilization', domainKey: 'instrument-health', target: 85, alertThreshold: 75, actionThreshold: 65 },
   { id: 'calibration-compliance', domainKey: 'instrument-health', target: 100, alertThreshold: 95, actionThreshold: 90 },

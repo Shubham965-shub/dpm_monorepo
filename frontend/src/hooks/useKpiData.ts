@@ -18,14 +18,15 @@ export interface GlobalKpiFilters {
  */
 export type ExtraParams = [string, string][]
 
-/** Shared by useKpiData and useExtraFilters (its filter-options fetch takes the identical params, so cross-filtering reflects the same context the KPI's own query uses). */
-export function buildKpiQueryString(globalFilters: GlobalKpiFilters, extraParams: ExtraParams) {
+/** Shared by every KPI fetch (useKpiData, useExtraFilters' filter-options fetch, and the board/heatmap
+ * batch fetches) so identical inputs always produce the identical query string - and so the same cache key. */
+export function buildKpiQueryString(globalFilters: GlobalKpiFilters, kpi: KpiDefinition, extraParams: ExtraParams = []) {
   const params = new URLSearchParams()
   params.set('site', globalFilters.site)
   params.set('grain', globalFilters.grain)
   params.set('from', globalFilters.from)
   params.set('to', globalFilters.to)
-  extraParams.forEach(([key, value]) => params.append(key, value))
+  for (const [key, value] of [...(kpi.fixedParams ?? []), ...extraParams]) params.append(key, value)
   return params.toString()
 }
 
@@ -36,7 +37,7 @@ export function useKpiData(
   extraParams: ExtraParams,
   options?: { enabled?: boolean },
 ) {
-  const queryString = buildKpiQueryString(globalFilters, extraParams)
+  const queryString = buildKpiQueryString(globalFilters, kpi, extraParams)
   return useQuery({
     queryKey: ['kpi', domain.key, kpi.id, queryString],
     queryFn: () => getValidated(kpiCardListSchema, `${domain.basePath}/${kpi.path}?${queryString}`),
