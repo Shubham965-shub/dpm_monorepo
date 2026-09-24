@@ -10,6 +10,7 @@ import { SearchKpiBar } from './SearchKpiBar'
 import { SectionSummaryList } from './SectionSummaryList'
 import { PerformanceWorkInProgress } from './PerformanceWorkInProgress'
 import { KPI_DOMAINS } from '@/lib/kpiConfig'
+import { pluralize } from '@/lib/utils'
 
 export function DashboardPage() {
   const { user, logout } = useAuth()
@@ -35,7 +36,7 @@ export function DashboardPage() {
             <div>
               <h1 className="text-xl font-semibold">KRSG Operations</h1>
               <p className="text-sm text-muted-foreground">
-                Composite plant performance · {totalKpis} KPIs across {KPI_DOMAINS.length} sections
+                Composite plant performance · {pluralize(totalKpis, 'KPI')} across {KPI_DOMAINS.length} sections
               </p>
             </div>
 
@@ -62,7 +63,8 @@ export function DashboardPage() {
             />
           </main>
         </>
-      )}
+
+)}
     </div>
   )
 }

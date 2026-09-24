@@ -1,4 +1,5 @@
 import { Fragment, type ReactNode } from 'react'
+import { pluralize } from '@/lib/utils'
 import type { KpiDomain, KpiDefinition } from '@/lib/kpiConfig'
 import type { GlobalKpiFilters } from '@/hooks/useKpiData'
 import { useDomainTrendKpis, type DomainTrendKpiResult } from '@/hooks/useDomainTrendKpis'
@@ -57,7 +58,7 @@ export function DomainSeverityBoard({
               <span className="text-[11px] font-black tracking-wide uppercase" style={{ color: meta.solidHex }}>
                 {meta.label}
               </span>
-              <span className="text-muted-foreground text-[11px] font-bold">{tier.length} KPIs</span>
+              <span className="text-muted-foreground text-[11px] font-bold">{pluralize(tier.length, 'KPI')}</span>
             </div>
             {/* items-start: a stretched grid row would otherwise force every card in it to match
             its tallest sibling's height (e.g. a multi-series legend wrapping to 2 lines). A paired
