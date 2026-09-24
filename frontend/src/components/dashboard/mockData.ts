@@ -122,7 +122,7 @@ export const NEEDS_ATTENTION_MOCK: NeedsAttentionItem[] = [
     status: 'no-action',
     category: 'Lab Performance',
     date: 'Aug 26',
-    kpiName: 'SLA Adherence',
+    kpiName: 'Sample SLA Adherence',
     detail: '83.63% vs 95% Action limit',
     assignee: 'Ravi',
     action: 'nudge',

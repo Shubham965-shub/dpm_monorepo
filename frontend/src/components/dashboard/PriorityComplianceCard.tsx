@@ -1,7 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ChevronDown, SlidersHorizontal } from 'lucide-react'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { cn } from '@/lib/utils'
 import { TOOLTIP_Z_INDEX, greenGradient } from '@/lib/chartPalette'
 import { formatPeriodTick, formatPeriodLabel } from '@/lib/periodFormat'
 import { extractRowCategory } from '@/lib/kpiRowName'
@@ -10,7 +8,7 @@ import type { Grain, KpiCardResponse } from '@/lib/kpiSchemas'
 import { useKpiData, type GlobalKpiFilters } from '@/hooks/useKpiData'
 import { useExtraFilters } from '@/hooks/useExtraFilters'
 import { emptyStateFor } from '@/components/kpi/KpiChartCard'
-import { ExtraFilterControl } from '@/components/kpi/ExtraFilterControl'
+import { FiltersPopoverButton } from '@/components/kpi/FiltersPopoverButton'
 import { SEVERITY_META } from './types'
 
 const GREEN = SEVERITY_META['in-control']
@@ -150,34 +148,17 @@ export function PriorityComplianceCard({
           )}
         </div>
         {kpi.extraFilters.length > 0 && (
-          <button
-            onClick={() => setFiltersOpen((v) => !v)}
-            className={cn(
-              'flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-medium',
-              filtersOpen ? 'border-input bg-muted text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground',
-            )}
-          >
-            <SlidersHorizontal className="size-3" />
-            Filters
-            <ChevronDown className={cn('size-3 transition-transform', filtersOpen && 'rotate-180')} />
-          </button>
+          <FiltersPopoverButton
+            kpi={kpi}
+            extraStates={extraStates}
+            onExtraStateChange={setExtraState}
+            optionsFor={optionsFor}
+            filterOptionsLoading={filterOptionsLoading}
+            open={filtersOpen}
+            onOpenChange={setFiltersOpen}
+          />
         )}
       </div>
-
-      {filtersOpen && kpi.extraFilters.length > 0 && (
-        <div className="flex flex-wrap gap-3 rounded-md bg-muted/40 p-2">
-          {kpi.extraFilters.map((filter, i) => (
-            <ExtraFilterControl
-              key={filter.param}
-              filter={filter}
-              state={extraStates[i]}
-              options={optionsFor(filter)}
-              loading={filterOptionsLoading}
-              onChange={(next) => setExtraState(i, next)}
-            />
-          ))}
-        </div>
-      )}
 
       <div style={{ height: CHART_HEIGHT_PX }} className="w-full">
         {emptyState ?? (

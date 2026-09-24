@@ -1,0 +1,373 @@
+/* Fonts specific to the login page's design (ported from dpm-login-rotating-hero.html) - kept out
+   of the app-wide index.css since no other page uses them. */
+@import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+/* Everything below is scoped under .dpm-login so it can't leak into (or clash with) the app's own
+   shadcn tokens in index.css - this page has its own palette per the design mockup, not the
+   dashboard's brand green. Dark mode reuses the app's existing `.dark` ancestor class (see
+   useTheme.tsx) rather than introducing a second theming mechanism. */
+.dpm-login {
+  --bg: #f1f6ef;
+  --bg-2: #fafcf9;
+  --grid: rgba(16, 94, 64, 0.055);
+  --ink: #123527;
+  --ink-2: #4b6558;
+  --ink-3: #7e948a;
+  --deep: #0d5c3d;
+  --accent: #16a46a;
+  --accent-2: #3ed08c;
+  --line: rgba(13, 92, 61, 0.42);
+  --line-soft: rgba(13, 92, 61, 0.2);
+  --line-faint: rgba(13, 92, 61, 0.11);
+  --warn: #c2761f;
+  --card: rgba(255, 255, 255, 0.66);
+  --card-line: rgba(13, 92, 61, 0.14);
+
+  position: fixed;
+  inset: 0;
+  overflow: auto;
+  background: var(--bg);
+  color: var(--ink);
+  background-image:
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px),
+    radial-gradient(120% 90% at 88% 4%, rgba(62, 208, 140, 0.16), transparent 62%);
+  background-size:
+    44px 44px,
+    44px 44px,
+    100% 100%;
+  font-family: Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+:root.dark .dpm-login {
+  --bg: #071411;
+  --bg-2: #0b1c17;
+  --grid: rgba(120, 235, 180, 0.06);
+  --ink: #dcefe5;
+  --ink-2: #8fb2a3;
+  --ink-3: #6a8b7d;
+  --deep: #5fe0a5;
+  --accent: #3fd693;
+  --accent-2: #7df0bc;
+  --line: rgba(110, 225, 170, 0.4);
+  --line-soft: rgba(110, 225, 170, 0.2);
+  --line-faint: rgba(110, 225, 170, 0.1);
+  --warn: #e0a253;
+  --card: rgba(255, 255, 255, 0.04);
+  --card-line: rgba(110, 225, 170, 0.16);
+}
+
+.dpm-login *,
+.dpm-login *::before,
+.dpm-login *::after {
+  box-sizing: border-box;
+}
+
+.dpm-login__head {
+  position: absolute;
+  top: 22px;
+  left: 28px;
+  right: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 11px;
+  z-index: 1;
+}
+.dpm-login__mark {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+.dpm-login__mark-bar {
+  width: 1px;
+  height: 26px;
+  background: var(--line-faint);
+}
+.dpm-login__mark strong {
+  font-family: 'Source Serif 4', Georgia, serif;
+  font-size: 15px;
+  font-weight: 700;
+  display: block;
+  line-height: 1.1;
+  color: var(--ink);
+}
+.dpm-login__mark span {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 8.5px;
+  letter-spacing: 0.17em;
+  color: var(--ink-3);
+}
+.dpm-login__theme-btn {
+  border: 1px solid var(--card-line);
+  background: var(--card);
+  color: var(--ink-2);
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+.dpm-login__theme-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.dpm-login__grid {
+  height: 100%;
+  max-width: 1500px;
+  margin: 0 auto;
+  padding: 90px 28px 48px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(300px, 0.5fr);
+  gap: 24px;
+  align-items: stretch;
+}
+
+.dpm-login__hero {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+.dpm-login__hero-copy {
+  max-width: 44ch;
+  margin: 0 0 14px;
+  flex: none;
+}
+.dpm-login__hero-copy h3 {
+  font-family: 'Source Serif 4', Georgia, serif;
+  font-size: clamp(22px, 2.6vw, 30px);
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+  color: var(--deep);
+  margin: 0 0 10px;
+}
+.dpm-login__hero-copy p {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 14.5px;
+  max-width: 44ch;
+}
+.dpm-login__hero-stage {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.dpm-login__hero-stage svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.dpm-login__signin {
+  background: var(--card);
+  border: 1px solid var(--card-line);
+  border-radius: 14px;
+  padding: 26px 26px 20px;
+  backdrop-filter: blur(6px);
+  align-self: center;
+}
+.dpm-login__eyebrow {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  color: var(--ink-3);
+}
+.dpm-login__signin h4 {
+  font-family: 'Source Serif 4', Georgia, serif;
+  font-size: 22px;
+  font-weight: 600;
+  margin: 4px 0 18px;
+  color: var(--ink);
+}
+.dpm-login__field-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  color: var(--ink-3);
+  text-transform: uppercase;
+}
+.dpm-login__input {
+  height: 38px;
+  border: 1px solid var(--card-line) !important;
+  border-radius: 9px !important;
+  background: var(--bg-2) !important;
+  color: var(--ink) !important;
+  font-size: 13.5px !important;
+  font-family: Inter, sans-serif;
+}
+.dpm-login__input::placeholder {
+  color: var(--ink-3);
+}
+.dpm-login__submit {
+  width: 100%;
+  height: 42px !important;
+  border-radius: 9px !important;
+  background: linear-gradient(95deg, var(--accent-2), var(--accent)) !important;
+  color: #04241a !important;
+  font-weight: 600 !important;
+  font-size: 14px !important;
+  margin-top: 6px;
+}
+.dpm-login__fine {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 8.5px;
+  letter-spacing: 0.1em;
+  color: var(--ink-3);
+  text-align: center;
+  margin-top: 14px;
+}
+.dpm-login__error {
+  font-family: Inter, sans-serif;
+  font-size: 12.5px;
+  color: var(--bad, #b4432e);
+}
+
+/* svg drawing language */
+.dpm-login .ln {
+  fill: none;
+  stroke: var(--line);
+  stroke-width: 1.1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.dpm-login .ls {
+  fill: none;
+  stroke: var(--line-soft);
+  stroke-width: 1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.dpm-login .lf {
+  fill: none;
+  stroke: var(--line-faint);
+  stroke-width: 1;
+}
+.dpm-login .acc {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.dpm-login .fs {
+  fill: var(--line-faint);
+}
+.dpm-login .lbl {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 8.5px;
+  letter-spacing: 0.19em;
+  fill: var(--ink-3);
+}
+.dpm-login .lbl2 {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  fill: var(--ink-2);
+}
+.dpm-login .lblg {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 8.5px;
+  letter-spacing: 0.14em;
+  fill: var(--deep);
+}
+.dpm-login .num {
+  font-family: 'Source Serif 4', Georgia, serif;
+  font-weight: 600;
+  fill: var(--deep);
+}
+.dpm-login .dash {
+  stroke-dasharray: 3 4;
+}
+
+@keyframes dpm-login-motif-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes dpm-login-trace-in {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes dpm-login-kpi-in {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes dpm-login-bar-in {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+@keyframes dpm-login-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+.dpm-login .m-in {
+  animation: dpm-login-motif-in 0.55s ease-out both;
+}
+.dpm-login .trace {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: dpm-login-trace-in 1.5s cubic-bezier(0.16, 0.8, 0.3, 1) 0.25s both;
+}
+.dpm-login .kpi {
+  animation: dpm-login-kpi-in 0.5s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+.dpm-login .bar {
+  transform-origin: left center;
+  animation: dpm-login-bar-in 1.1s cubic-bezier(0.2, 0.9, 0.25, 1) both;
+}
+.dpm-login .blip {
+  animation: dpm-login-pulse 2s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .dpm-login * {
+    animation: none !important;
+  }
+  .dpm-login .trace {
+    stroke-dashoffset: 0 !important;
+  }
+}
+
+@media (max-width: 860px) {
+  .dpm-login__grid {
+    grid-template-columns: 1fr;
+    padding-top: 78px;
+  }
+  .dpm-login__hero-stage {
+    opacity: 0.1;
+  }
+  .dpm-login__signin {
+    position: relative;
+    z-index: 1;
+  }
+}

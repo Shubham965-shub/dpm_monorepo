@@ -1,13 +1,12 @@
 import { useMemo, useState } from 'react'
-import { ChevronDown, Maximize2, SlidersHorizontal } from 'lucide-react'
+import { Maximize2 } from 'lucide-react'
 import { Bar, BarChart, CartesianGrid, Rectangle, ResponsiveContainer, Tooltip, XAxis, YAxis, type BarShapeProps } from 'recharts'
-import { cn } from '@/lib/utils'
 import { TOOLTIP_Z_INDEX } from '@/lib/chartPalette'
 import type { KpiDomain, KpiDefinition } from '@/lib/kpiConfig'
 import { useKpiData, type GlobalKpiFilters } from '@/hooks/useKpiData'
 import { useExtraFilters } from '@/hooks/useExtraFilters'
 import { toBarData, emptyStateFor } from '@/components/kpi/KpiChartCard'
-import { ExtraFilterControl } from '@/components/kpi/ExtraFilterControl'
+import { FiltersPopoverButton } from '@/components/kpi/FiltersPopoverButton'
 import { SEVERITY_META } from './types'
 
 // This is real, live-fetched data with no computed severity/status (unlike SeverityKpiCard's real
@@ -98,38 +97,21 @@ export function KpiRankingBarCard({
         <h3 className="line-clamp-2 text-[11px] font-semibold text-gray-700">{kpi.label}</h3>
         <div className="flex shrink-0 items-center gap-1">
           {kpi.extraFilters.length > 0 && (
-            <button
-              onClick={() => setFiltersOpen((v) => !v)}
-              className={cn(
-                'flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-medium',
-                filtersOpen ? 'border-input bg-muted text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground',
-              )}
-            >
-              <SlidersHorizontal className="size-3" />
-              Filters
-              <ChevronDown className={cn('size-3 transition-transform', filtersOpen && 'rotate-180')} />
-            </button>
+            <FiltersPopoverButton
+              kpi={kpi}
+              extraStates={extraStates}
+              onExtraStateChange={setExtraState}
+              optionsFor={optionsFor}
+              filterOptionsLoading={filterOptionsLoading}
+              open={filtersOpen}
+              onOpenChange={setFiltersOpen}
+            />
           )}
           <button className="text-muted-foreground hover:text-foreground" title="Expand view (not yet built)">
             <Maximize2 className="size-3.5" />
           </button>
         </div>
       </div>
-
-      {filtersOpen && kpi.extraFilters.length > 0 && (
-        <div className="flex flex-wrap gap-3 rounded-md bg-muted/40 p-2">
-          {kpi.extraFilters.map((filter, i) => (
-            <ExtraFilterControl
-              key={filter.param}
-              filter={filter}
-              state={extraStates[i]}
-              options={optionsFor(filter)}
-              loading={filterOptionsLoading}
-              onChange={(next) => setExtraState(i, next)}
-            />
-          ))}
-        </div>
-      )}
 
       {notes.map((note) => (
         <p key={note} className="rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-700">

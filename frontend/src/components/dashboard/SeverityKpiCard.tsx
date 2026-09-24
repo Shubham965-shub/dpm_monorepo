@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowDown, ArrowUp, ChevronDown, Maximize2, SlidersHorizontal } from 'lucide-react'
+import { ArrowDown, ArrowUp, Maximize2 } from 'lucide-react'
 import { Bar, BarChart, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { cn } from '@/lib/utils'
 import { CATEGORICAL_PALETTE, MAX_SERIES, TOOLTIP_Z_INDEX } from '@/lib/chartPalette'
@@ -14,7 +14,8 @@ import {
 import { useKpiData, type GlobalKpiFilters } from '@/hooks/useKpiData'
 import { useExtraFilters } from '@/hooks/useExtraFilters'
 import { computeValueDomain, deriveKpiMetrics, type DomainTrendKpiResult } from '@/hooks/useDomainTrendKpis'
-import { ExtraFilterControl, type ExtraFilterState } from '@/components/kpi/ExtraFilterControl'
+import type { ExtraFilterState } from '@/components/kpi/ExtraFilterControl'
+import { FiltersPopoverButton } from '@/components/kpi/FiltersPopoverButton'
 import { KpiLineTooltip } from '@/components/kpi/KpiLineTooltip'
 import { boundaryHex, boundaryLines, boundaryZones, severityMeta } from './types'
 import { renderBoundaryOverlay } from './boundaryOverlay'
@@ -215,55 +216,40 @@ export function SeverityKpiCard({
             ))}
           </div>
           {(kpi.extraFilters.length > 0 || isRootCause) && (
-            <button
-              onClick={() => setFiltersOpen((v) => !v)}
-              className={cn(
-                'flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-medium',
-                filtersOpen ? 'border-input bg-muted text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground',
-              )}
-            >
-              <SlidersHorizontal className="size-3" />
-              Filters
-              <ChevronDown className={cn('size-3 transition-transform', filtersOpen && 'rotate-180')} />
-            </button>
+            <FiltersPopoverButton
+              kpi={kpi}
+              extraStates={extraStates}
+              onExtraStateChange={handleExtraStateChange}
+              optionsFor={optionsFor}
+              filterOptionsLoading={filterOptionsLoading}
+              open={filtersOpen}
+              onOpenChange={setFiltersOpen}
+              extra={
+                isRootCause && (
+                  <label className="flex flex-col gap-1">
+                    <span className="text-muted-foreground text-[11px] font-medium">root cause</span>
+                    <select
+                      className="rounded-md border border-input bg-background px-2 py-1 text-xs"
+                      value={rootCauseDimension ?? ''}
+                      onChange={(e) => setRootCauseDimension(e.target.value || null)}
+                    >
+                      <option value="">Auto (highest, latest period)</option>
+                      {rootCauseOptions.map((option) => (
+                        <option key={option.kpiId} value={option.kpiId}>
+                          {option.dimension}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )
+              }
+            />
           )}
           <button className="text-muted-foreground hover:text-foreground" onClick={() => setDetailOpen(true)} title="Expand view">
             <Maximize2 className="size-3.5" />
           </button>
         </div>
       </div>
-
-      {filtersOpen && (kpi.extraFilters.length > 0 || isRootCause) && (
-        <div className="flex flex-wrap gap-3 rounded-md bg-muted/40 p-2">
-          {kpi.extraFilters.map((filter, i) => (
-            <ExtraFilterControl
-              key={filter.param}
-              filter={filter}
-              state={extraStates[i]}
-              options={optionsFor(filter)}
-              loading={filterOptionsLoading}
-              onChange={(next) => handleExtraStateChange(i, next)}
-            />
-          ))}
-          {isRootCause && (
-            <label className="flex flex-col gap-1">
-              <span className="text-muted-foreground text-[11px] font-medium">root cause</span>
-              <select
-                className="rounded-md border border-input bg-background px-2 py-1 text-xs"
-                value={rootCauseDimension ?? ''}
-                onChange={(e) => setRootCauseDimension(e.target.value || null)}
-              >
-                <option value="">Auto (highest, latest period)</option>
-                {rootCauseOptions.map((option) => (
-                  <option key={option.kpiId} value={option.kpiId}>
-                    {option.dimension}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-        </div>
-      )}
 
       {/* A fixed height (not aspect-square) - a wide card (e.g. a lone Critical-tier KPI spanning
       the whole row) would otherwise blow the chart up to match its full width. */}
