@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { ChevronDown } from 'lucide-react'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import type { ExtraFilter } from '@/lib/kpiConfig'
 import type { ExtraParams } from '@/hooks/useKpiData'
 import { fuzzyMatch } from '@/lib/fuzzyMatch'
@@ -11,8 +13,6 @@ export type ExtraFilterState =
    * deselect-all (every box unchecked), so the master checkbox is a real toggle. */
   | { kind: 'multiSelect'; value: string[]; allChecked: boolean }
   | { kind: 'numberInput'; value: string }
-  /** '' = All, 'QC' = QC scope - see the departmentScope ExtraFilter kind. */
-  | { kind: 'departmentScope'; value: '' | 'QC' }
 
 export function initialExtraFilterState(filter: ExtraFilter): ExtraFilterState {
   switch (filter.kind) {
@@ -22,8 +22,6 @@ export function initialExtraFilterState(filter: ExtraFilter): ExtraFilterState {
       return { kind: 'multiSelect', value: [], allChecked: true }
     case 'numberInput':
       return { kind: 'numberInput', value: '' }
-    case 'departmentScope':
-      return { kind: 'departmentScope', value: '' }
   }
 }
 
@@ -38,9 +36,6 @@ export function resolveExtraParams(filter: ExtraFilter, state: ExtraFilterState)
   }
   if (filter.kind === 'numberInput' && state.kind === 'numberInput') {
     return state.value !== '' ? [[filter.param, state.value]] : []
-  }
-  if (filter.kind === 'departmentScope' && state.kind === 'departmentScope') {
-    return state.value ? [[filter.param, state.value]] : []
   }
   return []
 }
@@ -64,7 +59,7 @@ export function ExtraFilterControl({
   filter: ExtraFilter
   state: ExtraFilterState
   /** Live option list for select/multiSelect, fetched per-card and cross-filtered against this
-   * card's other current selections (see useExtraFilters) - ignored for numberInput/departmentScope. */
+   * card's other current selections (see useExtraFilters) - ignored for numberInput. */
   options: string[]
   loading?: boolean
   onChange: (state: ExtraFilterState) => void
@@ -74,6 +69,7 @@ export function ExtraFilterControl({
   // change hook order across renders. Some filters here have hundreds of live options (e.g. 965
   // analyst codes) that a scrollable checkbox list alone can't make findable.
   const [optionSearch, setOptionSearch] = useState('')
+  const [comboOpen, setComboOpen] = useState(false)
 
   if (filter.kind === 'select' && state.kind === 'select') {
     return (
@@ -125,40 +121,52 @@ export function ExtraFilterControl({
       }
     }
 
+    // Collapsed by default so a filter panel with several multiSelects doesn't sprawl - the
+    // trigger button summarizes the current selection, the popover holds the actual search+list.
+    const summaryLabel = isAll ? 'All' : selectedValues.length === 1 ? selectedValues[0] : `${selectedValues.length} selected`
+
     return (
       <fieldset className="flex flex-col gap-1">
         <span className={labelClass}>{filter.param}</span>
         {shownOptions.length === 0 ? (
           <span className="text-muted-foreground text-xs italic">{loading ? 'Loading…' : 'no values in DB yet'}</span>
         ) : (
-          <div className="w-56 rounded-md border border-input bg-background p-1.5 text-xs">
-            <input
-              type="text"
-              value={optionSearch}
-              onChange={(e) => setOptionSearch(e.target.value)}
-              placeholder="Search…"
-              className="mb-1 w-full rounded border border-input bg-background px-1.5 py-0.5 text-[11px] outline-none focus:ring-1 focus:ring-ring"
-            />
-            <div className="max-h-32 overflow-y-auto">
-              <label className="flex items-center gap-1.5 border-b border-border pb-1 font-medium">
-                <input type="checkbox" checked={allChecked} onChange={toggleAll} />
-                All
-              </label>
-              {visibleOptions.length === 0 && (
-                <span className="text-muted-foreground block py-1 text-xs italic">No matches</span>
-              )}
-              {visibleOptions.map((o) => (
-                <label key={o} className="flex items-center gap-1.5 py-0.5">
-                  <input
-                    type="checkbox"
-                    checked={isAll ? allChecked : selected.has(o)}
-                    onChange={() => toggleOption(o)}
-                  />
-                  <span className="truncate">{o}</span>
+          <Popover open={comboOpen} onOpenChange={setComboOpen}>
+            <PopoverTrigger asChild>
+              <button type="button" className={`${inputClass} flex w-56 items-center justify-between gap-1 text-left`}>
+                <span className="truncate">{summaryLabel}</span>
+                <ChevronDown className="size-3 shrink-0 opacity-60" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-56 gap-1 p-1.5 text-xs">
+              <input
+                type="text"
+                value={optionSearch}
+                onChange={(e) => setOptionSearch(e.target.value)}
+                placeholder="Search…"
+                className="mb-1 w-full rounded border border-input bg-background px-1.5 py-0.5 text-[11px] outline-none focus:ring-1 focus:ring-ring"
+              />
+              <div className="max-h-48 overflow-y-auto">
+                <label className="flex items-center gap-1.5 border-b border-border pb-1 font-medium">
+                  <input type="checkbox" checked={allChecked} onChange={toggleAll} />
+                  All
                 </label>
-              ))}
-            </div>
-          </div>
+                {visibleOptions.length === 0 && (
+                  <span className="text-muted-foreground block py-1 text-xs italic">No matches</span>
+                )}
+                {visibleOptions.map((o) => (
+                  <label key={o} className="flex items-center gap-1.5 py-0.5">
+                    <input
+                      type="checkbox"
+                      checked={isAll ? allChecked : selected.has(o)}
+                      onChange={() => toggleOption(o)}
+                    />
+                    <span className="truncate">{o}</span>
+                  </label>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
         )}
       </fieldset>
     )
@@ -174,19 +182,6 @@ export function ExtraFilterControl({
           value={state.value}
           onChange={(e) => onChange({ kind: 'numberInput', value: e.target.value })}
         />
-      </label>
-    )
-  }
-
-  if (filter.kind === 'departmentScope' && state.kind === 'departmentScope') {
-    return (
-      <label className="flex items-center gap-1.5 rounded-md border border-input bg-background px-2 py-1.5 text-xs">
-        <input
-          type="checkbox"
-          checked={state.value === 'QC'}
-          onChange={(e) => onChange({ kind: 'departmentScope', value: e.target.checked ? 'QC' : '' })}
-        />
-        QC scope only
       </label>
     )
   }
