@@ -22,7 +22,7 @@ public class InstrumentHealthController {
     @GET
     @Path("/utilization")
     public List<KpiCardResponse> utilization(@BeanParam KpiParams.WithInstGroup p) {
-        return service.getUtilization(p.site, RequiredParams.require(p.instGroup, "instGroup"),
+        return service.getUtilization(p.site, p.instGroup,
                 RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
     }
 
@@ -36,7 +36,7 @@ public class InstrumentHealthController {
     @GET
     @Path("/availability")
     public List<KpiCardResponse> availability(@BeanParam KpiParams.WithInstGroup p) {
-        return service.getAvailability(p.site, RequiredParams.require(p.instGroup, "instGroup"),
+        return service.getAvailability(p.site, p.instGroup,
                 RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
     }
 
@@ -50,7 +50,7 @@ public class InstrumentHealthController {
     @GET
     @Path("/downtime")
     public List<KpiCardResponse> downtime(@BeanParam KpiParams.WithInstGroup p) {
-        return service.getDowntime(p.site, RequiredParams.require(p.instGroup, "instGroup"),
+        return service.getDowntime(p.site, p.instGroup,
                 RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
     }
 

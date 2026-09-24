@@ -28,8 +28,15 @@ public class QmsController {
 
     @GET
     @Path("/confirmed-oos-rate")
-    public List<KpiCardResponse> confirmedOosRate(@BeanParam KpiParams.DateRange p) {
-        return service.getConfirmedOosRate(p.site,
+    public List<KpiCardResponse> confirmedOosRate(@BeanParam KpiParams.WithProductType p) {
+        return service.getConfirmedOosRate(p.site, p.productType,
+                RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
+    }
+
+    @GET
+    @Path("/confirmed-oos-rate/filter-options")
+    public Map<String, List<String>> confirmedOosRateFilterOptions(@BeanParam KpiParams.WithProductType p) {
+        return service.getConfirmedOosRateFilterOptions(p.site,
                 RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
     }
 

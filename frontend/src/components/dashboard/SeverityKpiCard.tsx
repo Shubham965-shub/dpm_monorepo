@@ -76,13 +76,11 @@ export function SeverityKpiCard({
   const cardFilters = { ...globalFilters, ...getGrainDateRange(grain), grain }
   const { extraStates, setExtraState, extraParams, optionsFor, filterOptionsLoading } =
     useExtraFilters(domain, kpi, cardFilters, filtersOpen || detailOpen)
-  // A required select (e.g. instGroup) already defaults to a real option (see
-  // requiredSelectDefaults) and is included in the board-level `result` fetch - only count the
-  // filter as "overridden" once the user actually touches it, so mount doesn't immediately refire
-  // an identical fetch.
+  // Untouched filters match the board-level `result` fetch - only count them as "overridden" once
+  // the user actually touches one, so mount doesn't immediately refire an identical fetch.
   const [filtersTouched, setFiltersTouched] = useState(false)
   // Surfaced next to the title (not just inside the collapsed Filters panel) so it's always clear
-  // which instGroup (or other required-select value) the card's data currently reflects.
+  // which required-select value the card's data currently reflects.
   const requiredSelects = kpi.extraFilters
     .map((filter, i) => ({ filter, i }))
     .filter((entry): entry is { filter: Extract<ExtraFilter, { kind: 'select' }>; i: number } =>

@@ -106,19 +106,20 @@ public class QmsService {
 
     /**
      * Same per-1000 vs percent scale caveat as Invalid OOS Rate.
-     * KNOWN GAP: no productType/eventType filter is possible even though both columns now exist -
-     * every non-'All' breakdown row has a NULL test_count (confirmed live), so there's no
-     * denominator to recompute a rate from a chosen subset of either dimension. See
-     * AggTwValidOosRateRepository for how the unfiltered ('All','All') total is still returned
-     * correctly. batchCategory/test/sampleType still don't exist as columns at all.
+     * productType: comma-separated list to combine, or null/blank for ALL - see
+     * AggTwValidOosRateRepository for how a subset's rate is recomputed.
      */
-    public List<KpiCardResponse> getConfirmedOosRate(String siteName, String grain, LocalDate from, LocalDate to) {
-        return validOosRateRepository.find(siteName, grain, from, to).stream()
+    public List<KpiCardResponse> getConfirmedOosRate(String siteName, String productType, String grain, LocalDate from, LocalDate to) {
+        return validOosRateRepository.find(siteName, PeriodCombiner.parseSelection(productType), grain, from, to).stream()
                 .map(row -> new KpiCardResponse(
-                        "confirmed-oos-rate", "Confirmed OOS Rate", row.validOosRate(), "per 1000 tests",
+                        "confirmed-oos-rate", "Confirmed OOS Rate", row.validOosRate(), PER_1000_TESTS_UNIT,
                         null, row.grain(), row.periodStart(), null,
                         BigDecimal.valueOf(row.oosCount()), BigDecimal.valueOf(row.testCount())))
                 .toList();
+    }
+
+    public Map<String, List<String>> getConfirmedOosRateFilterOptions(String siteName, String grain, LocalDate from, LocalDate to) {
+        return validOosRateRepository.filterOptions(siteName, grain, from, to);
     }
 
     /**

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { getValidated } from '@/lib/apiClient'
 import { filterOptionsSchema, type FilterOptions } from '@/lib/kpiSchemas'
-import { requiredSelectDefaults, type ExtraFilter, type KpiDomain, type KpiDefinition } from '@/lib/kpiConfig'
+import type { ExtraFilter, KpiDomain, KpiDefinition } from '@/lib/kpiConfig'
 import { buildKpiQueryString, type GlobalKpiFilters } from './useKpiData'
 import { initialExtraFilterState, resolveExtraParams, type ExtraFilterState } from '@/components/kpi/ExtraFilterControl'
 
@@ -35,13 +35,10 @@ export function useExtraFilters(
     setExtraStates((prev) => prev.map((s, idx) => (idx === i ? next : s)))
   }
 
-  const configuredDefaults = new Map(requiredSelectDefaults(kpi))
-  const queryString = buildKpiQueryString(filters, kpi.extraFilters.flatMap((filter, i) => resolveExtraParams(filter, extraStates[i])))
+  const queryString = buildKpiQueryString(filters, kpi, kpi.extraFilters.flatMap((filter, i) => resolveExtraParams(filter, extraStates[i])))
   const hasDynamicFilters = kpi.extraFilters.some((f) => DYNAMIC_KINDS.has(f.kind))
-  // A required select with no configured default can only resolve from the live list, so it has to fetch even while hidden.
-  const needsOptionsForDefault = kpi.extraFilters.some(
-    (f) => f.kind === 'select' && f.required && !configuredDefaults.has(f.param),
-  )
+  // A required select can only resolve its default from the live list, so it has to fetch even while hidden.
+  const needsOptionsForDefault = kpi.extraFilters.some((f) => f.kind === 'select' && f.required)
   const optionsQuery = useQuery({
     queryKey: ['kpi-filter-options', domain.key, kpi.id, queryString],
     queryFn: () => getValidated(filterOptionsSchema, `${domain.basePath}/${kpi.path}/filter-options?${queryString}`),
@@ -52,14 +49,12 @@ export function useExtraFilters(
   })
   const filterOptions: FilterOptions = optionsQuery.data ?? {}
 
-  // A required select still unset (e.g. Instrument Health's instGroup) resolves to the same
-  // configured default the board-level fetch uses (requiredSelectDefaults), so the label always
-  // matches the data shown; the first live option is only a fallback when none is configured.
-  // Derived at read time (not written back into extraStates) - the raw '' stays ''.
+  // A required select still unset resolves to the first live option. Derived at read time (not
+  // written back into extraStates) - the raw '' stays ''.
   const effectiveStates = kpi.extraFilters.map((filter, i) => {
     const state = extraStates[i]
     if (filter.kind === 'select' && filter.required && state.kind === 'select' && state.value === '') {
-      const fallback = configuredDefaults.get(filter.param) ?? filterOptions[filter.param]?.[0]
+      const fallback = filterOptions[filter.param]?.[0]
       if (fallback) return { kind: 'select', value: fallback } as ExtraFilterState
     }
     return state

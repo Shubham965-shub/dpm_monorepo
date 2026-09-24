@@ -9,9 +9,8 @@ import java.util.List;
  * @BeanParam input shapes for the KPI GET endpoints (Qms/LabPerformance/PeoplePerformance/
  * InstrumentHealth controllers). Every KPI query shares site/grain/from/to, so DateRange is the
  * base every filter shape extends rather than repeating those four fields per endpoint; each
- * subclass adds the one extra filter its group of endpoints needs. Requiredness (grain/from/to,
- * and instGroup on InstrumentHealth) is still enforced by RequiredParams.require in the
- * controller - these classes are just param carriers, not validators.
+ * subclass adds the one extra filter its group of endpoints needs. Requiredness (grain/from/to)
+ * is still enforced by RequiredParams.require in the controller - these classes are just param carriers, not validators.
  */
 public final class KpiParams {
 
@@ -30,6 +29,7 @@ public final class KpiParams {
         public LocalDate to;
     }
 
+    /** instGroup: comma-separated list to combine (HPLC, GC, Dissolution), or null/blank for ALL. */
     public static class WithInstGroup extends DateRange {
         @QueryParam("instGroup")
         public String instGroup;
@@ -80,6 +80,12 @@ public final class KpiParams {
         public String trainingType;
         @QueryParam("departmentScope")
         public String departmentScope;
+    }
+
+    /** productType: comma-separated list to combine (Commercial, Exhibit, Process Validation, ...), or null/blank for ALL. confirmed-oos-rate only. */
+    public static class WithProductType extends DateRange {
+        @QueryParam("productType")
+        public String productType;
     }
 
     public static class WithRootCauseBucket extends DateRange {

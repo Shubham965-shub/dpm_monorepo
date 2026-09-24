@@ -7,7 +7,6 @@ public record AggLimsInstrumentUtilizationRow(
         String grain,
         LocalDate periodStart,
         String siteName,
-        String instGroup,
         long instrumentDays,
         BigDecimal sumCappedUsageHours,
         BigDecimal sumAvailableTime,

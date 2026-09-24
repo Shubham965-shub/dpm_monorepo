@@ -1,10 +1,11 @@
 import { useQueries } from '@tanstack/react-query'
 import { getValidated } from '@/lib/apiClient'
 import { kpiCardListSchema, type KpiCardResponse } from '@/lib/kpiSchemas'
-import { KPI_DOMAINS, requiredSelectDefaults } from '@/lib/kpiConfig'
+import { KPI_DOMAINS } from '@/lib/kpiConfig'
 import { getTrailing3MonthRange, type MonthColumn } from '@/lib/kpiDateRange'
 import type { HeatmapCell, HeatmapRow, RagStatus } from '@/components/dashboard/types'
 import type { SectionKey } from '@/components/dashboard/mockData'
+import { buildKpiQueryString } from './useKpiData'
 
 const STATUS_MAP: Record<'RED' | 'AMBER' | 'GREEN', RagStatus> = {
   RED: 'action',
@@ -41,11 +42,7 @@ export function useHeatmapData(site: string) {
 
   const results = useQueries({
     queries: requests.map(({ domain, kpi }) => {
-      const params = new URLSearchParams({ site, grain: 'monthly', from, to })
-      // A required select filter (e.g. instGroup) defaults to its first real option rather than
-      // blocking the fetch - see kpiConfig.ts's requiredSelectDefaults.
-      requiredSelectDefaults(kpi).forEach(([key, value]) => params.append(key, value))
-      const queryString = params.toString()
+      const queryString = buildKpiQueryString({ site, grain: 'monthly', from, to }, kpi)
       return {
         queryKey: ['kpi', domain.key, kpi.id, queryString] as const,
         queryFn: () => getValidated(kpiCardListSchema, `${domain.basePath}/${kpi.path}?${queryString}`),
