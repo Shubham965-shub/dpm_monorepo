@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardAction } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
+import { cn, pluralize } from '@/lib/utils'
 import { HEATMAP_MOCK } from './mockData'
 import type { HeatmapRow, RagStatus } from './types'
 import { DemoDataBadge } from './DemoDataBadge'
@@ -117,7 +117,7 @@ function SectionGrid({ sectionKey, title, rows }: { sectionKey: string; title: s
     <div className="mb-4 break-inside-avoid">
       <div className="flex items-center justify-between gap-2 rounded-[4px] px-4 py-1.5" style={{ backgroundColor: '#3f3f3f' }}>
         <span className="text-xs font-black text-white">{title}</span>
-        <span className="text-[10px] text-white/80">{rows.length} KPIs</span>
+        <span className="text-[10px] text-white/80">{pluralize(rows.length, 'KPI')}</span>
       </div>
       <div className="flex flex-wrap gap-2 rounded-b-[6px] border border-t-0 border-border p-2">
         {chunks.map((rowChunk, i) => (

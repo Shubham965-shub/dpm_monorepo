@@ -1,7 +1,7 @@
 import { Sun, Moon, Bell } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import heliosLogo from '@/assets/helios-logo.png'
+import heliosLogo from '@/assets/helios-logo.svg'
 import stridesLogo from '@/assets/strides-logo.svg'
 import { useTheme } from '@/hooks/useTheme'
 import { cn } from '@/lib/utils'
@@ -31,7 +31,7 @@ export function TopNav({ user, onLogout }: { user: UserPublic; onLogout: () => v
         <img src={stridesLogo} alt="Strides" className="h-6 w-auto" />
         <NavDivider />
         <span className="text-lg font-semibold">Helios</span>
-        <img src={heliosLogo} alt="Helios" className="size-6" />
+        <img src={heliosLogo} alt="Helios" className="h-8 w-auto" />
       </div>
       <nav className="flex items-center gap-6 text-sm">
         <button

@@ -1,20 +1,22 @@
 import { useState } from 'react'
+import { useQueries } from '@tanstack/react-query'
 import { ArrowDown, ArrowUp, ChevronDown, Maximize2, SlidersHorizontal } from 'lucide-react'
 import { Bar, BarChart, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { cn } from '@/lib/utils'
 import { CATEGORICAL_PALETTE, MAX_SERIES, TOOLTIP_Z_INDEX } from '@/lib/chartPalette'
+import { getValidated } from '@/lib/apiClient'
+import { kpiCardListSchema, type Grain } from '@/lib/kpiSchemas'
 import type { ExtraFilter, KpiDomain } from '@/lib/kpiConfig'
-import type { Grain } from '@/lib/kpiSchemas'
 import { getGrainDateRange } from '@/lib/kpiDateRange'
 import {
   filterRootCauseRowsToDimension,
   listRootCauseDimensions,
   pickMaximalRootCauseDimension,
 } from '@/lib/rootCauseDimensions'
-import { useKpiData, type GlobalKpiFilters } from '@/hooks/useKpiData'
-import { useExtraFilters } from '@/hooks/useExtraFilters'
+import { useKpiData, buildKpiQueryString, type GlobalKpiFilters } from '@/hooks/useKpiData'
+import { useExtraFilters, ALL_OPTION_SENTINEL } from '@/hooks/useExtraFilters'
 import { computeValueDomain, deriveKpiMetrics, type DomainTrendKpiResult } from '@/hooks/useDomainTrendKpis'
-import { ExtraFilterControl, type ExtraFilterState } from '@/components/kpi/ExtraFilterControl'
+import { ExtraFilterControl, resolveExtraParams, type ExtraFilterState } from '@/components/kpi/ExtraFilterControl'
 import { KpiLineTooltip } from '@/components/kpi/KpiLineTooltip'
 import { ALERT_LINE_HEX, SEVERITY_META, TARGET_LINE_HEX } from './types'
 import { KpiDetailModal } from './KpiDetailModal'
@@ -100,6 +102,36 @@ export function SeverityKpiCard({
   // instead. null = "auto" (follow the latest-period maximum rather than a fixed pick).
   const isRootCause = kpi.id === 'root-cause'
   const [rootCauseDimension, setRootCauseDimension] = useState<string | null>(null)
+
+  // Instrument Downtime's instGroup is a strict exact-match column with no backend "All" row (see
+  // InstrumentHealthController.downtime) - "All" (see useExtraFilters.ts's ALL_OPTION_SENTINEL) is
+  // a pure UI sentinel that fires one request per real instGroup value here and merges them into
+  // separate series, entirely client-side (no backend change).
+  const instGroupFilterIndex = kpi.extraFilters.findIndex((f) => f.kind === 'select' && f.param === 'instGroup')
+  const instGroupState = instGroupFilterIndex >= 0 ? extraStates[instGroupFilterIndex] : undefined
+  const isInstGroupAll =
+    kpi.id === 'downtime' && instGroupState?.kind === 'select' && instGroupState.value === ALL_OPTION_SENTINEL
+  const realInstGroupOptions = isInstGroupAll
+    ? optionsFor(kpi.extraFilters[instGroupFilterIndex]).filter((o) => o !== ALL_OPTION_SENTINEL)
+    : []
+  const instGroupAllQueries = useQueries({
+    queries: realInstGroupOptions.map((group) => {
+      const params = kpi.extraFilters.flatMap((filter, i) =>
+        i === instGroupFilterIndex ? [[filter.param, group] as [string, string]] : resolveExtraParams(filter, extraStates[i]),
+      )
+      const queryString = buildKpiQueryString(cardFilters, params)
+      return {
+        queryKey: ['kpi', domain.key, kpi.path, group, queryString] as const,
+        queryFn: () => getValidated(kpiCardListSchema, `${domain.basePath}/${kpi.path}?${queryString}`),
+      }
+    }),
+  })
+  // Relabels each group's rows so they form distinct chart series (toChartData groups by
+  // kpiId|name, and getDowntime's response doesn't itself vary name/kpiId by instGroup).
+  const instGroupAllRows = realInstGroupOptions.flatMap((group, i) =>
+    (instGroupAllQueries[i]?.data ?? []).map((row) => ({ ...row, name: `${row.name} (${group})` })),
+  )
+
   // Only fires once the user actually picks a different grain than the page's Timeline filter, or
   // sets an extra filter (e.g. HPLC's injectionStatus) - a real API call, not a cosmetic toggle.
   // The board-level `result` (default grain, no extra filters) still drives severity/banding.
@@ -116,7 +148,9 @@ export function SeverityKpiCard({
     kpi,
     cardFilters,
     extraParams,
-    { enabled: isOverridden || isRootCause },
+    // instGroup=All would 400 (see isInstGroupAll above) - that combination is served entirely by
+    // instGroupAllQueries instead, so this query must stay disabled for it.
+    { enabled: (isOverridden || isRootCause) && !isInstGroupAll },
   )
   const rootCauseOptions = isRootCause ? listRootCauseDimensions(overrideQuery.data ?? []) : []
   const rootCauseEffectiveKpiId = isRootCause
@@ -128,16 +162,27 @@ export function SeverityKpiCard({
         rootCauseEffectiveKpiId ? filterRootCauseRowsToDimension(overrideQuery.data ?? [], rootCauseEffectiveKpiId) : [],
         { target, alertThreshold, actionThreshold },
       )
-    : isOverridden && overrideQuery.data
-      ? deriveKpiMetrics(kpi.id, overrideQuery.data, { target, alertThreshold, actionThreshold })
-      : result
+    : isInstGroupAll
+      ? deriveKpiMetrics(kpi.id, instGroupAllRows, { target, alertThreshold, actionThreshold })
+      : isOverridden && overrideQuery.data
+        ? deriveKpiMetrics(kpi.id, overrideQuery.data, { target, alertThreshold, actionThreshold })
+        : result
   const { chartData, shownSeries, hiddenCount, latestValue, previousValue, severity, unit } = metrics
   // isFetching (not isLoading) so this still dims during a later switch too - keepPreviousData
   // (see useKpiData.ts) means isLoading goes false as soon as the prior selection's data is held
   // over, but a background refetch for the new selection is still in flight.
-  const showingStaleOverride = (isOverridden || isRootCause) && overrideQuery.isFetching
-  const effectiveIsLoading = isRootCause ? overrideQuery.isLoading : isLoading
-  const effectiveIsError = isRootCause ? overrideQuery.isError : isError || (isOverridden && overrideQuery.isError)
+  const showingStaleOverride =
+    (isOverridden || isRootCause) && (isInstGroupAll ? instGroupAllQueries.some((q) => q.isFetching) : overrideQuery.isFetching)
+  const effectiveIsLoading = isRootCause
+    ? overrideQuery.isLoading
+    : isInstGroupAll
+      ? instGroupAllQueries.some((q) => q.isLoading)
+      : isLoading
+  const effectiveIsError = isRootCause
+    ? overrideQuery.isError
+    : isInstGroupAll
+      ? instGroupAllQueries.some((q) => q.isError)
+      : isError || (isOverridden && overrideQuery.isError)
 
   if (effectiveIsLoading) {
     return <CardShell label={kpi.label}>Loading…</CardShell>

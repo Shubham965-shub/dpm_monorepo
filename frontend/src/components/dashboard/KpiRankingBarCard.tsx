@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { ChevronDown, Maximize2, SlidersHorizontal } from 'lucide-react'
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Bar, BarChart, CartesianGrid, Rectangle, ResponsiveContainer, Tooltip, XAxis, YAxis, type BarShapeProps } from 'recharts'
 import { cn } from '@/lib/utils'
 import { TOOLTIP_Z_INDEX } from '@/lib/chartPalette'
 import type { KpiDomain, KpiDefinition } from '@/lib/kpiConfig'
@@ -15,6 +15,31 @@ import { SEVERITY_META } from './types'
 // doesn't support. Reuses the exact same card chrome (border + tinted background) as
 // SeverityKpiCard so the two card types read as one design system, not two.
 const GREEN = SEVERITY_META['in-control']
+
+// CAPA Aging Status colors each level bar distinctly (per product decision) rather than the
+// uniform ranking-card green every other chartType:'bar' KPI uses - keyed by the exact "L1".."L5"
+// name QmsService.getCapaAgingStatus groups rows by. Not a legend-carrying identity channel (the
+// Y-axis category label already names each bar) - purely a reinforcing visual cue.
+const CAPA_AGING_LEVEL_COLORS: Record<string, string> = {
+  L1: '#DEEFFF',
+  L2: '#41A4FF',
+  L3: '#E8D166',
+  L4: '#EFB5B9',
+  L5: '#D64550',
+}
+
+function barFillFor(kpiId: string, categoryName: string): string {
+  return kpiId === 'capa-aging-status' ? (CAPA_AGING_LEVEL_COLORS[categoryName] ?? GREEN.solidHex) : GREEN.solidHex
+}
+
+// Recharts' <Cell> (the older way to color individual bars) is deprecated in favor of a custom
+// `shape` - this renders the same default Rectangle, just with a per-category fill.
+function barShapeFor(kpiId: string) {
+  return function CapaBarShape(props: BarShapeProps) {
+    const name = typeof props.payload?.name === 'string' ? props.payload.name : ''
+    return <Rectangle {...props} fill={barFillFor(kpiId, name)} />
+  }
+}
 
 const BAR_ROW_HEIGHT_PX = 28
 const RANKING_BAR_MIN_HEIGHT_PX = 140
@@ -125,7 +150,7 @@ export function KpiRankingBarCard({
               <XAxis type="number" domain={[0, 'dataMax']} tick={{ fontSize: 9 }} stroke="var(--muted-foreground)" />
               <YAxis type="category" dataKey="name" tick={truncatedCategoryTick} width={Y_AXIS_WIDTH_PX} interval={0} />
               <Tooltip contentStyle={{ fontSize: 11 }} wrapperStyle={{ zIndex: TOOLTIP_Z_INDEX }} />
-              <Bar dataKey="value" fill={GREEN.solidHex} radius={[0, 3, 3, 0]} />
+              <Bar dataKey="value" radius={[0, 3, 3, 0]} shape={barShapeFor(kpi.id)} />
             </BarChart>
           </ResponsiveContainer>
         )}

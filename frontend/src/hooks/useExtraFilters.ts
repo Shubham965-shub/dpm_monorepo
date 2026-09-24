@@ -8,6 +8,25 @@ import { initialExtraFilterState, resolveExtraParams, type ExtraFilterState } fr
 
 const DYNAMIC_KINDS = new Set<ExtraFilter['kind']>(['select', 'multiSelect'])
 
+// Per-KPI option exclusions - values the backend's live distinct-value list includes but a
+// specific KPI's filter shouldn't surface. CAPA Aging Status tracks open/aging CAPAs specifically,
+// so "Closed - Done" isn't a meaningful status to filter by there even though the column has it.
+const EXCLUDED_OPTIONS: Record<string, Record<string, Set<string>>> = {
+  'capa-aging-status': {
+    recordStatus: new Set(['Closed - Done']),
+  },
+}
+
+// Per-KPI option inclusions - values a KPI's filter should offer that the backend's live
+// distinct-value list doesn't itself provide. Instrument Downtime's instGroup is a strict
+// exact-match column with no combined "All" row (see InstrumentHealthController.downtime) - "All"
+// here is a pure UI sentinel; SeverityKpiCard special-cases selecting it into one request per real
+// instGroup value merged client-side, rather than ever sending instGroup=All to the backend.
+const ALL_OPTION_KPI_PARAMS: Record<string, Set<string>> = {
+  downtime: new Set(['instGroup']),
+}
+export const ALL_OPTION_SENTINEL = 'All'
+
 /**
  * One place for the extraFilters state + live cross-filtered option lists every KPI card needs -
  * shared by KpiChartCard/KpiRankingBarCard/PriorityComplianceCard/SeverityKpiCard/KpiDetailModal
@@ -66,7 +85,11 @@ export function useExtraFilters(
   })
 
   function optionsFor(filter: ExtraFilter): string[] {
-    return DYNAMIC_KINDS.has(filter.kind) ? (filterOptions[filter.param] ?? []) : []
+    if (!DYNAMIC_KINDS.has(filter.kind)) return []
+    const raw = filterOptions[filter.param] ?? []
+    const excluded = EXCLUDED_OPTIONS[kpi.id]?.[filter.param]
+    const filtered = excluded ? raw.filter((o) => !excluded.has(o)) : raw
+    return ALL_OPTION_KPI_PARAMS[kpi.id]?.has(filter.param) ? [ALL_OPTION_SENTINEL, ...filtered] : filtered
   }
 
   const extraParams = kpi.extraFilters.flatMap((filter, i) => resolveExtraParams(filter, effectiveStates[i]))
