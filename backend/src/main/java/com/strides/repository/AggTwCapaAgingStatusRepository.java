@@ -7,11 +7,15 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @ApplicationScoped
 public class AggTwCapaAgingStatusRepository extends AbstractAggRepository<NamedCount> {
+
+    private static final String TABLE = "agg_tw_capa_aging_status";
 
     @Inject
     DepartmentScopeLiterals deptLiterals;
@@ -104,5 +108,22 @@ public class AggTwCapaAgingStatusRepository extends AbstractAggRepository<NamedC
             sql.append(" AND level IN (").append(placeholders(levels)).append(")");
             params.addAll(levels);
         }
+    }
+
+    /**
+     * recordStatus/level live option lists, cross-filtered against each other - see
+     * AbstractAggRepository.distinctValues. Shared by both capa-aging-status and
+     * capa-open-by-date-opened (same table/columns, only the response shape differs).
+     */
+    public Map<String, List<String>> filterOptions(String site, String grain, LocalDate from, LocalDate to,
+            Set<String> recordStatuses, Set<String> levels) {
+        Map<String, Set<String>> selected = new LinkedHashMap<>();
+        selected.put("record_status", recordStatuses);
+        selected.put("level", levels);
+
+        Map<String, List<String>> options = new LinkedHashMap<>();
+        options.put("recordStatus", distinctValues(TABLE, "site", "record_status", site, grain, from, to, without(selected, "record_status")));
+        options.put("level", distinctValues(TABLE, "site", "level", site, grain, from, to, without(selected, "level")));
+        return options;
     }
 }

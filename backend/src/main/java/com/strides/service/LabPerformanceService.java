@@ -13,6 +13,7 @@ import jakarta.inject.Inject;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @ApplicationScoped
@@ -43,11 +44,21 @@ public class LabPerformanceService {
         return PeriodCombiner.fromTotals(totals, 1, "sample-tat", "Sample TAT", "days");
     }
 
+    public Map<String, List<String>> getSampleTatFilterOptions(String siteName, String sampleType,
+            String batchCategory, String grain, LocalDate from, LocalDate to) {
+        return turnAroundTimeRepository.filterOptions(siteName, grain, from, to,
+                PeriodCombiner.parseSelection(sampleType), PeriodCombiner.parseSelection(batchCategory));
+    }
+
     /** sampleCategory: comma-separated RM/IP/FP/Stability to combine, or null/blank for ALL. */
     public List<KpiCardResponse> getSlaAdherence(String siteName, String sampleCategory, String grain, LocalDate from, LocalDate to) {
         Set<String> selected = PeriodCombiner.parseSelection(sampleCategory);
         List<PeriodTotal> totals = slaAdherenceRepository.findTotals(siteName, selected, grain, from, to);
         return PeriodCombiner.fromTotals(totals, 100, "sla-adherence", "SLA Adherence", "%");
+    }
+
+    public Map<String, List<String>> getSlaAdherenceFilterOptions(String siteName, String grain, LocalDate from, LocalDate to) {
+        return slaAdherenceRepository.filterOptions(siteName, grain, from, to);
     }
 
     /**
@@ -66,6 +77,10 @@ public class LabPerformanceService {
                 .toList();
     }
 
+    public Map<String, List<String>> getPrioritySampleComplianceFilterOptions(String site, String grain, LocalDate from, LocalDate to) {
+        return priorityComplianceRepository.filterOptions(site, grain, from, to);
+    }
+
     /**
      * sampleCategory/analyst: each an independent comma-separated combine filter, or null/blank
      * for ALL. Tests/Analyst/Day's threshold is "% of daily norm" - no norm column exists, status
@@ -76,6 +91,12 @@ public class LabPerformanceService {
         List<PeriodTotal> totals = testsPerAnalystRepository.findTotals(siteName,
                 PeriodCombiner.parseSelection(sampleCategory), PeriodCombiner.parseSelection(analyst), grain, from, to);
         return PeriodCombiner.fromTotals(totals, 1, "tests-per-analyst", "Tests per Analyst per Day", "tests/analyst");
+    }
+
+    public Map<String, List<String>> getTestsPerAnalystFilterOptions(String siteName, String sampleCategory,
+            String analyst, String grain, LocalDate from, LocalDate to) {
+        return testsPerAnalystRepository.filterOptions(siteName, grain, from, to,
+                PeriodCombiner.parseSelection(sampleCategory), PeriodCombiner.parseSelection(analyst));
     }
 
     /**
@@ -89,7 +110,8 @@ public class LabPerformanceService {
                 .map(row -> new KpiCardResponse(
                         "hplc-sequences-per-analyst", "HPLC Sequences Executed per Analyst",
                         row.sequencesPerAnalyst(), "sequences/analyst", null,
-                        row.grain(), row.periodStart(), null))
+                        row.grain(), row.periodStart(), null,
+                        BigDecimal.valueOf(row.sequenceCount()), BigDecimal.valueOf(row.analystDays())))
                 .toList();
     }
 
@@ -99,7 +121,13 @@ public class LabPerformanceService {
                 .map(row -> new KpiCardResponse(
                         "hplc-injections-per-analyst", "HPLC Samples Injected per Analyst",
                         row.injectionsPerAnalyst(), "injections/analyst", null,
-                        row.grain(), row.periodStart(), null))
+                        row.grain(), row.periodStart(), null,
+                        BigDecimal.valueOf(row.injectionCount()), BigDecimal.valueOf(row.analystDays())))
                 .toList();
+    }
+
+    /** injectionStatus's live option list - shared by hplc-sequences-per-analyst and hplc-injections-per-analyst (same underlying table/column). */
+    public Map<String, List<String>> getHplcFilterOptions(String site, String grain, LocalDate from, LocalDate to) {
+        return hplcRepository.filterOptions(site, grain, from, to);
     }
 }

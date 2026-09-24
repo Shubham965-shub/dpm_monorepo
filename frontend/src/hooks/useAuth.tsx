@@ -1,33 +1,25 @@
-import { createContext, useContext, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { apiClient, getValidated, postValidated } from '@/lib/apiClient'
+import { apiClient, getValidated, onSessionExpired, postValidated, refreshSession } from '@/lib/apiClient'
 import { clearSession, getRefreshToken, setAccessToken, setRefreshToken } from '@/lib/session'
-import {
-  loginResponseSchema,
-  refreshResponseSchema,
-  userPublicSchema,
-  type UserPublic,
-} from '@/lib/authSchemas'
+import { loginResponseSchema, userPublicSchema, type UserPublic } from '@/lib/authSchemas'
 
 const SESSION_QUERY_KEY = ['auth', 'session'] as const
 
 /**
  * Both tokens live in localStorage (session.ts), so a fresh page load already has whatever was
  * last stored there - if a refresh token is present, spend it once to get a live access token and
- * confirm the session is still valid; if not, there was never a session to restore.
+ * confirm the session is still valid; if not, there was never a session to restore. A failure
+ * other than a rejected token (e.g. backend unreachable) keeps the stored tokens for the next load.
  */
 async function restoreSession(): Promise<UserPublic | null> {
-  const refreshToken = getRefreshToken()
-  if (!refreshToken) {
+  if (!getRefreshToken()) {
     return null
   }
   try {
-    const response = await postValidated(refreshResponseSchema, '/api/auth/refresh', { refreshToken })
-    setAccessToken(response.accessToken)
-    setRefreshToken(response.refreshToken)
+    await refreshSession()
     return await getValidated(userPublicSchema, '/api/auth/me')
   } catch {
-    clearSession()
     return null
   }
 }
@@ -51,6 +43,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     staleTime: Infinity,
     retry: false,
   })
+
+  // A refresh rejected mid-session (expired, revoked, user deactivated) must land on the login page,
+  // not leave the cached user on a dashboard whose every request now fails. Skipped while there is
+  // no user yet, i.e. during restoreSession itself, which already resolves to null.
+  useEffect(
+    () =>
+      onSessionExpired(() => {
+        if (!queryClient.getQueryData(SESSION_QUERY_KEY)) return
+        queryClient.clear()
+        queryClient.setQueryData(SESSION_QUERY_KEY, null)
+      }),
+    [queryClient],
+  )
 
   const loginMutation = useMutation({
     mutationFn: ({ email, password }: { email: string; password: string }) =>

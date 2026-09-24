@@ -1,3 +1,4 @@
+import { Fragment, type ReactNode } from 'react'
 import type { KpiDomain, KpiDefinition } from '@/lib/kpiConfig'
 import type { GlobalKpiFilters } from '@/hooks/useKpiData'
 import { useDomainTrendKpis, type DomainTrendKpiResult } from '@/hooks/useDomainTrendKpis'
@@ -10,18 +11,37 @@ const SEVERITY_ORDER: Severity[] = ['action', 'alert', 'in-control']
  * fed by real backend data (useDomainTrendKpis) - severity is computed per KPI from its live value
  * against its (mocked) target/alert/action thresholds, not fixed. KPIs still loading, erroring, or
  * blocked by a required filter (see useDomainTrendKpis) have no severity yet and render in a plain
- * ungrouped row below the tiers. */
+ * ungrouped row below the tiers.
+ *
+ * `companions` (keyed by kpi.id) renders extra content immediately after that KPI's own card, as
+ * its own ordinary grid item right beside it - e.g. Root Cause (Consolidated)'s heatmap has no
+ * severity of its own, so it can't land in a tier on its own merit, but per product decision it
+ * should always sit beside Root Cause Breakdown wherever that KPI's live severity currently places
+ * it (see SectionSummaryList.tsx). Given the host's own severity so the companion's color follows
+ * it - sized like every other card in the tier (RootCauseHeatmapCard's own fixed height), not
+ * specially stretched to match its host. */
 export function DomainSeverityBoard({
   domain,
   kpis,
   globalFilters,
+  companions,
 }: {
   domain: KpiDomain
   kpis: KpiDefinition[]
   globalFilters: GlobalKpiFilters
+  companions?: Map<string, (severity: Severity | null) => ReactNode>
 }) {
   const results = useDomainTrendKpis(domain, kpis, globalFilters)
   const pending = results.filter((r) => r.severity == null)
+
+  function renderResult(r: DomainTrendKpiResult) {
+    return (
+      <Fragment key={r.kpi.id}>
+        <SeverityKpiCard domain={domain} globalFilters={globalFilters} result={r} />
+        {companions?.get(r.kpi.id)?.(r.severity)}
+      </Fragment>
+    )
+  }
 
   return (
     <div className="flex flex-col">
@@ -40,20 +60,17 @@ export function DomainSeverityBoard({
               <span className="text-muted-foreground text-[11px] font-bold">{tier.length} KPIs</span>
             </div>
             {/* items-start: a stretched grid row would otherwise force every card in it to match
-            its tallest sibling's height (e.g. a multi-series legend wrapping to 2 lines). */}
+            its tallest sibling's height (e.g. a multi-series legend wrapping to 2 lines). A paired
+            companion (renderResult) opts back into stretch, but only between itself and its host. */}
             <div className="grid grid-cols-1 items-start gap-3 px-5 pt-2 pb-4 md:grid-cols-2 xl:grid-cols-3">
-              {tier.map((r) => (
-                <SeverityKpiCard key={r.kpi.id} domain={domain} globalFilters={globalFilters} result={r} />
-              ))}
+              {tier.map(renderResult)}
             </div>
           </div>
         )
       })}
       {pending.length > 0 && (
         <div className="grid grid-cols-1 items-start gap-3 px-5 pt-2 pb-4 md:grid-cols-2 xl:grid-cols-3">
-          {pending.map((r: DomainTrendKpiResult) => (
-            <SeverityKpiCard key={r.kpi.id} domain={domain} globalFilters={globalFilters} result={r} />
-          ))}
+          {pending.map(renderResult)}
         </div>
       )}
     </div>

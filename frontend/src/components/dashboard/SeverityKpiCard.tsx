@@ -1,18 +1,21 @@
 import { useState } from 'react'
 import { ArrowDown, ArrowUp, ChevronDown, Maximize2, SlidersHorizontal } from 'lucide-react'
-import { Bar, BarChart, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, YAxis } from 'recharts'
+import { Bar, BarChart, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { cn } from '@/lib/utils'
-import { CATEGORICAL_PALETTE, MAX_SERIES } from '@/lib/chartPalette'
+import { CATEGORICAL_PALETTE, MAX_SERIES, TOOLTIP_Z_INDEX } from '@/lib/chartPalette'
 import type { ExtraFilter, KpiDomain } from '@/lib/kpiConfig'
 import type { Grain } from '@/lib/kpiSchemas'
-import { useKpiData, type GlobalKpiFilters } from '@/hooks/useKpiData'
-import { computeValueDomain, deriveKpiMetrics, type DomainTrendKpiResult } from '@/hooks/useDomainTrendKpis'
+import { getGrainDateRange } from '@/lib/kpiDateRange'
 import {
-  ExtraFilterControl,
-  initialExtraFilterState,
-  resolveExtraParams,
-  type ExtraFilterState,
-} from '@/components/kpi/ExtraFilterControl'
+  filterRootCauseRowsToDimension,
+  listRootCauseDimensions,
+  pickMaximalRootCauseDimension,
+} from '@/lib/rootCauseDimensions'
+import { useKpiData, type GlobalKpiFilters } from '@/hooks/useKpiData'
+import { useExtraFilters } from '@/hooks/useExtraFilters'
+import { computeValueDomain, deriveKpiMetrics, type DomainTrendKpiResult } from '@/hooks/useDomainTrendKpis'
+import { ExtraFilterControl, type ExtraFilterState } from '@/components/kpi/ExtraFilterControl'
+import { KpiLineTooltip } from '@/components/kpi/KpiLineTooltip'
 import { ALERT_LINE_HEX, SEVERITY_META, TARGET_LINE_HEX } from './types'
 import { KpiDetailModal } from './KpiDetailModal'
 
@@ -60,21 +63,24 @@ export function SeverityKpiCard({
   globalFilters: GlobalKpiFilters
   result: DomainTrendKpiResult
 }) {
-  const [grain, setGrain] = useState<Grain>(globalFilters.grain as Grain)
+  // Stores only the card's own pick, tagged with the page grain it was made under - so the card
+  // follows the page Timeline until picked, and a later Timeline change drops a stale pick.
+  const [grainPick, setGrainPick] = useState<{ pageGrain: string; grain: Grain } | null>(null)
+  const grain = grainPick?.pageGrain === globalFilters.grain ? grainPick.grain : (globalFilters.grain as Grain)
+  const setGrain = (next: Grain) => setGrainPick({ pageGrain: globalFilters.grain, grain: next })
   const [viewMode, setViewMode] = useState<ViewMode>('line')
   const [detailOpen, setDetailOpen] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
 
   const { kpi, isLoading, isError, target, alertThreshold, actionThreshold } = result
-  const [extraStates, setExtraStates] = useState<ExtraFilterState[]>(() =>
-    kpi.extraFilters.map(initialExtraFilterState),
-  )
+  const cardFilters = { ...globalFilters, ...getGrainDateRange(grain), grain }
+  const { extraStates, setExtraState, extraParams, optionsFor, filterOptionsLoading } =
+    useExtraFilters(domain, kpi, cardFilters, filtersOpen || detailOpen)
   // A required select (e.g. instGroup) already defaults to a real option (see
   // requiredSelectDefaults) and is included in the board-level `result` fetch - only count the
   // filter as "overridden" once the user actually touches it, so mount doesn't immediately refire
   // an identical fetch.
   const [filtersTouched, setFiltersTouched] = useState(false)
-  const extraParams = kpi.extraFilters.flatMap((filter, i) => resolveExtraParams(filter, extraStates[i]))
   // Surfaced next to the title (not just inside the collapsed Filters panel) so it's always clear
   // which instGroup (or other required-select value) the card's data currently reflects.
   const requiredSelects = kpi.extraFilters
@@ -85,26 +91,58 @@ export function SeverityKpiCard({
   const isGrainOverridden = grain !== globalFilters.grain
   const isOverridden = isGrainOverridden || filtersTouched
   function handleExtraStateChange(i: number, next: ExtraFilterState) {
-    setExtraStates((prev) => prev.map((s, idx) => (idx === i ? next : s)))
+    setExtraState(i, next)
     setFiltersTouched(true)
   }
+  // Root Cause Breakdown's real shape is several per-dimension trendlines under one endpoint - it
+  // defaults to whichever dimension has the highest count in the latest period (see
+  // useDomainTrendKpis.ts's filterRowsForKpi), with this dropdown to look at a different one
+  // instead. null = "auto" (follow the latest-period maximum rather than a fixed pick).
+  const isRootCause = kpi.id === 'root-cause'
+  const [rootCauseDimension, setRootCauseDimension] = useState<string | null>(null)
   // Only fires once the user actually picks a different grain than the page's Timeline filter, or
   // sets an extra filter (e.g. HPLC's injectionStatus) - a real API call, not a cosmetic toggle.
   // The board-level `result` (default grain, no extra filters) still drives severity/banding.
-  const overrideQuery = useKpiData(domain, kpi, { ...globalFilters, grain }, extraParams, { enabled: isOverridden })
-  const metrics = isOverridden && overrideQuery.data
-    ? deriveKpiMetrics(overrideQuery.data, { target, alertThreshold, actionThreshold })
-    : result
+  // The date range is recomputed for the picked grain (see kpiDateRange.ts's getGrainDateRange) -
+  // reusing globalFilters' own from/to would silently keep the previous grain's window (e.g. a
+  // 6-month monthly range while showing daily points).
+  // Root Cause Breakdown always keeps this enabled (not just on override): its dropdown re-slices
+  // client-side with no new fetch, but that requires every dimension's raw rows in hand, which the
+  // board-level `result` no longer has once reduced to one dimension. Same globalFilters/grain as
+  // the board-level query by construction, so this is a cache hit (not an extra request) until the
+  // user actually changes something.
+  const overrideQuery = useKpiData(
+    domain,
+    kpi,
+    cardFilters,
+    extraParams,
+    { enabled: isOverridden || isRootCause },
+  )
+  const rootCauseOptions = isRootCause ? listRootCauseDimensions(overrideQuery.data ?? []) : []
+  const rootCauseEffectiveKpiId = isRootCause
+    ? (rootCauseDimension ?? pickMaximalRootCauseDimension(overrideQuery.data ?? []))
+    : null
+  const metrics = isRootCause
+    ? deriveKpiMetrics(
+        rootCauseEffectiveKpiId ?? kpi.id,
+        rootCauseEffectiveKpiId ? filterRootCauseRowsToDimension(overrideQuery.data ?? [], rootCauseEffectiveKpiId) : [],
+        { target, alertThreshold, actionThreshold },
+      )
+    : isOverridden && overrideQuery.data
+      ? deriveKpiMetrics(kpi.id, overrideQuery.data, { target, alertThreshold, actionThreshold })
+      : result
   const { chartData, shownSeries, hiddenCount, latestValue, previousValue, severity, unit } = metrics
   // isFetching (not isLoading) so this still dims during a later switch too - keepPreviousData
   // (see useKpiData.ts) means isLoading goes false as soon as the prior selection's data is held
   // over, but a background refetch for the new selection is still in flight.
-  const showingStaleOverride = isOverridden && overrideQuery.isFetching
+  const showingStaleOverride = (isOverridden || isRootCause) && overrideQuery.isFetching
+  const effectiveIsLoading = isRootCause ? overrideQuery.isLoading : isLoading
+  const effectiveIsError = isRootCause ? overrideQuery.isError : isError || (isOverridden && overrideQuery.isError)
 
-  if (isLoading) {
+  if (effectiveIsLoading) {
     return <CardShell label={kpi.label}>Loading…</CardShell>
   }
-  if (isError || (isOverridden && overrideQuery.isError)) {
+  if (effectiveIsError) {
     return <CardShell label={kpi.label}>Request failed.</CardShell>
   }
 
@@ -136,6 +174,12 @@ export function SeverityKpiCard({
                 .join(', ')}
             </p>
           )}
+          {isRootCause && rootCauseEffectiveKpiId && (
+            <p className="text-muted-foreground text-[9px]">
+              {rootCauseOptions.find((o) => o.kpiId === rootCauseEffectiveKpiId)?.dimension ?? rootCauseEffectiveKpiId}
+              {rootCauseDimension == null ? ' (auto: highest, latest period)' : ''}
+            </p>
+          )}
         </div>
         <div className="flex shrink-0 items-center gap-1">
           <div className="flex overflow-hidden rounded-md border" style={{ borderColor: meta.paleHex }}>
@@ -162,7 +206,7 @@ export function SeverityKpiCard({
               </button>
             ))}
           </div>
-          {kpi.extraFilters.length > 0 && (
+          {(kpi.extraFilters.length > 0 || isRootCause) && (
             <button
               onClick={() => setFiltersOpen((v) => !v)}
               className={cn(
@@ -181,16 +225,35 @@ export function SeverityKpiCard({
         </div>
       </div>
 
-      {filtersOpen && kpi.extraFilters.length > 0 && (
+      {filtersOpen && (kpi.extraFilters.length > 0 || isRootCause) && (
         <div className="flex flex-wrap gap-3 rounded-md bg-muted/40 p-2">
           {kpi.extraFilters.map((filter, i) => (
             <ExtraFilterControl
               key={filter.param}
               filter={filter}
               state={extraStates[i]}
+              options={optionsFor(filter)}
+              loading={filterOptionsLoading}
               onChange={(next) => handleExtraStateChange(i, next)}
             />
           ))}
+          {isRootCause && (
+            <label className="flex flex-col gap-1">
+              <span className="text-muted-foreground text-[11px] font-medium">root cause</span>
+              <select
+                className="rounded-md border border-input bg-background px-2 py-1 text-xs"
+                value={rootCauseDimension ?? ''}
+                onChange={(e) => setRootCauseDimension(e.target.value || null)}
+              >
+                <option value="">Auto (highest, latest period)</option>
+                {rootCauseOptions.map((option) => (
+                  <option key={option.kpiId} value={option.kpiId}>
+                    {option.dimension}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
         </div>
       )}
 
@@ -205,8 +268,12 @@ export function SeverityKpiCard({
         <ResponsiveContainer width="100%" height="100%">
           {viewMode === 'line' ? (
             <LineChart data={chartData} margin={{ top: 2, right: 2, left: 2, bottom: 2 }}>
+              {/* dataKey (not just visual ticks) is what Recharts' Tooltip reads its label from -
+              without it, the tooltip falls back to the array index (0, 1, 2, ...) instead of the
+              actual period. hide keeps the axis itself invisible, matching the mini card's look. */}
+              <XAxis dataKey="periodStart" hide />
               <YAxis hide domain={valueDomain} />
-              <Tooltip contentStyle={{ fontSize: 11 }} />
+              <Tooltip content={<KpiLineTooltip grain={grain} />} wrapperStyle={{ zIndex: TOOLTIP_Z_INDEX }} />
               {shownSeries.length >= 2 && <Legend wrapperStyle={{ fontSize: 8 }} />}
               <ReferenceLine y={target} stroke={TARGET_LINE_HEX} strokeDasharray="4 3" strokeWidth={1} />
               <ReferenceLine y={alertThreshold} stroke={ALERT_LINE_HEX} strokeDasharray="4 3" strokeWidth={1} />
@@ -225,7 +292,9 @@ export function SeverityKpiCard({
             </LineChart>
           ) : (
             <BarChart data={chartData} margin={{ top: 2, right: 2, left: 2, bottom: 2 }}>
-              <Tooltip contentStyle={{ fontSize: 11 }} />
+              <XAxis dataKey="periodStart" hide />
+              <Tooltip content={<KpiLineTooltip grain={grain} />} wrapperStyle={{ zIndex: TOOLTIP_Z_INDEX }} />
+
               {shownSeries.length >= 2 && <Legend wrapperStyle={{ fontSize: 8 }} />}
               <ReferenceLine y={target} stroke={TARGET_LINE_HEX} strokeDasharray="4 3" strokeWidth={1} />
               <ReferenceLine y={alertThreshold} stroke={ALERT_LINE_HEX} strokeDasharray="4 3" strokeWidth={1} />
@@ -280,6 +349,8 @@ export function SeverityKpiCard({
           onGrainChange={setGrain}
           extraStates={extraStates}
           onExtraStateChange={handleExtraStateChange}
+          optionsFor={optionsFor}
+          filterOptionsLoading={filterOptionsLoading}
           onClose={() => setDetailOpen(false)}
         />
       )}

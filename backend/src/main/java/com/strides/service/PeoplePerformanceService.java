@@ -44,6 +44,10 @@ public class PeoplePerformanceService {
         return PeriodCombiner.fromTotals(totals, 100, "repeat-analysis-rate", "Repeat Analysis Rate", "%");
     }
 
+    public Map<String, List<String>> getRepeatAnalysisRateFilterOptions(String siteName, String grain, LocalDate from, LocalDate to) {
+        return repeatAnalysisRateRepository.filterOptions(siteName, grain, from, to);
+    }
+
     /** Reviewer Productivity's threshold is "% of target" - no target column exists, status left null. */
     public List<KpiCardResponse> getReviewerProductivity(String siteName, String grain, LocalDate from, LocalDate to) {
         var totals = reviewerProductivityRepository.findTotal(siteName, grain, from, to);
@@ -55,6 +59,10 @@ public class PeoplePerformanceService {
         Set<String> selected = PeriodCombiner.parseSelection(sampleType);
         var totals = rightFirstTimeRepository.findTotals(siteName, selected, grain, from, to);
         return PeriodCombiner.fromTotals(totals, 100, "rft-documentation", "Right First Time (RFT) Documentation", "%");
+    }
+
+    public Map<String, List<String>> getRightFirstTimeFilterOptions(String siteName, String grain, LocalDate from, LocalDate to) {
+        return rightFirstTimeRepository.filterOptions(siteName, grain, from, to);
     }
 
     /**
@@ -95,9 +103,17 @@ public class PeoplePerformanceService {
                     String grainValue = rows.get(0).grain();
                     return new KpiCardResponse(
                             "training-completion-rate", "Training Completion Rate", pct, "%",
-                            null, grainValue, periodStart, null);
+                            null, grainValue, periodStart, null,
+                            BigDecimal.valueOf(onTime), BigDecimal.valueOf(overall));
                 })
                 .sorted(Comparator.comparing(KpiCardResponse::periodStart))
                 .toList();
+    }
+
+    /** departmentScope isn't a DB-driven column filter - not part of the option set below. */
+    public Map<String, List<String>> getTrainingCompletionRateFilterOptions(String site, String department,
+            String trainingType, String grain, LocalDate from, LocalDate to) {
+        return trainingCompletionRateRepository.filterOptions(site, grain, from, to,
+                PeriodCombiner.parseSelection(department), PeriodCombiner.parseSelection(trainingType));
     }
 }

@@ -2,10 +2,33 @@ import { useQueries } from '@tanstack/react-query'
 import { getValidated } from '@/lib/apiClient'
 import { kpiCardListSchema, type KpiCardResponse } from '@/lib/kpiSchemas'
 import { requiredSelectDefaults, type KpiDomain, type KpiDefinition } from '@/lib/kpiConfig'
+import { extractRowCategory } from '@/lib/kpiRowName'
+import { filterRootCauseRowsToDimension, pickMaximalRootCauseDimension } from '@/lib/rootCauseDimensions'
 import { KPI_THRESHOLD_MOCK } from '@/components/dashboard/mockData'
 import { classifySeverity, type Severity } from '@/components/dashboard/types'
 import { toChartData } from '@/components/kpi/KpiChartCard'
 import type { GlobalKpiFilters } from './useKpiData'
+
+// Human Error Severity's real classifications (confirmed live: Critical/Major/Minor/Unclassified,
+// plus a synthetic null-valued "Overall" row - see QmsService.getHumanErrorSeverity) are more than
+// the dashboard wants surfaced - product decision to only chart Major/Critical. Minor/Unclassified/
+// Overall are dropped here, frontend-only; the backend still returns all of them.
+const HUMAN_ERROR_SEVERITY_KEEP = new Set(['Major', 'Critical'])
+
+/** Default (no user selection yet) reduction applied per-KPI before deriving chart metrics.
+ * Root Cause Breakdown defaults to its single highest-count-in-the-latest-period dimension rather
+ * than every dimension overlaid - SeverityKpiCard's own dimension dropdown re-slices the same
+ * already-fetched rows to a different one without needing this function at all. */
+function filterRowsForKpi(kpiId: string, rows: KpiCardResponse[]): KpiCardResponse[] {
+  if (kpiId === 'human-error-severity') {
+    return rows.filter((row) => HUMAN_ERROR_SEVERITY_KEEP.has(extractRowCategory(row.name)))
+  }
+  if (kpiId === 'root-cause') {
+    const maximal = pickMaximalRootCauseDimension(rows)
+    return maximal ? filterRootCauseRowsToDimension(rows, maximal) : rows
+  }
+  return rows
+}
 
 export interface KpiMetrics {
   shownSeries: ReturnType<typeof toChartData>['shownSeries']
@@ -56,9 +79,14 @@ export function computeValueDomain(
 /** Turns a raw KpiCardResponse list into the derived metrics a card needs (chart data, latest/
  * previous value, computed severity) - shared between the board-level batch fetch below and
  * SeverityKpiCard's own per-card grain-override fetch, so the "first series is primary, severity
- * = classifySeverity(latest, ...)" logic isn't duplicated. */
-export function deriveKpiMetrics(rows: KpiCardResponse[], threshold: ThresholdNumbers | undefined): KpiMetrics {
-  const { shownSeries, hiddenCount, chartData } = toChartData(rows)
+ * = classifySeverity(latest, ...)" logic isn't duplicated. `kpiId` drives filterRowsForKpi's
+ * per-KPI series allowlist (currently just Human Error Severity's Major/Critical-only rule). */
+export function deriveKpiMetrics(
+  kpiId: string,
+  rows: KpiCardResponse[],
+  threshold: ThresholdNumbers | undefined,
+): KpiMetrics {
+  const { shownSeries, hiddenCount, chartData } = toChartData(filterRowsForKpi(kpiId, rows))
   const primary = shownSeries[0]
 
   let latestValue: number | null = null
@@ -120,7 +148,7 @@ export function useDomainTrendKpis(
   return kpis.map((kpi, i) => {
     const query = results[i]
     const threshold = KPI_THRESHOLD_MOCK.find((t) => t.id === kpi.id)
-    const metrics = deriveKpiMetrics(query.data ?? [], threshold)
+    const metrics = deriveKpiMetrics(kpi.id, query.data ?? [], threshold)
 
     return {
       ...metrics,

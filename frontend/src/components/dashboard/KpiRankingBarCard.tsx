@@ -2,15 +2,12 @@ import { useMemo, useState } from 'react'
 import { ChevronDown, Maximize2, SlidersHorizontal } from 'lucide-react'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { cn } from '@/lib/utils'
+import { TOOLTIP_Z_INDEX } from '@/lib/chartPalette'
 import type { KpiDomain, KpiDefinition } from '@/lib/kpiConfig'
 import { useKpiData, type GlobalKpiFilters } from '@/hooks/useKpiData'
+import { useExtraFilters } from '@/hooks/useExtraFilters'
 import { toBarData, emptyStateFor } from '@/components/kpi/KpiChartCard'
-import {
-  ExtraFilterControl,
-  initialExtraFilterState,
-  resolveExtraParams,
-  type ExtraFilterState,
-} from '@/components/kpi/ExtraFilterControl'
+import { ExtraFilterControl } from '@/components/kpi/ExtraFilterControl'
 import { SEVERITY_META } from './types'
 
 // This is real, live-fetched data with no computed severity/status (unlike SeverityKpiCard's real
@@ -53,14 +50,9 @@ export function KpiRankingBarCard({
   kpi: KpiDefinition
   globalFilters: GlobalKpiFilters
 }) {
-  const [extraStates, setExtraStates] = useState<ExtraFilterState[]>(() =>
-    kpi.extraFilters.map(initialExtraFilterState),
-  )
   const [filtersOpen, setFiltersOpen] = useState(false)
-  const extraParams = kpi.extraFilters.flatMap((filter, i) => resolveExtraParams(filter, extraStates[i]))
-  const requiredSelectMissing = kpi.extraFilters.some(
-    (filter, i) => filter.kind === 'select' && filter.required && resolveExtraParams(filter, extraStates[i]).length === 0,
-  )
+  const { extraStates, setExtraState, extraParams, requiredSelectMissing, optionsFor, filterOptionsLoading } =
+    useExtraFilters(domain, kpi, globalFilters, filtersOpen)
 
   const query = useKpiData(domain, kpi, globalFilters, extraParams)
   const rankingData = useMemo(() => toBarData(query.data ?? []), [query.data])
@@ -106,7 +98,9 @@ export function KpiRankingBarCard({
               key={filter.param}
               filter={filter}
               state={extraStates[i]}
-              onChange={(next) => setExtraStates((prev) => prev.map((s, idx) => (idx === i ? next : s)))}
+              options={optionsFor(filter)}
+              loading={filterOptionsLoading}
+              onChange={(next) => setExtraState(i, next)}
             />
           ))}
         </div>
@@ -130,7 +124,7 @@ export function KpiRankingBarCard({
               instead of flush against the axis, reading as a big empty gap on the left. */}
               <XAxis type="number" domain={[0, 'dataMax']} tick={{ fontSize: 9 }} stroke="var(--muted-foreground)" />
               <YAxis type="category" dataKey="name" tick={truncatedCategoryTick} width={Y_AXIS_WIDTH_PX} interval={0} />
-              <Tooltip contentStyle={{ fontSize: 11 }} />
+              <Tooltip contentStyle={{ fontSize: 11 }} wrapperStyle={{ zIndex: TOOLTIP_Z_INDEX }} />
               <Bar dataKey="value" fill={GREEN.solidHex} radius={[0, 3, 3, 0]} />
             </BarChart>
           </ResponsiveContainer>

@@ -10,6 +10,7 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import java.util.List;
+import java.util.Map;
 
 @Path("/api/instrument-health")
 @Produces(MediaType.APPLICATION_JSON)
@@ -26,6 +27,13 @@ public class InstrumentHealthController {
     }
 
     @GET
+    @Path("/utilization/filter-options")
+    public Map<String, List<String>> utilizationFilterOptions(@BeanParam KpiParams.DateRange p) {
+        return service.getInstGroupFilterOptions(p.site,
+                RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
+    }
+
+    @GET
     @Path("/availability")
     public List<KpiCardResponse> availability(@BeanParam KpiParams.WithInstGroup p) {
         return service.getAvailability(p.site, RequiredParams.require(p.instGroup, "instGroup"),
@@ -33,9 +41,23 @@ public class InstrumentHealthController {
     }
 
     @GET
+    @Path("/availability/filter-options")
+    public Map<String, List<String>> availabilityFilterOptions(@BeanParam KpiParams.DateRange p) {
+        return service.getInstGroupFilterOptions(p.site,
+                RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
+    }
+
+    @GET
     @Path("/downtime")
     public List<KpiCardResponse> downtime(@BeanParam KpiParams.WithInstGroup p) {
         return service.getDowntime(p.site, RequiredParams.require(p.instGroup, "instGroup"),
+                RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
+    }
+
+    @GET
+    @Path("/downtime/filter-options")
+    public Map<String, List<String>> downtimeFilterOptions(@BeanParam KpiParams.DateRange p) {
+        return service.getInstGroupFilterOptions(p.site,
                 RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
     }
 
@@ -71,6 +93,13 @@ public class InstrumentHealthController {
     @Path("/qualification-cycle-time")
     public List<KpiCardResponse> qualificationCycleTime(@BeanParam KpiParams.WithDesignation p) {
         return service.getQualificationCycleTime(p.site, p.designation,
+                RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
+    }
+
+    @GET
+    @Path("/qualification-cycle-time/filter-options")
+    public Map<String, List<String>> qualificationCycleTimeFilterOptions(@BeanParam KpiParams.WithDesignation p) {
+        return service.getQualificationCycleTimeFilterOptions(p.site,
                 RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
     }
 }

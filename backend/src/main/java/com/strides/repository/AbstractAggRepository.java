@@ -6,10 +6,13 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.sql.DataSource;
@@ -90,6 +93,40 @@ public abstract class AbstractAggRepository<T> {
     /** "?, ?, ?" for however many values are in the collection - for a dynamic SQL IN (...) clause. */
     protected static String placeholders(Collection<?> values) {
         return values.stream().map(v -> "?").collect(Collectors.joining(", "));
+    }
+
+    /**
+     * Distinct non-null values for `column` in `table`, scoped by the same site/grain/date-range
+     * context the KPI's own query uses, and cross-filtered by whichever OTHER filter columns on
+     * the same card are currently selected (siblingFilters) - so a filter's own dropdown reflects
+     * what's still reachable given every other choice already made on that card, not the column's
+     * full unfiltered value set (see AbstractAggRepository.without, which every caller uses to
+     * build siblingFilters excluding the column being queried). table/siteColumn/column are always
+     * literal constants supplied by repository code, never raw client input, so building this SQL
+     * by string concatenation is safe the same way appendInClause-style dynamic WHERE building
+     * already is elsewhere in this layer.
+     */
+    protected List<String> distinctValues(String table, String siteColumn, String column, String site,
+            String grain, LocalDate from, LocalDate to, Map<String, Set<String>> siblingFilters) {
+        StringBuilder sql = new StringBuilder("SELECT DISTINCT ").append(column).append(" FROM ").append(table)
+                .append(" WHERE ").append(siteColumn).append(" = ? AND grain = ? AND period_start BETWEEN ? AND ?");
+        List<Object> params = new ArrayList<>(List.of(site, grain, from, to));
+        for (Map.Entry<String, Set<String>> entry : siblingFilters.entrySet()) {
+            Set<String> values = excludeAllSentinel(entry.getValue());
+            if (!values.isEmpty()) {
+                sql.append(" AND ").append(entry.getKey()).append(" IN (").append(placeholders(values)).append(")");
+                params.addAll(values);
+            }
+        }
+        sql.append(" AND ").append(column).append(" IS NOT NULL ORDER BY ").append(column);
+        return excludeAllSentinel(query(sql.toString(), rs -> rs.getString(1), params.toArray()));
+    }
+
+    /** siblingFilters minus `excludedColumn` - a filter's own dropdown must never be narrowed by its own current selection. */
+    protected static Map<String, Set<String>> without(Map<String, Set<String>> filters, String excludedColumn) {
+        Map<String, Set<String>> copy = new LinkedHashMap<>(filters);
+        copy.remove(excludedColumn);
+        return copy;
     }
 
     @FunctionalInterface

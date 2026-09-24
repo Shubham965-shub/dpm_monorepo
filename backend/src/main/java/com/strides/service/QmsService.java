@@ -4,6 +4,7 @@ import com.strides.dto.DepartmentScope;
 import com.strides.dto.KpiCardResponse;
 import com.strides.model.AggTwHumanErrorSeverityRow;
 import com.strides.model.MedianTatRow;
+import com.strides.model.PeriodTotal;
 import com.strides.model.RootCauseTotal;
 import com.strides.repository.AggTwCapaAgingStatusRepository;
 import com.strides.repository.AggTwCapaEffectivenessRepository;
@@ -77,18 +78,30 @@ public class QmsService {
     @Inject
     DepartmentScopeLiterals deptLiterals;
 
+    private static final double PER_1000_TESTS = 1000;
+    private static final String PER_1000_TESTS_UNIT = "per 1000 tests";
+
     /**
-     * invalid_oos_rate is a per-1000-tests figure (see the source DAX); catalogue thresholds are
-     * percent-of-tests, and the two aren't directly comparable without confirming the scale.
-     * sampleCategory: comma-separated list to combine, or null/blank for the table's own
-     * pre-combined 'All' total (see AggTwInvalidOosRateRepository). It does carry a separate
-     * test_count_filtered/invalid_oos_rate_filtered pair, but the filtering criteria behind that
-     * isn't documented anywhere available here, so it's not exposed as a stand-in.
+     * Three variants as separate series (per-1000-tests, not percent - catalogue thresholds don't
+     * apply directly). RISE comes first because the card's headline/severity follow the first series.
+     *   RISE:       OOS excluding RM/PM product types / commercial tests (IP, FG, SFG, Stability).
+     *   Commercial: all OOS / the same commercial tests.
+     *   All tests:  all OOS / every test.
      */
-    public List<KpiCardResponse> getInvalidOosRate(String siteName, String sampleCategory, String grain, LocalDate from, LocalDate to) {
-        Set<String> selected = PeriodCombiner.parseSelection(sampleCategory);
-        var totals = invalidOosRateRepository.findTotals(siteName, selected, grain, from, to);
-        return PeriodCombiner.fromTotals(totals, 1000, "invalid-oos-rate", "Invalid OOS Rate", "per 1000 tests");
+    public List<KpiCardResponse> getInvalidOosRate(String siteName, String grain, LocalDate from, LocalDate to) {
+        var totals = invalidOosRateRepository.findTotals(siteName, grain, from, to);
+        return Stream.of(
+                PeriodCombiner.fromTotals(
+                        totals.stream().map(t -> new PeriodTotal(t.periodStart(), t.grain(), t.oosCountRise(), t.testCountCommercial())).toList(),
+                        PER_1000_TESTS, "invalid-oos-rate-rise", "Invalid OOS Rate (RISE)", PER_1000_TESTS_UNIT),
+                PeriodCombiner.fromTotals(
+                        totals.stream().map(t -> new PeriodTotal(t.periodStart(), t.grain(), t.oosCount(), t.testCountCommercial())).toList(),
+                        PER_1000_TESTS, "invalid-oos-rate-commercial", "Invalid OOS Rate (Commercial)", PER_1000_TESTS_UNIT),
+                PeriodCombiner.fromTotals(
+                        totals.stream().map(t -> new PeriodTotal(t.periodStart(), t.grain(), t.oosCount(), t.testCount())).toList(),
+                        PER_1000_TESTS, "invalid-oos-rate", "Invalid OOS Rate (All tests)", PER_1000_TESTS_UNIT))
+                .flatMap(List::stream)
+                .toList();
     }
 
     /**
@@ -103,7 +116,8 @@ public class QmsService {
         return validOosRateRepository.find(siteName, grain, from, to).stream()
                 .map(row -> new KpiCardResponse(
                         "confirmed-oos-rate", "Confirmed OOS Rate", row.validOosRate(), "per 1000 tests",
-                        null, row.grain(), row.periodStart(), null))
+                        null, row.grain(), row.periodStart(), null,
+                        BigDecimal.valueOf(row.oosCount()), BigDecimal.valueOf(row.testCount())))
                 .toList();
     }
 
@@ -118,23 +132,31 @@ public class QmsService {
         return PeriodCombiner.fromSums(totals, "oos-trend", "OOS Trend", "count");
     }
 
+    public Map<String, List<String>> getOosTrendFilterOptions(String site, String grain, LocalDate from, LocalDate to) {
+        return oosTrendRepository.filterOptions(site, grain, from, to);
+    }
+
     public List<KpiCardResponse> getOotTrend(String site, String rootCauseBucket, String grain, LocalDate from, LocalDate to) {
         Set<String> selected = PeriodCombiner.parseSelection(rootCauseBucket);
         var totals = ootTrendRepository.findTotals(site, selected, grain, from, to);
         return PeriodCombiner.fromSums(totals, "oot-trend", "OOT Trend", "count");
     }
 
+    public Map<String, List<String>> getOotTrendFilterOptions(String site, String grain, LocalDate from, LocalDate to) {
+        return ootTrendRepository.filterOptions(site, grain, from, to);
+    }
+
     /**
      * Catalogue threshold is "% of monthly baseline"; no baseline window is defined - raw counts only.
-     * respDept/level/initialClassification/finalClassification/recurringByCause: each an
-     * independent comma-separated combine filter, or null/blank for ALL - same convention as
-     * rootCauseBucket. All 5 columns are a true partition (no "All" catch-all row), so combining
+     * level/initialClassification/finalClassification/recurringByCause: each an independent
+     * comma-separated combine filter, or null/blank for ALL - same convention as rootCauseBucket.
+     * respDept: same, but as repeated params (department names can contain commas). All 5 columns are a true partition (no "All" catch-all row), so combining
      * any subset is a plain SUM in Postgres. departmentScope=QC (additive pattern, see
      * backend/README.md's "Department scope" section) overrides respDept to Quality Control
      * Department alone; departmentScope=ALL (default) leaves respDept as given (blank = every
      * department summed).
      */
-    public List<KpiCardResponse> getDeviations(String site, String rootCauseBucket, String respDept, String level,
+    public List<KpiCardResponse> getDeviations(String site, String rootCauseBucket, List<String> respDept, String level,
             String initialClassification, String finalClassification, String recurringByCause,
             String departmentScope, String grain, LocalDate from, LocalDate to) {
         Set<String> effectiveRespDept = DepartmentScope.parse(departmentScope) == DepartmentScope.QC
@@ -149,6 +171,19 @@ public class QmsService {
                 PeriodCombiner.parseSelection(recurringByCause),
                 grain, from, to);
         return PeriodCombiner.fromSums(totals, "deviations", "Deviations", "count");
+    }
+
+    /** departmentScope isn't a DB-driven column filter (see sliceValueFor) - not part of the cross-filtered option set below, unlike respDept etc. */
+    public Map<String, List<String>> getDeviationsFilterOptions(String site, String rootCauseBucket, List<String> respDept,
+            String level, String initialClassification, String finalClassification, String recurringByCause,
+            String grain, LocalDate from, LocalDate to) {
+        return deviationsRepository.filterOptions(site, grain, from, to,
+                PeriodCombiner.parseSelection(rootCauseBucket),
+                PeriodCombiner.parseSelection(respDept),
+                PeriodCombiner.parseSelection(level),
+                PeriodCombiner.parseSelection(initialClassification),
+                PeriodCombiner.parseSelection(finalClassification),
+                PeriodCombiner.parseSelection(recurringByCause));
     }
 
     /**
@@ -170,7 +205,7 @@ public class QmsService {
     public List<KpiCardResponse> getInvestigationClosureTat(String site, String departmentScope, List<String> respDept,
             String initiatedThrough, String grain, LocalDate from, LocalDate to) {
         DepartmentScope scope = DepartmentScope.parse(departmentScope);
-        Set<String> selectedDepts = respDept == null ? Set.of() : Set.copyOf(respDept);
+        Set<String> selectedDepts = PeriodCombiner.parseSelection(respDept);
         List<MedianTatRow> rows = investigationClosureTatRepository.findMedians(site, scope, selectedDepts,
                 PeriodCombiner.parseSelection(initiatedThrough), grain, from, to);
         String qcNote = selectedDepts.isEmpty() && scope == DepartmentScope.QC
@@ -198,16 +233,30 @@ public class QmsService {
                 .toList();
     }
 
+    /** departmentScope isn't a DB-driven column filter - not part of the cross-filtered option set below. */
+    public Map<String, List<String>> getInvestigationClosureTatFilterOptions(String site, List<String> respDept,
+            String initiatedThrough, String grain, LocalDate from, LocalDate to) {
+        Set<String> selectedDepts = PeriodCombiner.parseSelection(respDept);
+        return investigationClosureTatRepository.filterOptions(site, grain, from, to,
+                selectedDepts, PeriodCombiner.parseSelection(initiatedThrough));
+    }
+
     /**
-     * respDept/initiatedThrough: each an independent comma-separated combine filter, or
-     * null/blank for ALL. No total-RCI-count column to compute a percentage against - raw
+     * initiatedThrough: comma-separated combine filter; respDept: repeated params (department names
+     * can contain commas); each null/blank for ALL. No total-RCI-count column to compute a percentage against - raw
      * combined overdue count only.
      */
-    public List<KpiCardResponse> getRciBeyondTimeline(String site, String respDept, String initiatedThrough,
+    public List<KpiCardResponse> getRciBeyondTimeline(String site, List<String> respDept, String initiatedThrough,
             String grain, LocalDate from, LocalDate to) {
         var totals = rciBeyondTimelineRepository.findTotals(site,
                 PeriodCombiner.parseSelection(respDept), PeriodCombiner.parseSelection(initiatedThrough), grain, from, to);
         return PeriodCombiner.fromSums(totals, "rci-beyond-timeline", "RCIs Beyond Timeline", "count");
+    }
+
+    public Map<String, List<String>> getRciBeyondTimelineFilterOptions(String site, List<String> respDept,
+            String initiatedThrough, String grain, LocalDate from, LocalDate to) {
+        return rciBeyondTimelineRepository.filterOptions(site, grain, from, to,
+                PeriodCombiner.parseSelection(respDept), PeriodCombiner.parseSelection(initiatedThrough));
     }
 
     /**
@@ -229,6 +278,11 @@ public class QmsService {
         return PeriodCombiner.fromTotals(totals, 100, "repeat-failure-rate", "Repeat Failure Rate", "%", note);
     }
 
+    /** departmentScope isn't a DB-driven column filter - not part of the option set below. */
+    public Map<String, List<String>> getRepeatFailureRateFilterOptions(String site, String grain, LocalDate from, LocalDate to) {
+        return repeatFailureRateRepository.filterOptions(site, grain, from, to);
+    }
+
     /** recordType: comma-separated list (Deviation, Out Of Specification, Out of Trend) to combine, or null/blank for ALL. */
     public List<KpiCardResponse> getRootCauseBreakdown(String site, String recordType, String grain, LocalDate from, LocalDate to) {
         return rootCauseShares(site, recordType, grain, from, to, "root-cause-by-");
@@ -236,6 +290,11 @@ public class QmsService {
 
     public List<KpiCardResponse> getConsolidatedRootCause(String site, String recordType, String grain, LocalDate from, LocalDate to) {
         return rootCauseShares(site, recordType, grain, from, to, "root-cause-consolidated-");
+    }
+
+    /** Shared by both root-cause and root-cause-consolidated - same underlying table/column. */
+    public Map<String, List<String>> getRootCauseFilterOptions(String site, String grain, LocalDate from, LocalDate to) {
+        return rootCauseDistributionRepository.filterOptions(site, grain, from, to);
     }
 
     /**
@@ -316,6 +375,18 @@ public class QmsService {
     }
 
     /**
+     * Shared by both capa-aging-status and capa-open-by-date-opened - same underlying
+     * table/columns. departmentScope/minAgingDays/maxAgingDays aren't part of the option set
+     * below (departmentScope isn't a DB-driven column filter; the aging-days bounds are a numeric
+     * range, not a categorical dropdown).
+     */
+    public Map<String, List<String>> getCapaAgingStatusFilterOptions(String site, String recordStatus, String level,
+            String grain, LocalDate from, LocalDate to) {
+        return capaAgingStatusRepository.filterOptions(site, grain, from, to,
+                PeriodCombiner.parseSelection(recordStatus), PeriodCombiner.parseSelection(level));
+    }
+
+    /**
      * originatedFrom: comma-separated list (CAPA, Change Control) to combine, or null/blank for ALL.
      * departmentScope: QC | ALL (default ALL) - slice pattern on resp_dept_slice, see
      * backend/README.md's "Department scope" section. Every response carries a note that the
@@ -329,12 +400,17 @@ public class QmsService {
         return PeriodCombiner.fromTotals(totals, 100, "capa-effectiveness", "CAPA Effectiveness", "%", note);
     }
 
+    public Map<String, List<String>> getCapaEffectivenessFilterOptions(String site, String grain, LocalDate from, LocalDate to) {
+        return capaEffectivenessRepository.filterOptions(site, grain, from, to);
+    }
+
     /** departmentScope: QC | ALL (default ALL) - slice pattern on resp_dept_slice, see backend/README.md's "Department scope" section. */
     public List<KpiCardResponse> getCapaRecurrenceRate(String site, String departmentScope, String grain, LocalDate from, LocalDate to) {
         return capaRecurrenceRateRepository.find(site, DepartmentScope.parse(departmentScope), grain, from, to).stream()
                 .map(row -> new KpiCardResponse(
                         "capa-recurrence-rate", "CAPA Recurrence Rate", row.recurrencePct(), "%",
-                        null, row.grain(), row.periodStart(), null))
+                        null, row.grain(), row.periodStart(), null,
+                        BigDecimal.valueOf(row.recurringCount()), BigDecimal.valueOf(row.capaCount())))
                 .toList();
     }
 
@@ -352,7 +428,8 @@ public class QmsService {
         return humanErrorRateRepository.find(site, DepartmentScope.parse(departmentScope), grain, from, to).stream()
                 .map(row -> new KpiCardResponse(
                         "human-error-rate", "Human Error Rate", row.humanErrorRate(), "per 1000 tests",
-                        null, row.grain(), row.periodStart(), null))
+                        null, row.grain(), row.periodStart(), null,
+                        BigDecimal.valueOf(row.humanErrorCount()), BigDecimal.valueOf(row.testCount())))
                 .toList();
     }
 
@@ -360,7 +437,8 @@ public class QmsService {
         return humanErrorRateRepository.find(site, DepartmentScope.parse(departmentScope), grain, from, to).stream()
                 .map(row -> new KpiCardResponse(
                         "repeat-human-error-rate", "Repeat Human Error Rate", row.repeatHumanErrorRate(), "per 1000 tests",
-                        null, row.grain(), row.periodStart(), null))
+                        null, row.grain(), row.periodStart(), null,
+                        BigDecimal.valueOf(row.recurringCount()), BigDecimal.valueOf(row.testCount())))
                 .toList();
     }
 
@@ -408,13 +486,17 @@ public class QmsService {
      */
     public List<KpiCardResponse> getHumanErrorByProduct(String site, List<String> material, String departmentScope,
             String grain, LocalDate from, LocalDate to) {
-        Set<String> selected = material == null ? Set.of() : Set.copyOf(material);
+        Set<String> selected = PeriodCombiner.parseSelection(material);
         return humanErrorByProductRepository.findByProduct(site, DepartmentScope.parse(departmentScope), selected, grain, from, to)
                 .stream()
                 .map(nc -> new KpiCardResponse(
                         "human-error-by-product", nc.name(), BigDecimal.valueOf(nc.count()), "count",
                         null, grain, to, null))
                 .toList();
+    }
+
+    public Map<String, List<String>> getHumanErrorByProductFilterOptions(String site, String grain, LocalDate from, LocalDate to) {
+        return humanErrorByProductRepository.filterOptions(site, grain, from, to);
     }
 
     /** No total-tests denominator in this table to compute a percentage - raw count only. */
@@ -441,5 +523,12 @@ public class QmsService {
                         "product-wise-failure", nc.name(), BigDecimal.valueOf(nc.count()), "count",
                         null, grain, to, null))
                 .toList();
+    }
+
+    public Map<String, List<String>> getProductWiseFailureFilterOptions(String site, String materialType,
+            String disposition, List<String> product, String grain, LocalDate from, LocalDate to) {
+        Set<String> selectedProducts = PeriodCombiner.parseSelection(product);
+        return productWiseFailureRepository.filterOptions(site, grain, from, to,
+                PeriodCombiner.parseSelection(materialType), PeriodCombiner.parseSelection(disposition), selectedProducts);
     }
 }
