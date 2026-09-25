@@ -151,7 +151,10 @@ export function OverallHeatmapDemo({ site, section }: { site: string; section: S
   }))
   // 2 columns when there's more than one section to balance (matches "QMS side by side" with the
   // rest stacked together) - a single filtered/selected section just gets the one column.
-  const columns = balanceIntoColumns(visibleSections, visibleSections.length > 1 ? 2 : 1)
+  // balanceIntoColumns processes largest-first and ties go to column 0, so the dominant section
+  // (QMS) always lands there - reversed here so it renders on the right, with the smaller stacked
+  // sections on the left.
+  const columns = [...balanceIntoColumns(visibleSections, visibleSections.length > 1 ? 2 : 1)].reverse()
 
   return (
     <Card size="sm">
