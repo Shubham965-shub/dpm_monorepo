@@ -175,7 +175,8 @@ export function SeverityKpiCard({
     >
       <div className="flex items-start justify-between gap-2">
         <div>
-          <h3 className="line-clamp-2 text-[11px] font-semibold text-gray-700">{kpi.label}</h3>
+          {/* Always two lines tall, so a one-line title's chart starts level with a wrapped one's. */}
+          <h3 className="line-clamp-2 min-h-[2lh] text-[11px] font-semibold text-gray-700">{kpi.label}</h3>
           {requiredSelects.length > 0 && (
             <p className="text-muted-foreground text-[9px]">
               {requiredSelects
@@ -300,7 +301,8 @@ export function SeverityKpiCard({
         )}
       </div>
 
-      <div className="flex items-center gap-2.5">
+      {/* mt-auto: in a stretched grid row, the extra height goes above the footer, not inside the chart. */}
+      <div className="mt-auto flex items-center gap-2.5">
         {lines.length > 0 ? (
           lines.map((line) => <LegendEntry key={line.name} colorHex={boundaryHex(line.tone)} label={line.label} />)
         ) : (
