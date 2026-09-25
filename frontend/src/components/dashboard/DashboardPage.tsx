@@ -44,7 +44,7 @@ export function DashboardPage() {
             heatmap too much - 2fr:1fr (2:1) is a smaller step down from the original, still giving
             the sidebar more room than the fixed 320px did. */}
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-              <OverallHeatmapDemo section={filters.section} />
+              <OverallHeatmapDemo site="KRSG" section={filters.section} />
               <div className="flex flex-col gap-4">
                 <QcScoreCard site="KRSG" grain={filters.grain} />
                 <PositiveSignals />

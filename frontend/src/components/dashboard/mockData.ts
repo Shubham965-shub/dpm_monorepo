@@ -1,40 +1,6 @@
-import type { HeatmapRow, RagStatus } from './types'
-
 // Matches KPI_DOMAINS' keys in kpiConfig.ts (the backend's Qms/PeoplePerformance/InstrumentHealth/
 // LabPerformance controllers).
 export type SectionKey = 'qms' | 'people-performance' | 'instrument-health' | 'lab-performance'
-
-export interface HeatmapMockSection {
-  key: string
-  title: string
-  rows: HeatmapRow[]
-}
-
-const DEMO_MONTHS = ['Jun', 'Jul', 'Aug']
-const DEMO_STATUS_CYCLE: RagStatus[] = ['action', 'alert', 'in-control']
-
-// Deterministic (no Math.random), purely illustrative status pattern - this heatmap is a static
-// prototype view (see OverallHeatmapDemo.tsx's DemoDataBadge), not wired to useHeatmapData/the
-// real backend. Row/section counts intentionally match the Figma wireframe's own placeholder
-// numbers, not the real KPI_DOMAINS catalogue (kpiConfig.ts) - see SectionSummaryList.tsx further
-// down this page for the real-catalogue-backed view.
-function demoHeatmapRows(count: number, seedOffset: number): HeatmapRow[] {
-  return Array.from({ length: count }, (_, i) => ({
-    slug: `demo-${seedOffset}-${i}`,
-    name: `Demo KPI ${i + 1}`,
-    cells: DEMO_MONTHS.map((month, m) => ({
-      month,
-      status: DEMO_STATUS_CYCLE[(seedOffset + i + m) % DEMO_STATUS_CYCLE.length],
-    })),
-  }))
-}
-
-export const HEATMAP_MOCK: HeatmapMockSection[] = [
-  { key: 'lab-performance', title: 'Lab Performance', rows: demoHeatmapRows(6, 0) },
-  { key: 'instrument-health', title: 'Instrument Health', rows: demoHeatmapRows(5, 1) },
-  { key: 'qms', title: 'QMS Dashboard', rows: demoHeatmapRows(31, 2) },
-  { key: 'people-performance', title: 'People Performance', rows: demoHeatmapRows(6, 3) },
-]
 
 // No "positive signals" feed exists server-side yet. Note the
 // Training Completion Rate signal in particular: the real endpoint

@@ -42,16 +42,17 @@ export function getGrainDateRange(grain: Grain, today: Date = new Date()): { fro
   }
 }
 
-/** Trailing 3 calendar months ending this month, monthly grain - matches the wireframe's 3-column layout. */
-export function getTrailing3MonthRange(today: Date = new Date()) {
+/** Trailing `monthCount` calendar months ending this month, monthly grain - e.g. the Overall
+ * Heatmap's 3M/4M/5M range pill. */
+export function getTrailingMonthRange(monthCount: number, today: Date = new Date()) {
   const months: MonthColumn[] = []
-  for (let i = 2; i >= 0; i--) {
+  for (let i = monthCount - 1; i >= 0; i--) {
     const d = new Date(today.getFullYear(), today.getMonth() - i, 1)
     months.push({
       key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
       label: d.toLocaleString('en-US', { month: 'short' }),
     })
   }
-  const from = new Date(today.getFullYear(), today.getMonth() - 2, 1)
+  const from = new Date(today.getFullYear(), today.getMonth() - (monthCount - 1), 1)
   return { months, from: toIsoDate(from), to: toIsoDate(today) }
 }

@@ -3,22 +3,19 @@ import { ChevronDown } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardAction } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { cn, pluralize } from '@/lib/utils'
-import { HEATMAP_MOCK } from './mockData'
-import type { HeatmapRow, RagStatus } from './types'
-import { DemoDataBadge } from './DemoDataBadge'
+import { TOOLTIP_Z_INDEX } from '@/lib/chartPalette'
+import { useHeatmapData } from '@/hooks/useHeatmapData'
+import { severityMeta, formatScore, formatCompactScore, type HeatmapRow, type RagStatus } from './types'
 import type { SectionFilterValue } from './FilterBar'
 
-// Only 3M has a demo dataset behind it (see mockData.ts's HEATMAP_MOCK) - 4M/5M are kept visible
-// to match the wireframe but disabled, same as the original real-data heatmap this replaced.
-const MONTH_RANGES = ['3M', '4M', '5M'] as const
+const MONTH_RANGES = [
+  { label: '3M', months: 3 },
+  { label: '4M', months: 4 },
+  { label: '5M', months: 5 },
+] as const
 
-// Exact hex values pulled from Figma (file T5oSGlK2eTYF8KvKP5M9lF, node 5024:20233 cell
-// "Strength" component) via get_design_context.
-const CELL_META: Record<RagStatus, { numberHex: string; value: number }> = {
-  action: { numberHex: '#ec1c24', value: 4 },
-  alert: { numberHex: '#f59e0b', value: 5 },
-  'in-control': { numberHex: '#028662', value: 6 },
-  'no-data': { numberHex: 'var(--muted-foreground)', value: 0 },
+function cellColorHex(status: RagStatus): string {
+  return status === 'no-data' ? 'var(--muted-foreground)' : severityMeta(status).solidHex
 }
 
 // Rows are chunked into small tinted/bordered sub-groups rather than one long column - matches the
@@ -35,13 +32,24 @@ const SECTION_PALETTE: Record<string, { bg: string; border: string }> = {
 }
 const ROWS_PER_CHUNK = 4
 
-function Cell({ status }: { status: RagStatus }) {
-  const meta = CELL_META[status]
+// Instant on hover (no native browser tooltip delay) - matches RootCauseHeatmapCard's own
+// group-hover cell tooltip, so hover responsiveness reads the same across every heatmap in the app.
+function Cell({ kpiName, month, status, value }: { kpiName: string; month: string; status: RagStatus; value: number | null }) {
+  const colorHex = cellColorHex(status)
   return (
-    <span className="flex items-center gap-0.5">
-      <span className="size-1.5 rounded-full" style={{ backgroundColor: meta.numberHex }} />
-      <span className="text-sm font-semibold" style={{ color: meta.numberHex }}>
-        {meta.value}
+    <span className="group relative flex items-center gap-0.5">
+      <span className="size-1.5 rounded-full" style={{ backgroundColor: colorHex }} />
+      <span className="text-sm font-semibold" style={{ color: colorHex }}>
+        {formatCompactScore(value)}
+      </span>
+      <span
+        className="pointer-events-none absolute top-full left-1/2 mt-1 hidden -translate-x-1/2 rounded-md border border-border bg-card p-2 text-[11px] whitespace-nowrap text-foreground shadow-md group-hover:block"
+        style={{ zIndex: TOOLTIP_Z_INDEX }}
+      >
+        <div className="font-semibold">{kpiName}</div>
+        <div>
+          {month}: {formatScore(value)}
+        </div>
       </span>
     </span>
   )
@@ -50,10 +58,9 @@ function Cell({ status }: { status: RagStatus }) {
 // Matches the in-cell dot exactly (same solid color, same size) rather than the pale square
 // swatch, so the top legend reads as literally the same marker used inside the grid below it.
 function LegendSwatch({ status, label }: { status: RagStatus; label: string }) {
-  const meta = CELL_META[status]
   return (
     <span className="flex items-center gap-1">
-      <span className="size-1.5 rounded-full" style={{ backgroundColor: meta.numberHex }} />
+      <span className="size-1.5 rounded-full" style={{ backgroundColor: cellColorHex(status) }} />
       <span style={{ color: '#6a7282' }}>{label}</span>
     </span>
   )
@@ -97,10 +104,10 @@ function RowChunk({ rows, palette }: { rows: HeatmapRow[]; palette: { bg: string
       </div>
       <div className="flex flex-col gap-0.5">
         {rows.map((row) => (
-          <div key={row.slug} className="flex items-center justify-between px-1" title={row.name}>
+          <div key={row.slug} className="flex items-center justify-between px-1">
             {row.cells.map((cell) => (
               <span key={cell.month} className="flex w-8 items-center justify-center">
-                <Cell status={cell.status} />
+                <Cell kpiName={row.name} month={cell.month} status={cell.status} value={cell.value} />
               </span>
             ))}
           </div>
@@ -128,14 +135,16 @@ function SectionGrid({ sectionKey, title, rows }: { sectionKey: string; title: s
   )
 }
 
-/** Static prototype view matching the Figma wireframe's original heatmap layout exactly - see
- * DemoDataBadge. The per-domain expand strips further down this page (SectionSummaryList) are the
- * real-catalogue-backed equivalent. */
-export function OverallHeatmapDemo({ section }: { section: SectionFilterValue }) {
+/** Every KPI across every domain, one cell per trailing month (3/4/5, picked via the top-right
+ * pill), value+colour matching exactly what that month would show as the KPI's own card score (see
+ * useHeatmapData's primarySeriesRows) - not a separately-invented heuristic. "Only reds" filters
+ * down to rows with at least one Critical cell in the visible range. */
+export function OverallHeatmapDemo({ site, section }: { site: string; section: SectionFilterValue }) {
   const [onlyReds, setOnlyReds] = useState(false)
-  const [range, setRange] = useState<(typeof MONTH_RANGES)[number]>('3M')
+  const [monthCount, setMonthCount] = useState<3 | 4 | 5>(3)
   const [legendExpanded, setLegendExpanded] = useState(false)
-  const sections = section === 'all' ? HEATMAP_MOCK : HEATMAP_MOCK.filter((s) => s.key === section)
+  const { sections: allSections, isLoading, isError } = useHeatmapData(site, monthCount)
+  const sections = section === 'all' ? allSections : allSections.filter((s) => s.key === section)
   const visibleSections = sections.map((s) => ({
     ...s,
     rows: onlyReds ? s.rows.filter((r) => r.cells.some((c) => c.status === 'action')) : s.rows,
@@ -149,7 +158,6 @@ export function OverallHeatmapDemo({ section }: { section: SectionFilterValue })
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
           Overall Heatmap
-          <DemoDataBadge />
         </CardTitle>
         <CardAction className="flex items-center gap-2">
           <Button
@@ -161,14 +169,12 @@ export function OverallHeatmapDemo({ section }: { section: SectionFilterValue })
           </Button>
           {MONTH_RANGES.map((r) => (
             <Button
-              key={r}
+              key={r.label}
               size="sm"
-              variant={r === range ? 'default' : 'outline'}
-              disabled={r !== '3M'}
-              title={r !== '3M' ? 'Demo data only covers the trailing 3 months' : undefined}
-              onClick={() => setRange(r)}
+              variant={r.months === monthCount ? 'default' : 'outline'}
+              onClick={() => setMonthCount(r.months)}
             >
-              {r}
+              {r.label}
             </Button>
           ))}
         </CardAction>
@@ -189,7 +195,7 @@ export function OverallHeatmapDemo({ section }: { section: SectionFilterValue })
         </div>
         {legendExpanded && (
           <div className="mb-3 flex flex-wrap items-center gap-4 text-[11px]">
-            {HEATMAP_MOCK.map((s) => {
+            {allSections.map((s) => {
               const palette = SECTION_PALETTE[s.key]
               return (
                 <span key={s.key} className="flex items-center gap-1">
@@ -203,15 +209,21 @@ export function OverallHeatmapDemo({ section }: { section: SectionFilterValue })
             })}
           </div>
         )}
-        <div className="flex flex-col gap-4 sm:flex-row">
-          {columns.map((col, i) => (
-            <div key={i} className="flex flex-1 flex-col">
-              {col.map((s) => (
-                <SectionGrid key={s.title} sectionKey={s.key} title={s.title} rows={s.rows} />
-              ))}
-            </div>
-          ))}
-        </div>
+        {isError ? (
+          <p className="text-muted-foreground text-xs">Couldn't load the heatmap.</p>
+        ) : isLoading ? (
+          <p className="text-muted-foreground text-xs">Loading…</p>
+        ) : (
+          <div className="flex flex-col gap-4 sm:flex-row">
+            {columns.map((col, i) => (
+              <div key={i} className="flex flex-1 flex-col">
+                {col.map((s) => (
+                  <SectionGrid key={s.title} sectionKey={s.key} title={s.title} rows={s.rows} />
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
       </CardContent>
     </Card>
   )

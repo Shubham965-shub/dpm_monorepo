@@ -7,6 +7,11 @@ describe('filterLabel', () => {
     expect(filterLabel('minAgingDays')).toBe('Min aging days')
     expect(filterLabel('site')).toBe('Site')
   })
+
+  it('overrides a param whose segments are abbreviations the regex split would read literally', () => {
+    expect(filterLabel('respDept')).toBe('Responsible Department')
+    expect(filterLabel('instGroup')).toBe('Instrument Group')
+  })
 })
 
 describe('summarizeFilter', () => {

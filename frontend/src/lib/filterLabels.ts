@@ -5,8 +5,16 @@ import type { ExtraFilterState } from '@/components/kpi/ExtraFilterControl'
 export const FILTER_PILL_CLASS =
   'flex items-center gap-1.5 rounded-lg border border-input bg-background px-3 py-1.5 text-sm hover:bg-muted/60'
 
+// Params whose camelCase segments are abbreviations, not whole words - the regex split below would
+// otherwise read them literally (respDept -> "Resp dept", instGroup -> "Inst group").
+const FILTER_LABEL_OVERRIDES: Record<string, string> = {
+  respDept: 'Responsible Department',
+  instGroup: 'Instrument Group',
+}
+
 /** "sampleType" -> "Sample type" - a filter's query-param name as a readable label. */
 export function filterLabel(param: string): string {
+  if (FILTER_LABEL_OVERRIDES[param]) return FILTER_LABEL_OVERRIDES[param]
   const words = param.replace(/([a-z0-9])([A-Z])/g, '$1 $2').toLowerCase()
   return words.charAt(0).toUpperCase() + words.slice(1)
 }

@@ -24,6 +24,9 @@ export type RagStatus = 'action' | 'alert' | 'in-control' | 'no-data'
 export interface HeatmapCell {
   month: string
   status: RagStatus
+  /** The same primary-series value shown as the KPI card's own score - null when this month has no
+   * matching row (no-data). */
+  value: number | null
 }
 
 export interface HeatmapRow {
@@ -116,6 +119,18 @@ export function scoreBandLabel(band: ScoreBand): string {
 /** Rounding is display-only (the backend keeps full precision); null = no data. */
 export function formatScore(score: number | null | undefined): string {
   return score == null ? '—' : String(Math.round(score))
+}
+
+const COMPACT_SCORE_FORMAT = new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 })
+
+/** Same as formatScore, but abbreviates 4+ digit values (1200 -> "1.2K", 20000 -> "20K") - for a
+ * dense grid (e.g. the Overall Heatmap) where a long number would crowd the cell; the exact value
+ * still shows via the cell's own hover tooltip (formatScore there). Below 1000, defers to
+ * formatScore's own whole-number rounding rather than Intl's compact formatter, which would
+ * otherwise keep a decimal (e.g. "85.4") on a value that's never actually abbreviated. */
+export function formatCompactScore(score: number | null | undefined): string {
+  if (score == null) return '—'
+  return Math.abs(score) < 1000 ? formatScore(score) : COMPACT_SCORE_FORMAT.format(score)
 }
 
 // The dashed limit lines on SeverityKpiCard/KpiDetailModal's charts: the Alert limit (where in

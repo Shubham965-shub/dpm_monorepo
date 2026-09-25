@@ -16,6 +16,10 @@ import { DomainSeverityBoard } from './DomainSeverityBoard'
 import type { SectionFilterValue } from './FilterBar'
 import { KPI_CARD_GRID_CLASS, type Severity } from './types'
 
+// Independent of the Overall Heatmap's own user-adjustable 3/4/5-month pill (OverallHeatmapDemo) -
+// this sidebar's tier counts only ever need the latest month, so the window stays fixed.
+const SIDEBAR_HEATMAP_MONTH_COUNT = 3
+
 // KPIs whose real shape is a per-category share of a period's total (not a single trending value
 // or a whole-range ranking) - routed to their own dedicated card instead of DomainSeverityBoard or
 // KpiRankingBarCard - its real data is a raw sample count per priority tier (P1..P4) that always
@@ -40,7 +44,7 @@ export function SectionSummaryList({
   grain: Grain
   searchQuery: string
 }) {
-  const { sections: allSections } = useHeatmapData(site)
+  const { sections: allSections } = useHeatmapData(site, SIDEBAR_HEATMAP_MONTH_COUNT)
   const { favorites, toggleFavorite } = useFavoriteSections()
   const filteredSections = section === 'all' ? allSections : allSections.filter((s) => s.key === section)
   // Favorited sections render first (stable otherwise, so non-favorited sections keep their
