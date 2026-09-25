@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import { ArrowDown, ArrowUp, ChevronDown, Maximize2, SlidersHorizontal } from 'lucide-react'
-import { Bar, BarChart, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { ArrowDown, ArrowUp, Maximize2 } from 'lucide-react'
+import { Bar, BarChart, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { cn } from '@/lib/utils'
 import { CATEGORICAL_PALETTE, MAX_SERIES, TOOLTIP_Z_INDEX } from '@/lib/chartPalette'
-import type { ExtraFilter, KpiDomain } from '@/lib/kpiConfig'
 import type { Grain } from '@/lib/kpiSchemas'
+import type { ExtraFilter, KpiDomain } from '@/lib/kpiConfig'
 import { getGrainDateRange } from '@/lib/kpiDateRange'
 import {
   filterRootCauseRowsToDimension,
@@ -14,10 +14,15 @@ import {
 import { useKpiData, type GlobalKpiFilters } from '@/hooks/useKpiData'
 import { useExtraFilters } from '@/hooks/useExtraFilters'
 import { computeValueDomain, deriveKpiMetrics, type DomainTrendKpiResult } from '@/hooks/useDomainTrendKpis'
-import { ExtraFilterControl, type ExtraFilterState } from '@/components/kpi/ExtraFilterControl'
+import type { ExtraFilterState } from '@/components/kpi/ExtraFilterControl'
+import { FiltersPopoverButton } from '@/components/kpi/FiltersPopoverButton'
 import { KpiLineTooltip } from '@/components/kpi/KpiLineTooltip'
-import { ALERT_LINE_HEX, SEVERITY_META, TARGET_LINE_HEX } from './types'
+import { boundaryHex, boundaryLines, boundaryZones, severityMeta } from './types'
+import { renderBoundaryOverlay } from './boundaryOverlay'
 import { KpiDetailModal } from './KpiDetailModal'
+
+// The compact card's boundary lines: slightly heavier than the default so they read at card size.
+const CARD_OVERLAY_STYLE = { strokeWidth: 1.5, labelFontSize: 9 }
 
 const GRAIN_OPTIONS: { value: Grain; label: string }[] = [
   { value: 'daily', label: 'D' },
@@ -50,8 +55,8 @@ function CardShell({ label, children }: { label: string; children: React.ReactNo
   )
 }
 
-/** Real data via useDomainTrendKpis - severity is computed from the live value against the KPI's
- * (mocked) target/alert/action thresholds (see types.ts's classifySeverity), not a fixed constant.
+/** Real data via useDomainTrendKpis - severity is the backend's status for the latest value
+ * (computed from its KPI threshold config), not a fixed constant.
  * The D/W/M/Q/Y grain toggle triggers a real refetch (see grain/overrideQuery below) rather than
  * being cosmetic; the board-level `result` (default page grain) still drives severity/banding. */
 export function SeverityKpiCard({
@@ -72,17 +77,15 @@ export function SeverityKpiCard({
   const [detailOpen, setDetailOpen] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
 
-  const { kpi, isLoading, isError, target, alertThreshold, actionThreshold } = result
+  const { kpi, isLoading, isError } = result
   const cardFilters = { ...globalFilters, ...getGrainDateRange(grain), grain }
   const { extraStates, setExtraState, extraParams, optionsFor, filterOptionsLoading } =
     useExtraFilters(domain, kpi, cardFilters, filtersOpen || detailOpen)
-  // A required select (e.g. instGroup) already defaults to a real option (see
-  // requiredSelectDefaults) and is included in the board-level `result` fetch - only count the
-  // filter as "overridden" once the user actually touches it, so mount doesn't immediately refire
-  // an identical fetch.
+  // Untouched filters match the board-level `result` fetch - only count them as "overridden" once
+  // the user actually touches one, so mount doesn't immediately refire an identical fetch.
   const [filtersTouched, setFiltersTouched] = useState(false)
   // Surfaced next to the title (not just inside the collapsed Filters panel) so it's always clear
-  // which instGroup (or other required-select value) the card's data currently reflects.
+  // which required-select value the card's data currently reflects.
   const requiredSelects = kpi.extraFilters
     .map((filter, i) => ({ filter, i }))
     .filter((entry): entry is { filter: Extract<ExtraFilter, { kind: 'select' }>; i: number } =>
@@ -100,6 +103,7 @@ export function SeverityKpiCard({
   // instead. null = "auto" (follow the latest-period maximum rather than a fixed pick).
   const isRootCause = kpi.id === 'root-cause'
   const [rootCauseDimension, setRootCauseDimension] = useState<string | null>(null)
+
   // Only fires once the user actually picks a different grain than the page's Timeline filter, or
   // sets an extra filter (e.g. HPLC's injectionStatus) - a real API call, not a cosmetic toggle.
   // The board-level `result` (default grain, no extra filters) still drives severity/banding.
@@ -126,12 +130,11 @@ export function SeverityKpiCard({
     ? deriveKpiMetrics(
         rootCauseEffectiveKpiId ?? kpi.id,
         rootCauseEffectiveKpiId ? filterRootCauseRowsToDimension(overrideQuery.data ?? [], rootCauseEffectiveKpiId) : [],
-        { target, alertThreshold, actionThreshold },
       )
     : isOverridden && overrideQuery.data
-      ? deriveKpiMetrics(kpi.id, overrideQuery.data, { target, alertThreshold, actionThreshold })
+      ? deriveKpiMetrics(kpi.id, overrideQuery.data)
       : result
-  const { chartData, shownSeries, hiddenCount, latestValue, previousValue, severity, unit } = metrics
+  const { chartData, shownSeries, hiddenCount, latestValue, previousValue, severity, unit, thresholds } = metrics
   // isFetching (not isLoading) so this still dims during a later switch too - keepPreviousData
   // (see useKpiData.ts) means isLoading goes false as soon as the prior selection's data is held
   // over, but a background refetch for the new selection is still in flight.
@@ -148,16 +151,22 @@ export function SeverityKpiCard({
 
   // A filter/grain selection can legitimately narrow a KPI down to zero matching rows - that
   // should empty out the chart and value, not collapse the whole card (border, header, filters,
-  // threshold legend) down to a generic placeholder the way isLoading/isError do above.
-  const hasData = severity != null && latestValue != null
-  const meta = SEVERITY_META[severity ?? result.severity ?? 'in-control']
+  // threshold legend) down to a generic placeholder the way isLoading/isError do above. Not tied to
+  // severity: a KPI with no configured threshold still has data to chart, just no colour.
+  const hasData = latestValue != null
+  // Never borrow the board-level `result` severity: once overridden (grain/filter), that describes
+  // different data - a null here means neutral styling, not "use the default view's colour".
+  const meta = severityMeta(severity)
   const delta = latestValue != null && previousValue != null ? latestValue - previousValue : null
   const isUp = delta != null && delta >= 0
   const seriesColor = (i: number) => (shownSeries.length <= 1 ? meta.solidHex : CATEGORICAL_PALETTE[i % MAX_SERIES])
   // Bar charts conventionally start at 0 (a zoomed baseline misrepresents bar height/proportion),
-  // so the value-range auto-zoom below only applies to the line view. Target/alert are passed in
-  // so those two dashed lines always stay in view too, not just the KPI's own data range.
-  const valueDomain = computeValueDomain(chartData, shownSeries, [target, alertThreshold])
+  // so the value-range auto-zoom below only applies to the line view. The boundary lines are passed
+  // in so they always stay in view too, not just the KPI's own data range.
+  const lines = boundaryLines(thresholds)
+  const valueDomain = computeValueDomain(chartData, shownSeries, lines.map((line) => line.y))
+  const barDomain: [number, number] = [Math.min(0, valueDomain[0]), valueDomain[1]]
+  const zones = boundaryZones(thresholds, viewMode === 'line' ? valueDomain : barDomain)
 
   return (
     <div
@@ -207,55 +216,40 @@ export function SeverityKpiCard({
             ))}
           </div>
           {(kpi.extraFilters.length > 0 || isRootCause) && (
-            <button
-              onClick={() => setFiltersOpen((v) => !v)}
-              className={cn(
-                'flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-medium',
-                filtersOpen ? 'border-input bg-muted text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground',
-              )}
-            >
-              <SlidersHorizontal className="size-3" />
-              Filters
-              <ChevronDown className={cn('size-3 transition-transform', filtersOpen && 'rotate-180')} />
-            </button>
+            <FiltersPopoverButton
+              kpi={kpi}
+              extraStates={extraStates}
+              onExtraStateChange={handleExtraStateChange}
+              optionsFor={optionsFor}
+              filterOptionsLoading={filterOptionsLoading}
+              open={filtersOpen}
+              onOpenChange={setFiltersOpen}
+              extra={
+                isRootCause && (
+                  <label className="flex flex-col gap-1">
+                    <span className="text-muted-foreground text-[11px] font-medium">root cause</span>
+                    <select
+                      className="rounded-md border border-input bg-background px-2 py-1 text-xs"
+                      value={rootCauseDimension ?? ''}
+                      onChange={(e) => setRootCauseDimension(e.target.value || null)}
+                    >
+                      <option value="">Auto (highest, latest period)</option>
+                      {rootCauseOptions.map((option) => (
+                        <option key={option.kpiId} value={option.kpiId}>
+                          {option.dimension}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )
+              }
+            />
           )}
           <button className="text-muted-foreground hover:text-foreground" onClick={() => setDetailOpen(true)} title="Expand view">
             <Maximize2 className="size-3.5" />
           </button>
         </div>
       </div>
-
-      {filtersOpen && (kpi.extraFilters.length > 0 || isRootCause) && (
-        <div className="flex flex-wrap gap-3 rounded-md bg-muted/40 p-2">
-          {kpi.extraFilters.map((filter, i) => (
-            <ExtraFilterControl
-              key={filter.param}
-              filter={filter}
-              state={extraStates[i]}
-              options={optionsFor(filter)}
-              loading={filterOptionsLoading}
-              onChange={(next) => handleExtraStateChange(i, next)}
-            />
-          ))}
-          {isRootCause && (
-            <label className="flex flex-col gap-1">
-              <span className="text-muted-foreground text-[11px] font-medium">root cause</span>
-              <select
-                className="rounded-md border border-input bg-background px-2 py-1 text-xs"
-                value={rootCauseDimension ?? ''}
-                onChange={(e) => setRootCauseDimension(e.target.value || null)}
-              >
-                <option value="">Auto (highest, latest period)</option>
-                {rootCauseOptions.map((option) => (
-                  <option key={option.kpiId} value={option.kpiId}>
-                    {option.dimension}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-        </div>
-      )}
 
       {/* A fixed height (not aspect-square) - a wide card (e.g. a lone Critical-tier KPI spanning
       the whole row) would otherwise blow the chart up to match its full width. */}
@@ -275,8 +269,7 @@ export function SeverityKpiCard({
               <YAxis hide domain={valueDomain} />
               <Tooltip content={<KpiLineTooltip grain={grain} />} wrapperStyle={{ zIndex: TOOLTIP_Z_INDEX }} />
               {shownSeries.length >= 2 && <Legend wrapperStyle={{ fontSize: 8 }} />}
-              <ReferenceLine y={target} stroke={TARGET_LINE_HEX} strokeDasharray="4 3" strokeWidth={1} />
-              <ReferenceLine y={alertThreshold} stroke={ALERT_LINE_HEX} strokeDasharray="4 3" strokeWidth={1} />
+              {renderBoundaryOverlay(zones, lines, CARD_OVERLAY_STYLE)}
               {shownSeries.map((s, i) => (
                 <Line
                   key={s.seriesKey}
@@ -293,11 +286,11 @@ export function SeverityKpiCard({
           ) : (
             <BarChart data={chartData} margin={{ top: 2, right: 2, left: 2, bottom: 2 }}>
               <XAxis dataKey="periodStart" hide />
+              <YAxis hide domain={barDomain} />
               <Tooltip content={<KpiLineTooltip grain={grain} />} wrapperStyle={{ zIndex: TOOLTIP_Z_INDEX }} />
 
               {shownSeries.length >= 2 && <Legend wrapperStyle={{ fontSize: 8 }} />}
-              <ReferenceLine y={target} stroke={TARGET_LINE_HEX} strokeDasharray="4 3" strokeWidth={1} />
-              <ReferenceLine y={alertThreshold} stroke={ALERT_LINE_HEX} strokeDasharray="4 3" strokeWidth={1} />
+              {renderBoundaryOverlay(zones, lines, CARD_OVERLAY_STYLE)}
               {shownSeries.map((s, i) => (
                 <Bar key={s.seriesKey} dataKey={s.seriesKey} name={s.label} fill={seriesColor(i)} radius={[2, 2, 0, 0]} />
               ))}
@@ -308,9 +301,11 @@ export function SeverityKpiCard({
       </div>
 
       <div className="flex items-center gap-2.5">
-        <LegendEntry colorHex={TARGET_LINE_HEX} label={`T:${target}`} />
-        <LegendEntry colorHex={ALERT_LINE_HEX} label={`A:${alertThreshold}`} />
-        <LegendEntry colorHex={meta.solidHex} label={`Act:${actionThreshold}`} />
+        {lines.length > 0 ? (
+          lines.map((line) => <LegendEntry key={line.name} colorHex={boundaryHex(line.tone)} label={line.label} />)
+        ) : (
+          <span className="text-muted-foreground text-[8px]">No threshold configured</span>
+        )}
       </div>
 
       <div className="flex items-end justify-between">
@@ -341,10 +336,7 @@ export function SeverityKpiCard({
           domainLabel={domain.label}
           kpi={kpi}
           metrics={metrics}
-          target={target}
-          alertThreshold={alertThreshold}
-          actionThreshold={actionThreshold}
-          severity={severity ?? result.severity ?? 'in-control'}
+          severity={severity}
           grain={grain}
           onGrainChange={setGrain}
           extraStates={extraStates}

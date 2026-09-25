@@ -38,3 +38,6 @@ DB_details.py
 /*.png
 /*.jpg
 /*.jpeg
+
+# Playwright MCP browser session output (screenshots, snapshots, console logs)
+.playwright-mcp/

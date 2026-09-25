@@ -21,15 +21,28 @@ public class QmsController {
 
     @GET
     @Path("/invalid-oos-rate")
-    public List<KpiCardResponse> invalidOosRate(@BeanParam KpiParams.DateRange p) {
-        return service.getInvalidOosRate(p.site,
+    public List<KpiCardResponse> invalidOosRate(@BeanParam KpiParams.WithTestScope p) {
+        return service.getInvalidOosRate(p.site, p.testScope,
                 RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
     }
 
     @GET
+    @Path("/invalid-oos-rate/filter-options")
+    public Map<String, List<String>> invalidOosRateFilterOptions() {
+        return service.getInvalidOosRateFilterOptions();
+    }
+
+    @GET
     @Path("/confirmed-oos-rate")
-    public List<KpiCardResponse> confirmedOosRate(@BeanParam KpiParams.DateRange p) {
-        return service.getConfirmedOosRate(p.site,
+    public List<KpiCardResponse> confirmedOosRate(@BeanParam KpiParams.WithProductType p) {
+        return service.getConfirmedOosRate(p.site, p.productType,
+                RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
+    }
+
+    @GET
+    @Path("/confirmed-oos-rate/filter-options")
+    public Map<String, List<String>> confirmedOosRateFilterOptions(@BeanParam KpiParams.WithProductType p) {
+        return service.getConfirmedOosRateFilterOptions(p.site,
                 RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
     }
 

@@ -1,4 +1,5 @@
 import { Fragment, type ReactNode } from 'react'
+import { pluralize } from '@/lib/utils'
 import type { KpiDomain, KpiDefinition } from '@/lib/kpiConfig'
 import type { GlobalKpiFilters } from '@/hooks/useKpiData'
 import { useDomainTrendKpis, type DomainTrendKpiResult } from '@/hooks/useDomainTrendKpis'
@@ -8,9 +9,9 @@ import { SeverityKpiCard } from './SeverityKpiCard'
 const SEVERITY_ORDER: Severity[] = ['action', 'alert', 'in-control']
 
 /** Renders one domain's severity-tier bands (Figma node 5024:13253's expanded-strip content),
- * fed by real backend data (useDomainTrendKpis) - severity is computed per KPI from its live value
- * against its (mocked) target/alert/action thresholds, not fixed. KPIs still loading, erroring, or
- * blocked by a required filter (see useDomainTrendKpis) have no severity yet and render in a plain
+ * fed by real backend data (useDomainTrendKpis) - severity is each KPI's backend status (from its
+ * KPI threshold config), not fixed. KPIs still loading, erroring, or with no configured
+ * threshold (see useDomainTrendKpis) have no severity and render in a plain
  * ungrouped row below the tiers.
  *
  * `companions` (keyed by kpi.id) renders extra content immediately after that KPI's own card, as
@@ -57,7 +58,7 @@ export function DomainSeverityBoard({
               <span className="text-[11px] font-black tracking-wide uppercase" style={{ color: meta.solidHex }}>
                 {meta.label}
               </span>
-              <span className="text-muted-foreground text-[11px] font-bold">{tier.length} KPIs</span>
+              <span className="text-muted-foreground text-[11px] font-bold">{pluralize(tier.length, 'KPI')}</span>
             </div>
             {/* items-start: a stretched grid row would otherwise force every card in it to match
             its tallest sibling's height (e.g. a multi-series legend wrapping to 2 lines). A paired

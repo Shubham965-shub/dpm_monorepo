@@ -18,9 +18,6 @@ export type ExtraFilter =
    * backend/README.md's "Filter syntax" note. */
   | { kind: 'multiSelect'; param: string; repeated?: boolean }
   | { kind: 'numberInput'; param: string }
-  /** QC/All toggle (see backend/README.md's "Department scope" section) - not a DB column with a
-   * distinct-value list, so unlike select/multiSelect it never goes through the live filter-options fetch. */
-  | { kind: 'departmentScope'; param: 'departmentScope' }
 
 export interface KpiDefinition {
   id: string
@@ -29,6 +26,8 @@ export interface KpiDefinition {
   path: string
   /** Empty = no filter beyond the shared site/grain/from/to. */
   extraFilters: ExtraFilter[]
+  /** Sent on every fetch and not user-changeable - lets one endpoint back several cards, each pinned to one slice. */
+  fixedParams?: [string, string][]
   /**
    * 'line' (default) = one point per period, one line per series - a time series.
    * 'bar' = one horizontal bar per row's `name`, summed across the whole date range rather than
@@ -46,29 +45,10 @@ export interface KpiDomain {
   kpis: KpiDefinition[]
 }
 
-/**
- * A required select filter (currently just Instrument Health's instGroup) has no backend-side
- * "combined" value to fall back to - the column is an exact-match required param with 3 real,
- * distinct values, no "All" row (see InstrumentHealthController). Used by the board-level batch
- * fetch (useDomainTrendKpis) and as the per-card default too (useExtraFilters.ts), so a card's
- * shown value always matches the data the board fetched for it.
- */
-const REQUIRED_SELECT_DEFAULTS: Record<string, string> = {
-  instGroup: 'Dissolution',
-}
-
-export function requiredSelectDefaults(kpi: KpiDefinition): [string, string][] {
-  return kpi.extraFilters
-    .filter((f): f is Extract<ExtraFilter, { kind: 'select' }> => f.kind === 'select' && !!f.required)
-    .map((f) => [f.param, REQUIRED_SELECT_DEFAULTS[f.param]] as [string, string])
-    .filter(([, value]) => value != null)
-}
-
 export const DEFAULT_SITE = 'KRSG'
 
-// QC-versus-All department split (see backend/README.md's "Department scope" section) - blank
-// selection omits the param, which the backend defaults to ALL, so only "QC" needs to be offered.
-const DEPARTMENT_SCOPE_FILTER: ExtraFilter = { kind: 'departmentScope', param: 'departmentScope' }
+// Blank = every group combined (hours summed, % recomputed - see AggLimsInstrumentUtilizationRepository).
+const INST_GROUP_FILTER: ExtraFilter = { kind: 'multiSelect', param: 'instGroup' }
 
 export const KPI_DOMAINS: KpiDomain[] = [
   {
@@ -76,17 +56,15 @@ export const KPI_DOMAINS: KpiDomain[] = [
     label: 'QMS',
     basePath: '/api/qms',
     kpis: [
-      // Returns three series (RISE / Commercial / All tests) - see QmsService.getInvalidOosRate.
-      { id: 'invalid-oos-rate', label: 'Invalid OOS Rate', path: 'invalid-oos-rate', extraFilters: [] },
-      { id: 'confirmed-oos-rate', label: 'Confirmed OOS Rate', path: 'confirmed-oos-rate', extraFilters: [] },
+      // Blank testScope = All tests; RISE / Commercial are the switchable variants (QmsService.getInvalidOosRate).
+      { id: 'invalid-oos-rate', label: 'Invalid OOS Rate', path: 'invalid-oos-rate', extraFilters: [{ kind: 'select', param: 'testScope' }] },
+      { id: 'confirmed-oos-rate', label: 'Confirmed OOS Rate', path: 'confirmed-oos-rate', extraFilters: [{ kind: 'multiSelect', param: 'productType' }] },
       { id: 'oos-trend', label: 'OOS Trend', path: 'oos-trend', extraFilters: [{ kind: 'multiSelect', param: 'rootCauseBucket' }] },
       { id: 'oot-trend', label: 'OOT Trend', path: 'oot-trend', extraFilters: [{ kind: 'multiSelect', param: 'rootCauseBucket' }] },
       {
         id: 'deviations', label: 'Deviations', path: 'deviations',
         extraFilters: [
           { kind: 'multiSelect', param: 'rootCauseBucket' },
-          // departmentScope=QC overrides respDept (see QmsService.getDeviations).
-          DEPARTMENT_SCOPE_FILTER,
           { kind: 'multiSelect', param: 'respDept', repeated: true },
           { kind: 'multiSelect', param: 'level' },
           { kind: 'multiSelect', param: 'initialClassification' },
@@ -97,13 +75,9 @@ export const KPI_DOMAINS: KpiDomain[] = [
       {
         id: 'investigation-closure-tat', label: 'Investigation Closure TAT', path: 'investigation-closure-tat',
         extraFilters: [
-          // Picking specific department(s) here takes priority over departmentScope below (see
-          // AggTwInvestigationClosureTatRepository) - departmentScope stays as the quick QC/All
-          // toggle (see backend/README.md's "Department scope" section).
           // repeated: true - 'Manufacturing, Science & Technology' contains a comma, which would
           // break comma-joined parsing (confirmed live: it silently splits into two garbage values).
           { kind: 'multiSelect', param: 'respDept', repeated: true },
-          DEPARTMENT_SCOPE_FILTER,
           { kind: 'multiSelect', param: 'initiatedThrough' },
         ],
       },
@@ -114,7 +88,7 @@ export const KPI_DOMAINS: KpiDomain[] = [
           { kind: 'multiSelect', param: 'initiatedThrough' },
         ],
       },
-      { id: 'repeat-failure-rate', label: 'Repeat Failure Rate', path: 'repeat-failure-rate', extraFilters: [{ kind: 'multiSelect', param: 'recordType' }, DEPARTMENT_SCOPE_FILTER] },
+      { id: 'repeat-failure-rate', label: 'Repeat Failure Rate', path: 'repeat-failure-rate', extraFilters: [{ kind: 'multiSelect', param: 'recordType' }] },
       { id: 'root-cause', label: 'Root Cause Breakdown', path: 'root-cause', extraFilters: [{ kind: 'multiSelect', param: 'recordType' }] },
       { id: 'root-cause-consolidated', label: 'Root Cause (Consolidated)', path: 'root-cause/consolidated', extraFilters: [{ kind: 'multiSelect', param: 'recordType' }] },
       {
@@ -124,7 +98,6 @@ export const KPI_DOMAINS: KpiDomain[] = [
           { kind: 'multiSelect', param: 'level' },
           { kind: 'numberInput', param: 'minAgingDays' },
           { kind: 'numberInput', param: 'maxAgingDays' },
-          DEPARTMENT_SCOPE_FILTER,
         ],
         chartType: 'bar',
       },
@@ -136,17 +109,16 @@ export const KPI_DOMAINS: KpiDomain[] = [
         extraFilters: [
           { kind: 'multiSelect', param: 'recordStatus' },
           { kind: 'multiSelect', param: 'level' },
-          DEPARTMENT_SCOPE_FILTER,
         ],
       },
-      { id: 'capa-effectiveness', label: 'CAPA Effectiveness', path: 'capa-effectiveness', extraFilters: [{ kind: 'multiSelect', param: 'originatedFrom' }, DEPARTMENT_SCOPE_FILTER] },
-      { id: 'capa-recurrence-rate', label: 'CAPA Recurrence Rate', path: 'capa-recurrence-rate', extraFilters: [DEPARTMENT_SCOPE_FILTER] },
-      { id: 'human-error-rate', label: 'Human Error Rate', path: 'human-error-rate', extraFilters: [DEPARTMENT_SCOPE_FILTER] },
-      { id: 'repeat-human-error-rate', label: 'Repeat Human Error Rate', path: 'repeat-human-error-rate', extraFilters: [DEPARTMENT_SCOPE_FILTER] },
-      { id: 'human-error-severity', label: 'Human Error Severity', path: 'human-error-severity', extraFilters: [DEPARTMENT_SCOPE_FILTER] },
+      { id: 'capa-effectiveness', label: 'CAPA Effectiveness', path: 'capa-effectiveness', extraFilters: [{ kind: 'multiSelect', param: 'originatedFrom' }] },
+      { id: 'capa-recurrence-rate', label: 'CAPA Recurrence Rate', path: 'capa-recurrence-rate', extraFilters: [] },
+      { id: 'human-error-rate', label: 'Human Error Rate', path: 'human-error-rate', extraFilters: [] },
+      { id: 'repeat-human-error-rate', label: 'Repeat Human Error Rate', path: 'repeat-human-error-rate', extraFilters: [] },
+      { id: 'human-error-severity', label: 'Human Error Severity', path: 'human-error-severity', extraFilters: [] },
       {
         id: 'human-error-by-product', label: 'Human Error by Product', path: 'human-error-by-product',
-        extraFilters: [{ kind: 'multiSelect', param: 'material', repeated: true }, DEPARTMENT_SCOPE_FILTER],
+        extraFilters: [{ kind: 'multiSelect', param: 'material', repeated: true }],
         chartType: 'bar',
       },
       { id: 'method-failure-rate', label: 'Method Failure Rate', path: 'method-failure-rate', extraFilters: [] },
@@ -171,9 +143,7 @@ export const KPI_DOMAINS: KpiDomain[] = [
       { id: 'rft-documentation', label: 'Right First Time (RFT) Documentation', path: 'rft-documentation', extraFilters: [{ kind: 'multiSelect', param: 'sampleType' }] },
       {
         id: 'training-completion-rate', label: 'Training Completion Rate', path: 'training-completion-rate',
-        // departmentScope=QC overrides department (additive pattern, see backend/README.md's "Department scope" section).
         extraFilters: [
-          DEPARTMENT_SCOPE_FILTER,
           { kind: 'multiSelect', param: 'department' },
           { kind: 'multiSelect', param: 'trainingType' },
         ],
@@ -185,9 +155,11 @@ export const KPI_DOMAINS: KpiDomain[] = [
     label: 'Instrument Health',
     basePath: '/api/instrument-health',
     kpis: [
-      { id: 'utilization', label: 'Instrument Utilization %', path: 'utilization', extraFilters: [{ kind: 'select', param: 'instGroup', required: true }] },
-      { id: 'availability', label: 'Instrument Availability %', path: 'availability', extraFilters: [{ kind: 'select', param: 'instGroup', required: true }] },
-      { id: 'downtime', label: 'Instrument Downtime %', path: 'downtime', extraFilters: [{ kind: 'select', param: 'instGroup', required: true }] },
+      { id: 'dissolution-utilization', label: 'Dissolution Utilization %', path: 'utilization', extraFilters: [], fixedParams: [['instGroup', 'Dissolution']] },
+      { id: 'gc-utilization', label: 'GC Utilization %', path: 'utilization', extraFilters: [], fixedParams: [['instGroup', 'GC']] },
+      { id: 'hplc-utilization', label: 'HPLC Utilization %', path: 'utilization', extraFilters: [], fixedParams: [['instGroup', 'HPLC']] },
+      { id: 'availability', label: 'Instrument Availability %', path: 'availability', extraFilters: [INST_GROUP_FILTER] },
+      { id: 'downtime', label: 'Instrument Downtime %', path: 'downtime', extraFilters: [INST_GROUP_FILTER] },
       { id: 'calibration-compliance', label: 'Calibration Compliance %', path: 'calibration-compliance', extraFilters: [] },
       { id: 'pm-adherence', label: 'PM Adherence %', path: 'pm-adherence', extraFilters: [] },
       { id: 'breakdown-frequency', label: 'Breakdown Frequency', path: 'breakdown-frequency', extraFilters: [] },
@@ -210,7 +182,7 @@ export const KPI_DOMAINS: KpiDomain[] = [
           { kind: 'multiSelect', param: 'batchCategory' },
         ],
       },
-      { id: 'sla-adherence', label: 'SLA Adherence', path: 'sla-adherence', extraFilters: [{ kind: 'multiSelect', param: 'sampleCategory' }] },
+      { id: 'sla-adherence', label: 'Sample SLA Adherence', path: 'sla-adherence', extraFilters: [{ kind: 'multiSelect', param: 'sampleCategory' }] },
       { id: 'priority-sample-compliance', label: 'Priority Sample Compliance', path: 'priority-sample-compliance', extraFilters: [{ kind: 'multiSelect', param: 'sampleType' }] },
       {
         id: 'tests-per-analyst', label: 'Tests per Analyst per Day', path: 'tests-per-analyst',

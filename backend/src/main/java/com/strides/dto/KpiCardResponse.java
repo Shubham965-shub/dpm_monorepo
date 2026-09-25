@@ -15,6 +15,8 @@ import java.time.LocalDate;
  * table doesn't unambiguously identify which two columns compose the precomputed rate (see
  * InstrumentHealthService.getInstrumentFailureRate for a worked example) - a wrong breakdown would
  * be worse than none.
+ * status/thresholds are stamped on after the service builds the row, from the KPI threshold
+ * config (see KpiThresholdStatusInterceptor) - services themselves always pass null thresholds.
  */
 public record KpiCardResponse(
         String kpiId,
@@ -26,7 +28,18 @@ public record KpiCardResponse(
         LocalDate periodStart,
         String note,
         BigDecimal numerator,
-        BigDecimal denominator) {
+        BigDecimal denominator,
+        KpiThresholds thresholds) {
+
+    public KpiCardResponse(String kpiId, String name, BigDecimal value, String unit, KpiStatus status,
+            String grain, LocalDate periodStart, String note, BigDecimal numerator, BigDecimal denominator) {
+        this(kpiId, name, value, unit, status, grain, periodStart, note, numerator, denominator, null);
+    }
+
+    public KpiCardResponse withThresholdStatus(KpiStatus newStatus, KpiThresholds newThresholds) {
+        return new KpiCardResponse(kpiId, name, value, unit, newStatus, grain, periodStart, note,
+                numerator, denominator, newThresholds);
+    }
 
     /** Back-compat shape for the many KPIs with no numerator/denominator breakdown to show. */
     public KpiCardResponse(String kpiId, String name, BigDecimal value, String unit, KpiStatus status,

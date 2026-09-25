@@ -20,6 +20,7 @@ import com.strides.repository.AggLimsQualificationCycleTimeRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -51,30 +52,42 @@ class InstrumentHealthServiceTest {
     @InjectMocks
     InstrumentHealthService service;
 
-    private static AggLimsInstrumentUtilizationRow utilizationRow(String instGroup) {
-        return new AggLimsInstrumentUtilizationRow("monthly", PERIOD_START, "KRSG", instGroup, 30,
+    private static AggLimsInstrumentUtilizationRow utilizationRow() {
+        return new AggLimsInstrumentUtilizationRow("monthly", PERIOD_START, "KRSG", 30,
                 BigDecimal.valueOf(500), BigDecimal.valueOf(720), BigDecimal.valueOf(700),
                 BigDecimal.valueOf(20), BigDecimal.valueOf(71.43), BigDecimal.valueOf(97.22), BigDecimal.valueOf(2.78));
     }
 
     @Test
-    void getUtilization_mapsUtilizationPct_withInstGroupPrefixedKpiId() {
-        when(utilizationRepository.find(eq("KRSG"), eq("HPLC"), eq("monthly"), any(), any()))
-                .thenReturn(List.of(utilizationRow("HPLC")));
+    void getUtilization_singleGroupGetsItsOwnKpiId() {
+        when(utilizationRepository.find(eq("KRSG"), eq(Set.of("HPLC")), eq("monthly"), any(), any()))
+                .thenReturn(List.of(utilizationRow()));
 
         var result = service.getUtilization("KRSG", "HPLC", "monthly", FROM, TO);
 
         assertEquals(1, result.size());
         assertEquals("hplc-utilization", result.get(0).kpiId());
+        assertEquals("HPLC Utilization %", result.get(0).name());
         assertEquals(BigDecimal.valueOf(71.43), result.get(0).value());
         assertEquals("%", result.get(0).unit());
         assertNull(result.get(0).status());
     }
 
     @Test
+    void getUtilization_blankInstGroup_combinesEveryGroup() {
+        when(utilizationRepository.find(eq("KRSG"), eq(Set.of()), eq("monthly"), any(), any()))
+                .thenReturn(List.of(utilizationRow()));
+
+        var result = service.getUtilization("KRSG", null, "monthly", FROM, TO);
+
+        assertEquals(1, result.size());
+        assertEquals("instrument-utilization", result.get(0).kpiId());
+    }
+
+    @Test
     void getAvailability_mapsAvailabilityPct_fromSameUtilizationRow() {
-        when(utilizationRepository.find(eq("KRSG"), eq("HPLC"), eq("monthly"), any(), any()))
-                .thenReturn(List.of(utilizationRow("HPLC")));
+        when(utilizationRepository.find(eq("KRSG"), eq(Set.of("HPLC")), eq("monthly"), any(), any()))
+                .thenReturn(List.of(utilizationRow()));
 
         var result = service.getAvailability("KRSG", "HPLC", "monthly", FROM, TO);
 
@@ -84,8 +97,8 @@ class InstrumentHealthServiceTest {
 
     @Test
     void getDowntime_mapsDowntimePct_fromSameUtilizationRow() {
-        when(utilizationRepository.find(eq("KRSG"), eq("HPLC"), eq("monthly"), any(), any()))
-                .thenReturn(List.of(utilizationRow("HPLC")));
+        when(utilizationRepository.find(eq("KRSG"), eq(Set.of("HPLC")), eq("monthly"), any(), any()))
+                .thenReturn(List.of(utilizationRow()));
 
         var result = service.getDowntime("KRSG", "HPLC", "monthly", FROM, TO);
 

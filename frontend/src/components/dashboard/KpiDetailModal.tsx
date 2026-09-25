@@ -4,7 +4,6 @@ import {
   Legend,
   Line,
   LineChart,
-  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -13,11 +12,16 @@ import {
 import { CATEGORICAL_PALETTE, MAX_SERIES, TOOLTIP_Z_INDEX } from '@/lib/chartPalette'
 import type { Grain } from '@/lib/kpiSchemas'
 import { formatPeriodTick } from '@/lib/periodFormat'
+import { formatAxisTick } from '@/lib/format'
 import type { ExtraFilter, KpiDefinition } from '@/lib/kpiConfig'
-import type { KpiMetrics } from '@/hooks/useDomainTrendKpis'
+import { computeValueDomain, type KpiMetrics } from '@/hooks/useDomainTrendKpis'
+import { useKpiThresholdConfig } from '@/hooks/useKpiThresholdConfig'
 import { ExtraFilterControl, type ExtraFilterState } from '@/components/kpi/ExtraFilterControl'
 import { KpiLineTooltip } from '@/components/kpi/KpiLineTooltip'
-import { ALERT_LINE_HEX, isLowerBetter, SEVERITY_META, TARGET_LINE_HEX, type Severity } from './types'
+import { boundaryHex, boundaryLines, boundaryZones, severityMeta, type Severity } from './types'
+import { renderBoundaryOverlay } from './boundaryOverlay'
+
+const MODAL_OVERLAY_STYLE = { strokeWidth: 1, labelFontSize: 10 }
 
 const GRAIN_OPTIONS: { value: Grain; label: string }[] = [
   { value: 'daily', label: 'D' },
@@ -45,9 +49,6 @@ export function KpiDetailModal({
   domainLabel,
   kpi,
   metrics,
-  target,
-  alertThreshold,
-  actionThreshold,
   severity,
   grain,
   onGrainChange,
@@ -60,10 +61,8 @@ export function KpiDetailModal({
   domainLabel: string
   kpi: KpiDefinition
   metrics: KpiMetrics
-  target: number
-  alertThreshold: number
-  actionThreshold: number
-  severity: Severity
+  /** null = no configured threshold (neutral styling). */
+  severity: Severity | null
   grain: Grain
   onGrainChange: (g: Grain) => void
   /** Shares the compact card's extraStates/setter (see SeverityKpiCard) so a filter change here
@@ -75,10 +74,18 @@ export function KpiDetailModal({
   filterOptionsLoading: boolean
   onClose: () => void
 }) {
-  const { chartData, shownSeries, latestValue, previousValue, unit } = metrics
-  const meta = SEVERITY_META[severity]
+  const { chartData, shownSeries, latestValue, previousValue, unit, thresholds } = metrics
+  const { data: kpiConfig } = useKpiThresholdConfig(thresholds?.configKpiId)
+  const meta = severityMeta(severity)
   const delta = previousValue != null && latestValue != null ? latestValue - previousValue : null
-  const lowerBetter = isLowerBetter(target, actionThreshold)
+  const lines = boundaryLines(thresholds)
+  const valueDomain = computeValueDomain(chartData, shownSeries, lines.map((line) => line.y))
+  const zones = boundaryZones(thresholds, valueDomain)
+  // The config's own Direction column (higher_is_better / higher_is_worse / band).
+  const directionLabel =
+    thresholds?.direction === 'higher_is_worse' ? 'Lower the better'
+      : thresholds?.direction === 'higher_is_better' ? 'Higher the better'
+        : thresholds?.direction === 'band' ? 'Within band' : 'No threshold configured'
   const seriesColor = (i: number) => (shownSeries.length <= 1 ? meta.solidHex : CATEGORICAL_PALETTE[i % MAX_SERIES])
 
   return (
@@ -121,10 +128,19 @@ export function KpiDetailModal({
                 {meta.label}
               </span>
             </div>
-            <div className="text-muted-foreground mt-2 text-xs">
-              KPI:{' '}
-              <strong className="text-foreground">{lowerBetter ? 'Lower the better' : 'Higher the better'}</strong>
+            <div className="text-muted-foreground mt-2 flex flex-wrap gap-x-4 text-xs">
+              <span>
+                KPI: <strong className="text-foreground">{directionLabel}</strong>
+              </span>
+              {kpiConfig?.sourceSystem && (
+                <span>
+                  Source: <strong className="text-foreground">{kpiConfig.sourceSystem}</strong>
+                </span>
+              )}
             </div>
+            {kpiConfig?.description && (
+              <p className="text-muted-foreground mt-2 max-w-2xl text-xs leading-relaxed">{kpiConfig.description}</p>
+            )}
           </div>
 
           <div className="flex overflow-hidden rounded-md border border-input">
@@ -179,27 +195,10 @@ export function KpiDetailModal({
                   tick={{ fontSize: 10 }}
                   stroke="var(--muted-foreground)"
                 />
-                <YAxis tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" width={40} />
+                <YAxis domain={valueDomain} tickFormatter={(v: number) => formatAxisTick(v, valueDomain)} tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" width={40} />
                 <Tooltip content={<KpiLineTooltip grain={grain} />} wrapperStyle={{ zIndex: TOOLTIP_Z_INDEX }} />
                 {shownSeries.length >= 2 && <Legend wrapperStyle={{ fontSize: 10 }} />}
-                <ReferenceLine
-                  y={target}
-                  stroke={TARGET_LINE_HEX}
-                  strokeDasharray="4 3"
-                  label={{ value: `T:${target}`, position: 'right', fill: TARGET_LINE_HEX, fontSize: 10 }}
-                />
-                <ReferenceLine
-                  y={alertThreshold}
-                  stroke={ALERT_LINE_HEX}
-                  strokeDasharray="4 3"
-                  label={{ value: `AL:${alertThreshold}`, position: 'right', fill: ALERT_LINE_HEX, fontSize: 10 }}
-                />
-                <ReferenceLine
-                  y={actionThreshold}
-                  stroke={meta.solidHex}
-                  strokeDasharray="4 3"
-                  label={{ value: `ACT:${actionThreshold}`, position: 'right', fill: meta.solidHex, fontSize: 10 }}
-                />
+                {renderBoundaryOverlay(zones, lines, MODAL_OVERLAY_STYLE)}
                 {shownSeries.map((s, i) => (
                   <Line
                     key={s.seriesKey}
@@ -219,9 +218,9 @@ export function KpiDetailModal({
           <div className="mt-4 rounded-lg border border-border p-4">
             <div className="text-muted-foreground text-xs font-bold tracking-wide uppercase">Threshold Status</div>
             <div className="mt-1 flex flex-col">
-              <ThresholdRow label="Target" value={target} unit={unit} colorHex={TARGET_LINE_HEX} />
-              <ThresholdRow label="Alert Limit" value={alertThreshold} unit={unit} colorHex={ALERT_LINE_HEX} />
-              <ThresholdRow label="Action Limit" value={actionThreshold} unit={unit} colorHex={meta.solidHex} />
+              {[...lines].sort((a, b) => b.y - a.y).map((line) => (
+                <ThresholdRow key={line.name} label={line.name} value={line.y} unit={unit} colorHex={boundaryHex(line.tone)} />
+              ))}
               <ThresholdRow label="Current" value={latestValue} unit={unit} colorHex={meta.solidHex} />
             </div>
           </div>
