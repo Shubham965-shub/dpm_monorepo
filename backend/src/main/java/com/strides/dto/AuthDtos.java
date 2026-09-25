@@ -32,6 +32,10 @@ public final class AuthDtos {
     public record RefreshResponse(String accessToken, String refreshToken) {
     }
 
+    /** See FeedbackJwtService - a separate token from accessToken, signed for the external feedback service. */
+    public record FeedbackTokenResponse(String token) {
+    }
+
     /**
      * `roles` is the fixed Role enum's names (e.g. "ADMIN", "MANAGER") - the frontend can check
      * `roles.includes('ADMIN')` to decide whether to show the admin UI, since AuthenticationFilter
