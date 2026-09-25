@@ -1,15 +1,11 @@
-import { Sun, Moon, Bell, MessageSquarePlus } from 'lucide-react'
-import { FeedbackButton } from '@strides-pharma-science-ltd/feedback-widget'
+import { Sun, Moon, Bell } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import heliosLogo from '@/assets/helios-logo.svg'
 import stridesLogo from '@/assets/strides-logo.svg'
 import { useTheme } from '@/hooks/useTheme'
-import { useFeedbackToken } from '@/hooks/useFeedbackToken'
 import { cn } from '@/lib/utils'
 import type { UserPublic } from '@/lib/authSchemas'
-
-const FEEDBACK_APP_KEY = 'helios'
 
 function initials(fullName: string): string {
   const parts = fullName.trim().split(/\s+/)
@@ -28,7 +24,6 @@ const ROLE_TABS = ['CXO', 'Leadership', 'Operations']
 
 export function TopNav({ user, onLogout }: { user: UserPublic; onLogout: () => void }) {
   const { theme, toggleTheme } = useTheme()
-  const feedbackTokenQuery = useFeedbackToken(user.id)
 
   return (
     <header className="flex items-center justify-between border-b border-brand bg-brand-dark px-6 py-3 text-white md:px-10 lg:px-20">
@@ -39,17 +34,6 @@ export function TopNav({ user, onLogout }: { user: UserPublic; onLogout: () => v
         <img src={heliosLogo} alt="Helios" className="h-8 w-auto" />
       </div>
       <nav className="flex items-center gap-6 text-sm">
-        <FeedbackButton
-          appKey={FEEDBACK_APP_KEY}
-          apiBaseUrl={import.meta.env.VITE_FEEDBACK_API_URL}
-          getToken={() => feedbackTokenQuery.data ?? null}
-          user={{ full_name: user.fullName, display_name: user.displayName, department: user.department }}
-        >
-          <Button size="sm" className="gap-1.5 bg-brand hover:bg-brand/90" variant="default">
-            <MessageSquarePlus className="size-3.5" />
-            Feedback
-          </Button>
-        </FeedbackButton>
         <button
           onClick={toggleTheme}
           title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
