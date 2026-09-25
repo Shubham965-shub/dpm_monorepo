@@ -5,10 +5,18 @@ import type { ExtraFilter, KpiDefinition } from '@/lib/kpiConfig'
 import type { BarRow } from '@/components/kpi/KpiChartCard'
 import type { ExtraFilterState } from '@/components/kpi/ExtraFilterControl'
 import { FilterPills } from '@/components/kpi/FilterPills'
-import { SEVERITY_META } from './types'
-import { barShapeFor, truncatedCategoryTick, BAR_ROW_HEIGHT_PX, RANKING_BAR_MIN_HEIGHT_PX, Y_AXIS_WIDTH_PX } from './KpiRankingBarCard'
+import { SEVERITY_META, rankingValueDomain } from './types'
+import {
+  barShapeFor,
+  RankingValueAxis,
+  truncatedCategoryTick,
+  BAR_ROW_HEIGHT_PX,
+  RANKING_BAR_MIN_HEIGHT_PX,
+  Y_AXIS_WIDTH_PX,
+} from './KpiRankingBarCard'
 
 const GREEN = SEVERITY_META['in-control']
+const MODAL_CHART_RIGHT_MARGIN_PX = 24
 
 /** Same modal shell as KpiDetailModal/RootCauseHeatmapDetailModal (backdrop, top accent bar,
  * Back/X header) - the expanded view every other card gets, applied here to KpiRankingBarCard's
@@ -76,15 +84,21 @@ export function KpiRankingBarDetailModal({
           {rankingData.length === 0 ? (
             <p className="text-muted-foreground text-sm">No data for this selection.</p>
           ) : (
-            <ResponsiveContainer width="100%" height={Math.max(RANKING_BAR_MIN_HEIGHT_PX, rankingData.length * BAR_ROW_HEIGHT_PX)}>
-              <BarChart data={rankingData} layout="vertical" margin={{ top: 4, right: 24, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                <XAxis type="number" domain={[0, 'dataMax']} tick={{ fontSize: 11 }} stroke="var(--muted-foreground)" />
-                <YAxis type="category" dataKey="name" tick={truncatedCategoryTick} width={Y_AXIS_WIDTH_PX} interval={0} />
-                <Tooltip contentStyle={{ fontSize: 12 }} wrapperStyle={{ zIndex: TOOLTIP_Z_INDEX }} />
-                <Bar dataKey="value" radius={[0, 3, 3, 0]} shape={barShapeFor(kpi.id)} />
-              </BarChart>
-            </ResponsiveContainer>
+            <>
+              {/* Sticks to the top of the scrolling modal, so the scale stays in view down a long ranking. */}
+              <div className="sticky top-0 z-10 bg-card">
+                <RankingValueAxis rows={rankingData} domain={rankingValueDomain(rankingData)} rightMarginPx={MODAL_CHART_RIGHT_MARGIN_PX} fontSize={11} />
+              </div>
+              <ResponsiveContainer width="100%" height={Math.max(RANKING_BAR_MIN_HEIGHT_PX, rankingData.length * BAR_ROW_HEIGHT_PX)}>
+                <BarChart data={rankingData} layout="vertical" margin={{ top: 4, right: MODAL_CHART_RIGHT_MARGIN_PX, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                  <XAxis type="number" domain={rankingValueDomain(rankingData)} hide />
+                  <YAxis type="category" dataKey="name" tick={truncatedCategoryTick} width={Y_AXIS_WIDTH_PX} interval={0} />
+                  <Tooltip contentStyle={{ fontSize: 12 }} wrapperStyle={{ zIndex: TOOLTIP_Z_INDEX }} />
+                  <Bar dataKey="value" radius={[0, 3, 3, 0]} shape={barShapeFor(kpi.id)} />
+                </BarChart>
+              </ResponsiveContainer>
+            </>
           )}
         </div>
       </div>
