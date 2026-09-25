@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import heliosLogo from '@/assets/helios-logo.svg'
 import stridesLogo from '@/assets/strides-logo.svg'
 import { useTheme } from '@/hooks/useTheme'
-import { getAccessToken } from '@/lib/session'
+import { useFeedbackToken } from '@/hooks/useFeedbackToken'
 import { cn } from '@/lib/utils'
 import type { UserPublic } from '@/lib/authSchemas'
 
@@ -28,6 +28,7 @@ const ROLE_TABS = ['CXO', 'Leadership', 'Operations']
 
 export function TopNav({ user, onLogout }: { user: UserPublic; onLogout: () => void }) {
   const { theme, toggleTheme } = useTheme()
+  const feedbackTokenQuery = useFeedbackToken(user.id)
 
   return (
     <header className="flex items-center justify-between border-b border-brand bg-brand-dark px-6 py-3 text-white md:px-10 lg:px-20">
@@ -41,7 +42,7 @@ export function TopNav({ user, onLogout }: { user: UserPublic; onLogout: () => v
         <FeedbackButton
           appKey={FEEDBACK_APP_KEY}
           apiBaseUrl={import.meta.env.VITE_FEEDBACK_API_URL}
-          getToken={getAccessToken}
+          getToken={() => feedbackTokenQuery.data ?? null}
           user={{ full_name: user.fullName, display_name: user.displayName, department: user.department }}
         >
           <Button size="sm" className="gap-1.5 bg-brand hover:bg-brand/90" variant="default">
