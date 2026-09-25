@@ -28,3 +28,9 @@ export const refreshResponseSchema = z.object({
   accessToken: z.string(),
   refreshToken: z.string(),
 })
+
+// See backend com.strides.security.FeedbackJwtService - a separate token from the session's own
+// accessToken, signed for the external feedback service rather than this app's own auth.
+export const feedbackTokenResponseSchema = z.object({
+  token: z.string(),
+})

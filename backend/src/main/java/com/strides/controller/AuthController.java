@@ -1,11 +1,13 @@
 package com.strides.controller;
 
+import com.strides.dto.AuthDtos.FeedbackTokenResponse;
 import com.strides.dto.AuthDtos.LoginRequest;
 import com.strides.dto.AuthDtos.RefreshResponse;
 import com.strides.dto.AuthDtos.RefreshTokenRequest;
 import com.strides.dto.AuthDtos.TokenResponse;
 import com.strides.dto.AuthDtos.UserPublic;
 import com.strides.security.CurrentUser;
+import com.strides.security.FeedbackJwtService;
 import com.strides.service.AuthService;
 import com.strides.service.AuthService.LoginResult;
 import com.strides.service.AuthService.RefreshResult;
@@ -31,10 +33,12 @@ public class AuthController {
 
     private final AuthService auth;
     private final CurrentUser currentUser;
+    private final FeedbackJwtService feedbackJwt;
 
-    public AuthController(AuthService auth, CurrentUser currentUser) {
+    public AuthController(AuthService auth, CurrentUser currentUser, FeedbackJwtService feedbackJwt) {
         this.auth = auth;
         this.currentUser = currentUser;
+        this.feedbackJwt = feedbackJwt;
     }
 
     @POST
@@ -62,5 +66,12 @@ public class AuthController {
     @Path("/me")
     public UserPublic me() {
         return AuthService.toPublic(currentUser.get());
+    }
+
+    /** Requires an already-valid session (not in AuthenticationFilter's PUBLIC_PATHS) - see FeedbackJwtService. */
+    @GET
+    @Path("/feedback-token")
+    public FeedbackTokenResponse feedbackToken() {
+        return new FeedbackTokenResponse(feedbackJwt.issue(currentUser.get().getId().toString()));
     }
 }
