@@ -3,7 +3,8 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import { TOOLTIP_Z_INDEX } from '@/lib/chartPalette'
 import type { ExtraFilter, KpiDefinition } from '@/lib/kpiConfig'
 import type { BarRow } from '@/components/kpi/KpiChartCard'
-import { ExtraFilterControl, type ExtraFilterState } from '@/components/kpi/ExtraFilterControl'
+import type { ExtraFilterState } from '@/components/kpi/ExtraFilterControl'
+import { FilterPills } from '@/components/kpi/FilterPills'
 import { SEVERITY_META } from './types'
 import { barShapeFor, truncatedCategoryTick, BAR_ROW_HEIGHT_PX, RANKING_BAR_MIN_HEIGHT_PX, Y_AXIS_WIDTH_PX } from './KpiRankingBarCard'
 
@@ -50,27 +51,21 @@ export function KpiRankingBarDetailModal({
           </button>
         </div>
 
-        <div className="border-b border-border p-6">
-          <div className="text-muted-foreground text-[11px] font-bold tracking-wide uppercase">
-            {domainLabel} · {kpi.id}
+        <div className="flex flex-col gap-4 border-b border-border p-6 md:flex-row md:items-start md:justify-between">
+          <div>
+            <div className="text-muted-foreground text-[11px] font-bold tracking-wide uppercase">
+              {domainLabel} · {kpi.id}
+            </div>
+            <h2 className="text-2xl font-bold">{kpi.label}</h2>
           </div>
-          <h2 className="text-2xl font-bold">{kpi.label}</h2>
+          <FilterPills
+            kpi={kpi}
+            extraStates={extraStates}
+            onExtraStateChange={onExtraStateChange}
+            optionsFor={optionsFor}
+            filterOptionsLoading={filterOptionsLoading}
+          />
         </div>
-
-        {kpi.extraFilters.length > 0 && (
-          <div className="flex flex-wrap gap-4 border-b border-border bg-muted/40 px-6 py-3">
-            {kpi.extraFilters.map((filter, i) => (
-              <ExtraFilterControl
-                key={filter.param}
-                filter={filter}
-                state={extraStates[i]}
-                options={optionsFor(filter)}
-                loading={filterOptionsLoading}
-                onChange={(next) => onExtraStateChange(i, next)}
-              />
-            ))}
-          </div>
-        )}
 
         <div className="p-6">
           {notes.map((note) => (

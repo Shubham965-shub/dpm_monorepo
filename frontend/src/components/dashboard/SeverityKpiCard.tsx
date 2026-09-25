@@ -7,6 +7,7 @@ import type { Grain } from '@/lib/kpiSchemas'
 import type { ExtraFilter, KpiDomain } from '@/lib/kpiConfig'
 import { getGrainDateRange } from '@/lib/kpiDateRange'
 import { formatRangeEnd, formatRangeStart } from '@/lib/periodFormat'
+import { FILTER_PILL_CLASS } from '@/lib/filterLabels'
 import {
   filterRootCauseRowsToDimension,
   listRootCauseDimensions,
@@ -16,7 +17,6 @@ import { useKpiData, type GlobalKpiFilters } from '@/hooks/useKpiData'
 import { useExtraFilters } from '@/hooks/useExtraFilters'
 import { computeValueDomain, deriveKpiMetrics, type DomainTrendKpiResult } from '@/hooks/useDomainTrendKpis'
 import type { ExtraFilterState } from '@/components/kpi/ExtraFilterControl'
-import { FiltersPopoverButton } from '@/components/kpi/FiltersPopoverButton'
 import { KpiLineTooltip } from '@/components/kpi/KpiLineTooltip'
 import { boundaryHex, boundaryLines, boundaryZones, severityMeta } from './types'
 import { renderBoundaryOverlay } from './boundaryOverlay'
@@ -76,16 +76,15 @@ export function SeverityKpiCard({
   const setGrain = (next: Grain) => setGrainPick({ pageGrain: globalFilters.grain, grain: next })
   const [viewMode, setViewMode] = useState<ViewMode>('line')
   const [detailOpen, setDetailOpen] = useState(false)
-  const [filtersOpen, setFiltersOpen] = useState(false)
 
   const { kpi, isLoading, isError } = result
   const cardFilters = { ...globalFilters, ...getGrainDateRange(grain), grain }
   const { extraStates, setExtraState, extraParams, optionsFor, filterOptionsLoading } =
-    useExtraFilters(domain, kpi, cardFilters, filtersOpen || detailOpen)
+    useExtraFilters(domain, kpi, cardFilters, detailOpen)
   // Untouched filters match the board-level `result` fetch - only count them as "overridden" once
   // the user actually touches one, so mount doesn't immediately refire an identical fetch.
   const [filtersTouched, setFiltersTouched] = useState(false)
-  // Surfaced next to the title (not just inside the collapsed Filters panel) so it's always clear
+  // Surfaced next to the title (filters themselves live only in the expanded view) so it's always clear
   // which required-select value the card's data currently reflects.
   const requiredSelects = kpi.extraFilters
     .map((filter, i) => ({ filter, i }))
@@ -217,36 +216,6 @@ export function SeverityKpiCard({
               </button>
             ))}
           </div>
-          {(kpi.extraFilters.length > 0 || isRootCause) && (
-            <FiltersPopoverButton
-              kpi={kpi}
-              extraStates={extraStates}
-              onExtraStateChange={handleExtraStateChange}
-              optionsFor={optionsFor}
-              filterOptionsLoading={filterOptionsLoading}
-              open={filtersOpen}
-              onOpenChange={setFiltersOpen}
-              extra={
-                isRootCause && (
-                  <label className="flex flex-col gap-1">
-                    <span className="text-muted-foreground text-[11px] font-medium">root cause</span>
-                    <select
-                      className="rounded-md border border-input bg-background px-2 py-1 text-xs"
-                      value={rootCauseDimension ?? ''}
-                      onChange={(e) => setRootCauseDimension(e.target.value || null)}
-                    >
-                      <option value="">Auto (highest, latest period)</option>
-                      {rootCauseOptions.map((option) => (
-                        <option key={option.kpiId} value={option.kpiId}>
-                          {option.dimension}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                )
-              }
-            />
-          )}
           <button className="text-muted-foreground hover:text-foreground" onClick={() => setDetailOpen(true)} title="Expand view">
             <Maximize2 className="size-3.5" />
           </button>
@@ -354,6 +323,25 @@ export function SeverityKpiCard({
           onExtraStateChange={handleExtraStateChange}
           optionsFor={optionsFor}
           filterOptionsLoading={filterOptionsLoading}
+          filterExtra={
+            isRootCause && (
+              <label className={FILTER_PILL_CLASS}>
+                <span className="text-muted-foreground">Root cause:</span>
+                <select
+                  className="bg-transparent font-semibold outline-none"
+                  value={rootCauseDimension ?? ''}
+                  onChange={(e) => setRootCauseDimension(e.target.value || null)}
+                >
+                  <option value="">Auto (highest, latest period)</option>
+                  {rootCauseOptions.map((option) => (
+                    <option key={option.kpiId} value={option.kpiId}>
+                      {option.dimension}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )
+          }
           onClose={() => setDetailOpen(false)}
         />
       )}

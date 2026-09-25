@@ -1,0 +1,85 @@
+import { useState, type ReactNode } from 'react'
+import { ChevronDown } from 'lucide-react'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import type { ExtraFilter, KpiDefinition } from '@/lib/kpiConfig'
+import { FILTER_PILL_CLASS, filterLabel, summarizeFilter } from '@/lib/filterLabels'
+import { ExtraFilterControl, type ExtraFilterState } from './ExtraFilterControl'
+
+function FilterPill({
+  filter,
+  state,
+  options,
+  loading,
+  onChange,
+}: {
+  filter: ExtraFilter
+  state: ExtraFilterState
+  options: string[]
+  loading: boolean
+  onChange: (next: ExtraFilterState) => void
+}) {
+  const [open, setOpen] = useState(false)
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button type="button" className={FILTER_PILL_CLASS}>
+          <span className="text-muted-foreground">{filterLabel(filter.param)}:</span>
+          <span className="max-w-40 truncate font-semibold">{summarizeFilter(filter, state)}</span>
+          <ChevronDown className="size-3.5 shrink-0 opacity-60" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-64 p-2">
+        <ExtraFilterControl
+          filter={filter}
+          state={state}
+          options={options}
+          loading={loading}
+          variant="panel"
+          onChange={(next) => {
+            onChange(next)
+            // A single choice is done once picked; a multiSelect stays open for more ticks.
+            if (filter.kind === 'select') setOpen(false)
+          }}
+        />
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+/**
+ * A KPI's extraFilters as "Label: value ▾" pills, each opening its own popover - the expanded
+ * views' only filter UI (the compact cards show none). `extra` appends a non-standard control,
+ * e.g. Root Cause Breakdown's dimension picker; style it with FILTER_PILL_CLASS to match.
+ */
+export function FilterPills({
+  kpi,
+  extraStates,
+  onExtraStateChange,
+  optionsFor,
+  filterOptionsLoading,
+  extra,
+}: {
+  kpi: KpiDefinition
+  extraStates: ExtraFilterState[]
+  onExtraStateChange: (i: number, next: ExtraFilterState) => void
+  optionsFor: (filter: ExtraFilter) => string[]
+  filterOptionsLoading: boolean
+  extra?: ReactNode
+}) {
+  if (kpi.extraFilters.length === 0 && !extra) return null
+  return (
+    <div className="flex flex-wrap justify-end gap-2">
+      {kpi.extraFilters.map((filter, i) => (
+        <FilterPill
+          key={filter.param}
+          filter={filter}
+          state={extraStates[i]}
+          options={optionsFor(filter)}
+          loading={filterOptionsLoading}
+          onChange={(next) => onExtraStateChange(i, next)}
+        />
+      ))}
+      {extra}
+    </div>
+  )
+}

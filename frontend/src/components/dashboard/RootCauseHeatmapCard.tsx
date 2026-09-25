@@ -10,7 +10,6 @@ import type { KpiCardResponse } from '@/lib/kpiSchemas'
 import { useKpiData, type GlobalKpiFilters } from '@/hooks/useKpiData'
 import { useExtraFilters } from '@/hooks/useExtraFilters'
 import { emptyStateFor } from '@/components/kpi/KpiChartCard'
-import { FiltersPopoverButton } from '@/components/kpi/FiltersPopoverButton'
 import { SEVERITY_META, type Severity } from './types'
 import { RootCauseHeatmapDetailModal } from './RootCauseHeatmapDetailModal'
 
@@ -164,10 +163,9 @@ export function RootCauseHeatmapCard({
   globalFilters: GlobalKpiFilters
   severity: Severity | null
 }) {
-  const [filtersOpen, setFiltersOpen] = useState(false)
   const [detailOpen, setDetailOpen] = useState(false)
   const { extraStates, setExtraState, extraParams, requiredSelectMissing, optionsFor, filterOptionsLoading } =
-    useExtraFilters(domain, kpi, globalFilters, filtersOpen || detailOpen)
+    useExtraFilters(domain, kpi, globalFilters, detailOpen)
 
   const query = useKpiData(domain, kpi, globalFilters, extraParams)
   const { dimensionRows, periods, max } = useMemo(() => buildHeatmap(query.data ?? []), [query.data])
@@ -183,17 +181,6 @@ export function RootCauseHeatmapCard({
       <div className="flex items-start justify-between gap-2">
         <h3 className="line-clamp-2 text-xl font-semibold text-gray-700">{kpi.label}</h3>
         <div className="flex shrink-0 items-center gap-1">
-          {kpi.extraFilters.length > 0 && (
-            <FiltersPopoverButton
-              kpi={kpi}
-              extraStates={extraStates}
-              onExtraStateChange={setExtraState}
-              optionsFor={optionsFor}
-              filterOptionsLoading={filterOptionsLoading}
-              open={filtersOpen}
-              onOpenChange={setFiltersOpen}
-            />
-          )}
           <button className="text-muted-foreground hover:text-foreground" onClick={() => setDetailOpen(true)} title="Expand view">
             <Maximize2 className="size-3.5" />
           </button>
