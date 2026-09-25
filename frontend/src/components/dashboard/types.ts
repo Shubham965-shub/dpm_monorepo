@@ -1,5 +1,23 @@
 import type { KpiStatus, KpiThresholds } from '@/lib/kpiSchemas'
 
+/**
+ * Shared by every KPI card grid (DomainSeverityBoard's severity tiers, SectionSummaryList's
+ * ranking/stacked sections) so the width rule lives in one place. Each card is 200-400px wide;
+ * `max(200px, calc(33.333% - 0.5rem))` forces at least 3 columns whenever the row is wide enough
+ * for that (0.5rem = this grid's own gap-3 split three ways: 2 gaps / 3 columns), while still
+ * capping at 400px - once the container is wide enough for a 4th+ 400px column, one gets added
+ * rather than stretching the first three past 400px. A section with under 3 cards just renders
+ * fewer columns.
+ *
+ * auto-fill, not auto-fit: auto-fit collapses empty tracks and lets existing cards stretch into
+ * the freed space, so a sparsely-populated section (e.g. only 1-2 KPIs with no configured
+ * threshold) would stretch its cards toward 400px while a densely-packed tier next to it computes
+ * a narrower width - same rule, different realized widths per section. auto-fill's column count
+ * depends only on container width, not item count, so every section resolves to the same per-card
+ * width; a sparse section just shows trailing empty space instead of stretching.
+ */
+export const KPI_CARD_GRID_CLASS = 'grid grid-cols-[repeat(auto-fill,minmax(max(200px,calc(33.333%-0.5rem)),400px))] items-start gap-3'
+
 export type RagStatus = 'action' | 'alert' | 'in-control' | 'no-data'
 
 export interface HeatmapCell {

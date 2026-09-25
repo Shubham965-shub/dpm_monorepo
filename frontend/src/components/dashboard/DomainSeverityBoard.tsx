@@ -1,9 +1,9 @@
 import { Fragment, type ReactNode } from 'react'
-import { pluralize } from '@/lib/utils'
+import { cn, pluralize } from '@/lib/utils'
 import type { KpiDomain, KpiDefinition } from '@/lib/kpiConfig'
 import type { GlobalKpiFilters } from '@/hooks/useKpiData'
 import { useDomainTrendKpis, type DomainTrendKpiResult } from '@/hooks/useDomainTrendKpis'
-import { SEVERITY_META, type Severity } from './types'
+import { KPI_CARD_GRID_CLASS, SEVERITY_META, type Severity } from './types'
 import { SeverityKpiCard } from './SeverityKpiCard'
 
 const SEVERITY_ORDER: Severity[] = ['action', 'alert', 'in-control']
@@ -63,14 +63,14 @@ export function DomainSeverityBoard({
             {/* items-start: a stretched grid row would otherwise force every card in it to match
             its tallest sibling's height (e.g. a multi-series legend wrapping to 2 lines). A paired
             companion (renderResult) opts back into stretch, but only between itself and its host. */}
-            <div className="grid grid-cols-1 items-start gap-3 px-5 pt-2 pb-4 md:grid-cols-2 xl:grid-cols-3">
+            <div className={cn(KPI_CARD_GRID_CLASS, 'px-5 pt-2 pb-4')}>
               {tier.map(renderResult)}
             </div>
           </div>
         )
       })}
       {pending.length > 0 && (
-        <div className="grid grid-cols-1 items-start gap-3 px-5 pt-2 pb-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className={cn(KPI_CARD_GRID_CLASS, 'px-5 pt-2 pb-4')}>
           {pending.map(renderResult)}
         </div>
       )}

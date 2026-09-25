@@ -8,6 +8,7 @@ import { useExtraFilters } from '@/hooks/useExtraFilters'
 import { toBarData, emptyStateFor } from '@/components/kpi/KpiChartCard'
 import { FiltersPopoverButton } from '@/components/kpi/FiltersPopoverButton'
 import { SEVERITY_META } from './types'
+import { KpiRankingBarDetailModal } from './KpiRankingBarDetailModal'
 
 // This is real, live-fetched data with no computed severity/status (unlike SeverityKpiCard's real
 // value classified against a mock threshold) - always green, never a red/amber judgment this data
@@ -27,30 +28,33 @@ const CAPA_AGING_LEVEL_COLORS: Record<string, string> = {
   L5: '#D64550',
 }
 
-function barFillFor(kpiId: string, categoryName: string): string {
+export function barFillFor(kpiId: string, categoryName: string): string {
   return kpiId === 'capa-aging-status' ? (CAPA_AGING_LEVEL_COLORS[categoryName] ?? GREEN.solidHex) : GREEN.solidHex
 }
 
 // Recharts' <Cell> (the older way to color individual bars) is deprecated in favor of a custom
 // `shape` - this renders the same default Rectangle, just with a per-category fill.
-function barShapeFor(kpiId: string) {
+export function barShapeFor(kpiId: string) {
   return function CapaBarShape(props: BarShapeProps) {
     const name = typeof props.payload?.name === 'string' ? props.payload.name : ''
     return <Rectangle {...props} fill={barFillFor(kpiId, name)} />
   }
 }
 
-const BAR_ROW_HEIGHT_PX = 28
-const RANKING_BAR_MIN_HEIGHT_PX = 140
-const RANKING_BAR_MAX_VIEWPORT_PX = 260
-const Y_AXIS_WIDTH_PX = 140
+export const BAR_ROW_HEIGHT_PX = 28
+export const RANKING_BAR_MIN_HEIGHT_PX = 140
+// Matches SeverityKpiCard's own fixed chart height (its "h-40" = 160px), so every card in the grid
+// stays the same size regardless of category count - extra rows scroll (overflow-y-auto below)
+// rather than growing the card.
+const RANKING_BAR_MAX_VIEWPORT_PX = 160
+export const Y_AXIS_WIDTH_PX = 140
 const Y_AXIS_MAX_CHARS = 22
 
 // Long real category names (e.g. full product/material names) would otherwise wrap onto multiple
 // lines and visually collide with the row above/below - recharts doesn't reserve extra height for
 // wrapped tick text. Truncating to a fixed single-line length avoids that; the full name is still
 // available via the bar's own hover tooltip.
-function truncatedCategoryTick(props: { x?: string | number; y?: string | number; payload?: { value?: unknown } }) {
+export function truncatedCategoryTick(props: { x?: string | number; y?: string | number; payload?: { value?: unknown } }) {
   const { x, y, payload } = props
   const text = String(payload?.value ?? '')
   const label = text.length > Y_AXIS_MAX_CHARS ? `${text.slice(0, Y_AXIS_MAX_CHARS - 1)}…` : text
@@ -75,8 +79,9 @@ export function KpiRankingBarCard({
   globalFilters: GlobalKpiFilters
 }) {
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const [detailOpen, setDetailOpen] = useState(false)
   const { extraStates, setExtraState, extraParams, requiredSelectMissing, optionsFor, filterOptionsLoading } =
-    useExtraFilters(domain, kpi, globalFilters, filtersOpen)
+    useExtraFilters(domain, kpi, globalFilters, filtersOpen || detailOpen)
 
   const query = useKpiData(domain, kpi, globalFilters, extraParams)
   const rankingData = useMemo(() => toBarData(query.data ?? []), [query.data])
@@ -94,7 +99,7 @@ export function KpiRankingBarCard({
       style={{ backgroundColor: GREEN.cardBg, borderColor: GREEN.solidHex, borderLeftWidth: 3, borderLeftColor: GREEN.solidHex }}
     >
       <div className="flex items-start justify-between gap-2">
-        <h3 className="line-clamp-2 text-[11px] font-semibold text-gray-700">{kpi.label}</h3>
+        <h3 className="line-clamp-2 text-xl font-semibold text-gray-700">{kpi.label}</h3>
         <div className="flex shrink-0 items-center gap-1">
           {kpi.extraFilters.length > 0 && (
             <FiltersPopoverButton
@@ -107,7 +112,7 @@ export function KpiRankingBarCard({
               onOpenChange={setFiltersOpen}
             />
           )}
-          <button className="text-muted-foreground hover:text-foreground" title="Expand view (not yet built)">
+          <button className="text-muted-foreground hover:text-foreground" onClick={() => setDetailOpen(true)} title="Expand view">
             <Maximize2 className="size-3.5" />
           </button>
         </div>
@@ -137,6 +142,20 @@ export function KpiRankingBarCard({
           </ResponsiveContainer>
         )}
       </div>
+
+      {detailOpen && (
+        <KpiRankingBarDetailModal
+          domainLabel={domain.label}
+          kpi={kpi}
+          rankingData={rankingData}
+          notes={notes}
+          extraStates={extraStates}
+          onExtraStateChange={setExtraState}
+          optionsFor={optionsFor}
+          filterOptionsLoading={filterOptionsLoading}
+          onClose={() => setDetailOpen(false)}
+        />
+      )}
     </div>
   )
 }
