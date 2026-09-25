@@ -112,11 +112,17 @@ export interface BoundaryLine {
   labelPosition: 'insideBottomLeft' | 'insideTopLeft' | 'insideTopRight' | 'insideBottomRight'
 }
 
+// Snapshot limits are raw percentiles (e.g. 62.8546805458491) - enough precision to read, without
+// rounding a small limit like 0.05 away.
+const LIMIT_LABEL_MAX_DECIMALS = 2
+const limitLabel = (limit: number) => limit.toLocaleString(undefined, { maximumFractionDigits: LIMIT_LABEL_MAX_DECIMALS })
+
 /**
- * Every set limit as a chart reference line. The band columns map onto QC's limit terms: the green
- * edges (Band_Green_Low/High) are the Alert limits, the red edges (Band_Red_Low/High) the Action
- * limits - so a value past the alert limit but not the action limit is in the alert zone, and past
- * the action limit is in the action zone. A higher_is_worse row only has the High pair, etc.
+ * Every set limit as a chart reference line. The snapshot limits map onto QC's limit terms: the
+ * amber edges (greenLow/greenHigh = lower_amber/upper_amber) are the Alert limits, the red edges
+ * (redLow/redHigh = lower_red/upper_red) the Action limits - so a value past the alert limit but
+ * not the action limit is in the alert zone, and past the action limit is in the action zone. A
+ * higher_is_worse row only has the High pair, etc.
  */
 export function boundaryLines(thresholds: KpiThresholds | null | undefined): BoundaryLine[] {
   if (!thresholds) return []
@@ -125,10 +131,10 @@ export function boundaryLines(thresholds: KpiThresholds | null | undefined): Bou
   const twoSidedAction = redLow != null && redHigh != null
   const name = (base: string, twoSided: boolean, side: string) => (twoSided ? `${base} (${side})` : base)
   const lines: BoundaryLine[] = []
-  if (greenLow != null) lines.push({ y: greenLow, tone: 'alert', label: `Alert ${greenLow}`, name: name('Alert limit', twoSidedAlert, 'low'), labelPosition: 'insideBottomLeft' })
-  if (greenHigh != null) lines.push({ y: greenHigh, tone: 'alert', label: `Alert ${greenHigh}`, name: name('Alert limit', twoSidedAlert, 'high'), labelPosition: 'insideTopRight' })
-  if (redLow != null) lines.push({ y: redLow, tone: 'action', label: `Action ${redLow}`, name: name('Action limit', twoSidedAction, 'low'), labelPosition: 'insideTopLeft' })
-  if (redHigh != null) lines.push({ y: redHigh, tone: 'action', label: `Action ${redHigh}`, name: name('Action limit', twoSidedAction, 'high'), labelPosition: 'insideBottomRight' })
+  if (greenLow != null) lines.push({ y: greenLow, tone: 'alert', label: `Alert ${limitLabel(greenLow)}`, name: name('Alert limit', twoSidedAlert, 'low'), labelPosition: 'insideBottomLeft' })
+  if (greenHigh != null) lines.push({ y: greenHigh, tone: 'alert', label: `Alert ${limitLabel(greenHigh)}`, name: name('Alert limit', twoSidedAlert, 'high'), labelPosition: 'insideTopRight' })
+  if (redLow != null) lines.push({ y: redLow, tone: 'action', label: `Action ${limitLabel(redLow)}`, name: name('Action limit', twoSidedAction, 'low'), labelPosition: 'insideTopLeft' })
+  if (redHigh != null) lines.push({ y: redHigh, tone: 'action', label: `Action ${limitLabel(redHigh)}`, name: name('Action limit', twoSidedAction, 'high'), labelPosition: 'insideBottomRight' })
   return lines
 }
 

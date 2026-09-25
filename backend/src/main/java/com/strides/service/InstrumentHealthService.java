@@ -6,7 +6,6 @@ import com.strides.repository.AggLimsCalPmComplianceRepository;
 import com.strides.repository.AggLimsInstrumentFailureRateRepository;
 import com.strides.repository.AggLimsInstrumentUtilizationRepository;
 import com.strides.repository.AggLimsQualificationCycleTimeRepository;
-import com.strides.service.kpi.AppliesKpiThresholds;
 import com.strides.service.kpi.PeriodCombiner;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -18,7 +17,6 @@ import java.util.Map;
 import java.util.Set;
 
 @ApplicationScoped
-@AppliesKpiThresholds
 public class InstrumentHealthService {
 
     @Inject
@@ -36,7 +34,7 @@ public class InstrumentHealthService {
      * utilization_pct = sum_capped_usage_hours / sum_available_time (used hours over available hours).
      * instGroup (shared by utilization/availability/downtime): comma-separated list to combine, or null/blank for ALL.
      * A single instGroup gets its own kpiId (e.g. hplc-utilization) - the dashboard shows one card per
-     * group and each group has its own threshold config row (KPI-QC-007/008/009).
+     * group and each group has its own KPI (KPI-008/009/010) in kpi_threshold_snapshot.
      */
     public List<KpiCardResponse> getUtilization(String siteName, String instGroup, String grain, LocalDate from, LocalDate to) {
         Set<String> groups = PeriodCombiner.parseSelection(instGroup);

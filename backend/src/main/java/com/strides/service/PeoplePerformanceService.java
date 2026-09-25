@@ -8,7 +8,6 @@ import com.strides.repository.AggLimsRepeatAnalysisRateRepository;
 import com.strides.repository.AggLimsReviewerProductivityIndexRepository;
 import com.strides.repository.AggLimsRightFirstTimeRepository;
 import com.strides.repository.DepartmentScopeLiterals;
-import com.strides.service.kpi.AppliesKpiThresholds;
 import com.strides.service.kpi.PeriodCombiner;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -22,7 +21,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 @ApplicationScoped
-@AppliesKpiThresholds
 public class PeoplePerformanceService {
 
     private static final String COMPLETED_ON_TIME = "Completed On Time";

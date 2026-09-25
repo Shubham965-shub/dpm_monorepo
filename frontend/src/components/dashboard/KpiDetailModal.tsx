@@ -15,7 +15,6 @@ import { formatPeriodTick } from '@/lib/periodFormat'
 import { formatAxisTick } from '@/lib/format'
 import type { ExtraFilter, KpiDefinition } from '@/lib/kpiConfig'
 import { computeValueDomain, type KpiMetrics } from '@/hooks/useDomainTrendKpis'
-import { useKpiThresholdConfig } from '@/hooks/useKpiThresholdConfig'
 import { ExtraFilterControl, type ExtraFilterState } from '@/components/kpi/ExtraFilterControl'
 import { KpiLineTooltip } from '@/components/kpi/KpiLineTooltip'
 import { boundaryHex, boundaryLines, boundaryZones, severityMeta, type Severity } from './types'
@@ -75,7 +74,6 @@ export function KpiDetailModal({
   onClose: () => void
 }) {
   const { chartData, shownSeries, latestValue, previousValue, unit, thresholds } = metrics
-  const { data: kpiConfig } = useKpiThresholdConfig(thresholds?.configKpiId)
   const meta = severityMeta(severity)
   const delta = previousValue != null && latestValue != null ? latestValue - previousValue : null
   const lines = boundaryLines(thresholds)
@@ -132,15 +130,7 @@ export function KpiDetailModal({
               <span>
                 KPI: <strong className="text-foreground">{directionLabel}</strong>
               </span>
-              {kpiConfig?.sourceSystem && (
-                <span>
-                  Source: <strong className="text-foreground">{kpiConfig.sourceSystem}</strong>
-                </span>
-              )}
             </div>
-            {kpiConfig?.description && (
-              <p className="text-muted-foreground mt-2 max-w-2xl text-xs leading-relaxed">{kpiConfig.description}</p>
-            )}
           </div>
 
           <div className="flex overflow-hidden rounded-md border border-input">

@@ -2,67 +2,41 @@ package com.strides.service.kpi;
 
 import com.strides.dto.KpiStatus;
 import com.strides.dto.KpiThresholds;
-import com.strides.model.KpiThresholdConfigRow;
 import java.math.BigDecimal;
 
 /**
- * Colours a value against a KPI threshold config row's band columns - one rule for every
- * direction, since each direction only fills the band sides that apply to it:
- *   GREEN  inside [Band_Green_Low, Band_Green_High] (a null side is unbounded)
- *   RED    below Band_Red_Low or above Band_Red_High
- *   AMBER  anything between the two
- * A row with no band values at all (Threshold_Mode "none" and blank bands) gives null - no
- * colour, never a guessed one. Forced_Value / Amber_Zone_Pct / the percentile columns /
- * Threshold_Factor / Min_Day_Of_* aren't interpreted yet: their rules haven't been defined.
+ * The kpi_threshold_snapshot colour rule - the same one fn_kpi_limit_status applies in SQL, run
+ * here so a whole series is coloured from one lookup:
+ *   RED    above upper_red or below lower_red
+ *   AMBER  otherwise, above upper_amber or below lower_amber
+ *   GREEN  otherwise
+ * A null limit skips that comparison, and a value exactly on a limit gets the better colour. No
+ * value, no limits row, or both red limits null gives null (neutral) - never a guessed colour.
+ * Direction is already baked into which limits the snapshot fills, so it's never branched on here.
  */
 public final class KpiThresholdEvaluator {
 
     private KpiThresholdEvaluator() {
     }
 
-    public static boolean hasBands(KpiThresholdConfigRow row) {
-        return row.bandRedLow() != null || row.bandGreenLow() != null
-                || row.bandGreenHigh() != null || row.bandRedHigh() != null;
-    }
-
-    public static KpiStatus statusFor(BigDecimal value, KpiThresholdConfigRow row) {
-        if (value == null || !hasBands(row)) {
+    public static KpiStatus statusFor(BigDecimal value, KpiThresholds limits) {
+        if (value == null || limits == null || (limits.redLow() == null && limits.redHigh() == null)) {
             return null;
         }
-        if (isBelow(value, row.bandRedLow()) || isAbove(value, row.bandRedHigh())) {
+        if (isAbove(value, limits.redHigh()) || isBelow(value, limits.redLow())) {
             return KpiStatus.RED;
         }
-        boolean aboveGreenLow = row.bandGreenLow() == null || value.compareTo(row.bandGreenLow()) >= 0;
-        boolean belowGreenHigh = row.bandGreenHigh() == null || value.compareTo(row.bandGreenHigh()) <= 0;
-        return aboveGreenLow && belowGreenHigh ? KpiStatus.GREEN : KpiStatus.AMBER;
-    }
-
-    public static KpiThresholds thresholdsOf(KpiThresholdConfigRow row) {
-        return new KpiThresholds(row.kpiId(), row.direction(),
-                row.bandRedLow(), row.bandGreenLow(), row.bandGreenHigh(), row.bandRedHigh());
-    }
-
-    /** Load-time sanity check: present boundaries must run redLow <= greenLow <= greenHigh <= redHigh. */
-    public static void validate(KpiThresholdConfigRow row) {
-        BigDecimal[] ordered = {row.bandRedLow(), row.bandGreenLow(), row.bandGreenHigh(), row.bandRedHigh()};
-        BigDecimal previous = null;
-        for (BigDecimal boundary : ordered) {
-            if (boundary == null) {
-                continue;
-            }
-            if (previous != null && boundary.compareTo(previous) < 0) {
-                throw new IllegalStateException("Band boundaries out of order for " + row.kpiId()
-                        + ": expected red_low <= green_low <= green_high <= red_high");
-            }
-            previous = boundary;
+        if (isAbove(value, limits.greenHigh()) || isBelow(value, limits.greenLow())) {
+            return KpiStatus.AMBER;
         }
+        return KpiStatus.GREEN;
     }
 
-    private static boolean isBelow(BigDecimal value, BigDecimal bound) {
-        return bound != null && value.compareTo(bound) < 0;
+    private static boolean isBelow(BigDecimal value, BigDecimal limit) {
+        return limit != null && value.compareTo(limit) < 0;
     }
 
-    private static boolean isAbove(BigDecimal value, BigDecimal bound) {
-        return bound != null && value.compareTo(bound) > 0;
+    private static boolean isAbove(BigDecimal value, BigDecimal limit) {
+        return limit != null && value.compareTo(limit) > 0;
     }
 }
