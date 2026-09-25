@@ -151,6 +151,16 @@ public class KpiThresholdService {
     }
 
     /**
+     * Whether this graph (a KpiCardResponse.kpiId) has threshold values at this grain at all - from
+     * the in-memory defaults, so a caller can skip a graph without fetching its data first.
+     */
+    public boolean hasThresholds(String seriesKpiId, String grain) {
+        return catalogue.findKpiIdForSeries(seriesKpiId)
+                .map(kpiId -> defaults.rows().containsKey(new DefaultsKey(kpiId, grain)))
+                .orElse(false);
+    }
+
+    /**
      * selectedValues: filter name (a snapshot filter_N_name, e.g. site_name) -> the values the user
      * picked for that slicer; empty when nothing (or "select all") is picked.
      */

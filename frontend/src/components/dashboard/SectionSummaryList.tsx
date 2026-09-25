@@ -9,7 +9,8 @@ import type { GlobalKpiFilters } from '@/hooks/useKpiData'
 import { KpiRankingBarCard } from './KpiRankingBarCard'
 import { PriorityComplianceCard } from './PriorityComplianceCard'
 import { RootCauseHeatmapCard } from './RootCauseHeatmapCard'
-import { SECTION_SCORE_MOCK } from './mockData'
+import { SECTION_LABELS } from './sectionLabels'
+import { useQcScore } from '@/hooks/useQcScore'
 import { SectionSummaryBar } from './SectionSummaryBar'
 import { DomainSeverityBoard } from './DomainSeverityBoard'
 import type { SectionFilterValue } from './FilterBar'
@@ -62,9 +63,12 @@ export function SectionSummaryList({
   // separate, user-adjustable filter set - not shared here.
   const { from, to } = getGrainDateRange(grain)
   const globalFilters: GlobalKpiFilters = { site, grain, from, to }
+  // Same query key as QcScoreCard's, so both read one cached request.
+  const { data: qcScore } = useQcScore(globalFilters)
 
   const rows = sections.map((sec) => {
-        const meta = SECTION_SCORE_MOCK[sec.key]
+        const labels = SECTION_LABELS[sec.key]
+        const sectionScore = qcScore?.sections.find((s) => s.sectionId === sec.key)
         let critical = 0
         let warning = 0
         let onTrack = 0
@@ -119,13 +123,17 @@ export function SectionSummaryList({
           // reorders the list, instead of it just jumping there.
           <div key={sec.key} style={{ viewTransitionName: `section-${sec.key}` } as CSSProperties}>
             <SectionSummaryBar
-              category={meta.category}
+              category={labels.category}
               title={sec.title}
               critical={critical}
               warning={warning}
               onTrack={onTrack}
-              score={meta.score}
-              deltaPts={meta.deltaPts}
+              score={sectionScore?.score ?? null}
+              deltaPts={
+                sectionScore?.score != null && sectionScore.previousScore != null
+                  ? sectionScore.score - sectionScore.previousScore
+                  : null
+              }
               starred={favorites.has(sec.key)}
               onToggleStar={() => toggleFavorite(sec.key)}
               expanded={expanded}

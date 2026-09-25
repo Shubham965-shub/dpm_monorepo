@@ -12,6 +12,7 @@ import jakarta.ws.rs.core.MultivaluedMap;
 import jakarta.ws.rs.ext.Provider;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 /**
  * Stamps threshold status onto every KPI endpoint's rows in one place, instead of in each of the
@@ -33,9 +34,13 @@ public class KpiThresholdResponseFilter implements ContainerResponseFilter {
         if (response.getEntity() instanceof List<?> rows && !rows.isEmpty() && rows.get(0) instanceof KpiCardResponse) {
             @SuppressWarnings("unchecked")
             List<KpiCardResponse> cards = (List<KpiCardResponse>) rows;
-            MultivaluedMap<String, String> params = request.getUriInfo().getQueryParameters();
-            response.setEntity(thresholds.applyTo(cards, filterName -> selectedValues(params, paramFor(filterName))));
+            response.setEntity(thresholds.applyTo(cards, slicerSelection(request.getUriInfo().getQueryParameters())));
         }
+    }
+
+    /** A request's query params as KpiThresholdService's slicer state: snapshot filter name -> picked values. */
+    static Function<String, List<String>> slicerSelection(MultivaluedMap<String, String> params) {
+        return filterName -> selectedValues(params, paramFor(filterName));
     }
 
     static String paramFor(String filterName) {

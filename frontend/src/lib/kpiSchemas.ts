@@ -50,6 +50,39 @@ export type KpiCardResponse = z.infer<typeof kpiCardResponseSchema>
 export const kpiCardListSchema = z.array(kpiCardResponseSchema)
 
 
+// Mirrors backend com.strides.dto.QcScoreDtos - GET /api/qc-score. Scores are unrounded 0-100
+// (round only for display); null = no data (grey), never 0.
+export const scoreBandSchema = z.enum(['GREEN', 'AMBER', 'RED']).nullable()
+export type ScoreBand = z.infer<typeof scoreBandSchema>
+
+const kpiScoreSchema = z.object({
+  seriesId: z.string(),
+  name: z.string().nullable(),
+  configKpiId: z.string().nullable(),
+  periodStart: z.string().nullable(),
+  actual: z.coerce.number().nullable(),
+  score: z.number().nullable(),
+  previousScore: z.number().nullable(),
+  band: scoreBandSchema,
+})
+
+const sectionScoreSchema = z.object({
+  sectionId: z.string(),
+  score: z.number().nullable(),
+  previousScore: z.number().nullable(),
+  band: scoreBandSchema,
+  kpis: z.array(kpiScoreSchema),
+})
+export type SectionScore = z.infer<typeof sectionScoreSchema>
+
+export const qcScoreSchema = z.object({
+  score: z.number().nullable(),
+  previousScore: z.number().nullable(),
+  band: scoreBandSchema,
+  sections: z.array(sectionScoreSchema),
+})
+export type QcScore = z.infer<typeof qcScoreSchema>
+
 // The 5 grains every agg_*/fact_* table is rolled up to (confirmed live against the dpm DB).
 export const GRAINS = ['daily', 'weekly', 'monthly', 'quarterly', 'yearly'] as const
 export type Grain = (typeof GRAINS)[number]

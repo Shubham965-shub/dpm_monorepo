@@ -1,6 +1,6 @@
 import { Star, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { SEVERITY_META } from './types'
+import { SEVERITY_META, formatScore } from './types'
 
 function Chip({ dotHex, label }: { dotHex: string; label: string }) {
   return (
@@ -17,8 +17,10 @@ export interface SectionSummaryBarProps {
   critical: number
   warning: number
   onTrack: number
-  score: number
-  deltaPts: number
+  /** 0-100 section QC score (unrounded); null = no data. */
+  score: number | null
+  /** Score change vs the previous period; null when either period has no score. */
+  deltaPts: number | null
   starred: boolean
   onToggleStar: () => void
   expanded: boolean
@@ -38,7 +40,7 @@ export function SectionSummaryBar({
   expanded,
   onToggle,
 }: SectionSummaryBarProps) {
-  const isImproving = deltaPts >= 0
+  const isImproving = deltaPts != null && deltaPts >= 0
 
   return (
     <div
@@ -68,16 +70,18 @@ export function SectionSummaryBar({
         {onTrack > 0 && <Chip dotHex={SEVERITY_META['in-control'].pillDotHex} label={`${onTrack} on track`} />}
 
         <div className="text-right">
-          <div className="text-2xl leading-none font-bold">{score}</div>
-          <div
-            className={cn(
-              'flex items-center justify-end gap-0.5 text-xs',
-              isImproving ? 'text-emerald-300' : 'text-white/70',
-            )}
-          >
-            <span>{isImproving ? '▲' : '▼'}</span>
-            <span>{Math.abs(deltaPts).toFixed(1)} pts</span>
-          </div>
+          <div className="text-2xl leading-none font-bold">{formatScore(score)}</div>
+          {deltaPts != null && (
+            <div
+              className={cn(
+                'flex items-center justify-end gap-0.5 text-xs',
+                isImproving ? 'text-emerald-300' : 'text-white/70',
+              )}
+            >
+              <span>{isImproving ? '▲' : '▼'}</span>
+              <span>{Math.abs(deltaPts).toFixed(1)} pts</span>
+            </div>
+          )}
         </div>
 
         <button

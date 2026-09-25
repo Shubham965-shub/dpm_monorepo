@@ -46,7 +46,7 @@ export function DashboardPage() {
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
               <OverallHeatmapDemo section={filters.section} />
               <div className="flex flex-col gap-4">
-                <QcScoreCard />
+                <QcScoreCard site="KRSG" grain={filters.grain} />
                 <PositiveSignals />
               </div>
             </div>

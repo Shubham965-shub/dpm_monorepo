@@ -1,4 +1,5 @@
-import type { KpiStatus, KpiThresholds } from '@/lib/kpiSchemas'
+import type { KpiStatus, KpiThresholds, ScoreBand } from '@/lib/kpiSchemas'
+import type { BarRow } from '@/components/kpi/KpiChartCard'
 
 /**
  * Shared by every KPI card grid (DomainSeverityBoard's severity tiers, SectionSummaryList's
@@ -95,6 +96,26 @@ const NO_THRESHOLD_META: SeverityMeta = {
 
 export function severityMeta(severity: Severity | null): SeverityMeta {
   return severity ? SEVERITY_META[severity] : NO_THRESHOLD_META
+}
+
+// A QC score band borrows the matching severity's colours - green/amber/red mean the same thing
+// on a score as on a KPI card; null (no data) gets the neutral grey.
+const BAND_SEVERITY: Record<NonNullable<ScoreBand>, Severity> = { GREEN: 'in-control', AMBER: 'alert', RED: 'action' }
+
+export function scoreBandMeta(band: ScoreBand): SeverityMeta {
+  return severityMeta(band ? BAND_SEVERITY[band] : null)
+}
+
+// KPI Scoring Specification section 8's interpretation of each band.
+const BAND_LABEL: Record<NonNullable<ScoreBand>, string> = { GREEN: 'Performing', AMBER: 'Watch', RED: 'Unacceptable' }
+
+export function scoreBandLabel(band: ScoreBand): string {
+  return band ? BAND_LABEL[band] : 'No data'
+}
+
+/** Rounding is display-only (the backend keeps full precision); null = no data. */
+export function formatScore(score: number | null | undefined): string {
+  return score == null ? '—' : String(Math.round(score))
 }
 
 // The dashed limit lines on SeverityKpiCard/KpiDetailModal's charts: the Alert limit (where in
@@ -199,4 +220,9 @@ export function boundaryZones(thresholds: KpiThresholds | null | undefined, doma
   if (greenHigh != null) zones.push({ y1: greenHigh, y2: redHigh ?? top, ...alert })
   if (redHigh != null) zones.push({ y1: redHigh, y2: top, ...action })
   return zones
+}
+
+/** A ranking bar chart's value domain - shared by its bars and its pinned axis strip (RankingValueAxis) so the two line up. */
+export function rankingValueDomain(rows: BarRow[]): [number, number] {
+  return [0, Math.max(0, ...rows.map((row) => row.value ?? 0))]
 }

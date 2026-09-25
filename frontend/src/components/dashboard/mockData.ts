@@ -36,38 +36,7 @@ export const HEATMAP_MOCK: HeatmapMockSection[] = [
   { key: 'people-performance', title: 'People Performance', rows: demoHeatmapRows(6, 3) },
 ]
 
-// The composite "QC Score" and its per-section score/trend have no backend counterpart at all
-// (no endpoint, no aggregation logic) - this is a UI placeholder pending a product decision on
-// how that composite should be computed. Single source shared by QcScoreCard and
-// SectionSummaryList so the same mocked numbers aren't duplicated in two files.
-// "starred" used to live here as a static mock flag - it's now real, per-user state (see
-// useFavoriteSections.ts), so it's not part of this placeholder data anymore.
-export const SECTION_SCORE_MOCK: Record<
-  SectionKey,
-  {
-    shortLabel: string
-    category: string
-    score: number
-    deltaPts: number
-    // Exact hex from Figma (file T5oSGlK2eTYF8KvKP5M9lF, node 5024:20119 "Frame 128") - the
-    // QcScoreCard breakdown's number color and its underline bar color aren't always the same hue.
-    numberHex: string
-    barHex: string
-  }
-> = {
-  'lab-performance': { shortLabel: 'Lab', category: 'Operational Efficiency', score: 76, deltaPts: -2.1, numberHex: '#bb4d00', barHex: '#f59e0b' },
-  'instrument-health': { shortLabel: 'Instrument', category: 'Asset Reliability', score: 82, deltaPts: 1.4, numberHex: '#bb4d00', barHex: '#ef4444' },
-  qms: { shortLabel: 'QMS', category: 'Compliance System', score: 69, deltaPts: -4.8, numberHex: '#c10007', barHex: '#ef4444' },
-  'people-performance': { shortLabel: 'People', category: 'Workforce', score: 89, deltaPts: 2.2, numberHex: '#008236', barHex: '#028662' },
-}
-
-export const QC_SCORE_MOCK = {
-  overall: 79,
-  label: 'Acceptable',
-  bestEver: { score: 91, period: 'February 2026' },
-}
-
-// Same caveat as QC Score - no "positive signals" feed exists server-side yet. Note the
+// No "positive signals" feed exists server-side yet. Note the
 // Training Completion Rate signal in particular: the real endpoint
 // (GET /api/people-performance/training-completion-rate) exists, but its source table
 // (agg_cw_training_completion_rate) is documented as empty in backend/README.md, so this
@@ -94,7 +63,7 @@ export interface NeedsAttentionItem {
   action: 'nudge' | 'act-now'
 }
 
-// Same caveat as QC Score / Positive Signals - there's no "agenda" or nudge/escalation endpoint
+// Same caveat as Positive Signals - there's no "agenda" or nudge/escalation endpoint
 // server-side yet. Placeholder until that workflow exists.
 export const NEEDS_ATTENTION_MOCK: NeedsAttentionItem[] = [
   {
