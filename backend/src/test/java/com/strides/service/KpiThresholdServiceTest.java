@@ -24,6 +24,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -69,8 +70,15 @@ class KpiThresholdServiceTest {
         service.refreshDefaults();
     }
 
+    /** One entry per filter slot (KpiThresholdSnapshotRepository.FILTER_SLOTS); Arrays.asList allows the null entries. */
+    private static List<String> slots(String first, String second, String third) {
+        return Arrays.asList(first, second, third);
+    }
+
+    private static final List<String> SLA_FILTER_NAMES = slots("sample_category", "site_name", null);
+
     private static KpiThresholdSnapshotRow slaRow(String grain, String filter1, String filter2, OffsetDateTime computedAt) {
-        return new KpiThresholdSnapshotRow(SLA, grain, "sample_category", filter1, "site_name", filter2, "higher_is_better",
+        return new KpiThresholdSnapshotRow(SLA, grain, SLA_FILTER_NAMES, slots(filter1, filter2, "All"), "higher_is_better",
                 0.5624, 0.6186, null, null, null, computedAt);
     }
 
@@ -96,7 +104,7 @@ class KpiThresholdServiceTest {
         assertEquals(0, new BigDecimal("56.24").compareTo(result.get(0).thresholds().redLow()));
         assertEquals(0, new BigDecimal("61.86").compareTo(result.get(0).thresholds().greenLow()));
         assertEquals(SLA, result.get(0).thresholds().configKpiId());
-        verify(snapshots, never()).findLimits(anyString(), anyString(), any(), any());
+        verify(snapshots, never()).findLimits(anyString(), anyString(), any());
     }
 
     @Test
@@ -107,8 +115,8 @@ class KpiThresholdServiceTest {
         service.applyTo(cards, NOTHING_SELECTED);
         verify(snapshots, times(1)).findAllDefaults();
 
-        KpiThresholdSnapshotRow tighter = new KpiThresholdSnapshotRow(SLA, "monthly", "sample_category", "All",
-                "site_name", "All", "higher_is_better", 0.65, 0.7, null, null, null, FRESH.plusDays(1));
+        KpiThresholdSnapshotRow tighter = new KpiThresholdSnapshotRow(SLA, "monthly", SLA_FILTER_NAMES,
+                slots("All", "All", "All"), "higher_is_better", 0.65, 0.7, null, null, null, FRESH.plusDays(1));
         loadDefaults(List.of(tighter));
 
         assertEquals(KpiStatus.RED, service.applyTo(cards, NOTHING_SELECTED).get(0).status());
@@ -130,8 +138,8 @@ class KpiThresholdServiceTest {
     @Test
     void aSingleSelectedValuePicksThatFilterRowAndSeveralFallBackToAllWithAHint() {
         linkSlaSeries(slaRow("weekly", "All", "All", FRESH));
-        when(snapshots.findLimits(SLA, "weekly", "RM", "KRSG")).thenReturn(Optional.of(slaRow("weekly", "RM", "KRSG", FRESH)));
-        when(snapshots.findLimits(SLA, "weekly", null, "KRSG")).thenReturn(Optional.of(slaRow("weekly", "All", "KRSG", FRESH)));
+        when(snapshots.findLimits(SLA, "weekly", slots("RM", "KRSG", null))).thenReturn(Optional.of(slaRow("weekly", "RM", "KRSG", FRESH)));
+        when(snapshots.findLimits(SLA, "weekly", slots(null, "KRSG", null))).thenReturn(Optional.of(slaRow("weekly", "All", "KRSG", FRESH)));
 
         KpiCardResponse single = service.applyTo(List.of(slaCard("weekly", LocalDate.of(2026, 9, 14), "60")),
                 selecting(Map.of("sample_category", List.of("RM"), "site_name", List.of("KRSG")))).get(0);
@@ -140,8 +148,8 @@ class KpiThresholdServiceTest {
 
         assertFalse(single.thresholds().multiSelectHint());
         assertTrue(multi.thresholds().multiSelectHint());
-        verify(snapshots).findLimits(SLA, "weekly", "RM", "KRSG");
-        verify(snapshots).findLimits(SLA, "weekly", null, "KRSG");
+        verify(snapshots).findLimits(SLA, "weekly", slots("RM", "KRSG", null));
+        verify(snapshots).findLimits(SLA, "weekly", slots(null, "KRSG", null));
     }
 
     @Test
@@ -166,20 +174,21 @@ class KpiThresholdServiceTest {
 
     @Test
     void aKpiWithNoDefaultRowsIsLeftUncolouredWithoutARuntimeLookup() {
-        linkSlaSeries(new KpiThresholdSnapshotRow("KPI-008", "monthly", null, "All", null, "All", "band",
+        linkSlaSeries(new KpiThresholdSnapshotRow("KPI-008", "monthly", slots(null, null, null),
+                slots("All", "All", "All"), "band",
                 0.55, 0.7, 0.9, 0.95, null, FRESH));
 
         KpiCardResponse result = service.applyTo(List.of(slaCard("monthly", LocalDate.of(2026, 8, 1), "60")),
                 selecting(Map.of("site_name", List.of("KRSG")))).get(0);
 
         assertNull(result.status());
-        verify(snapshots, never()).findLimits(anyString(), anyString(), any(), any());
+        verify(snapshots, never()).findLimits(anyString(), anyString(), any());
     }
 
     @Test
     void anEmptyFilteredLookupRetriesOnceThenFallsBackToTheLastGoodLimits() {
         linkSlaSeries(slaRow("monthly", "All", "All", FRESH));
-        when(snapshots.findLimits(SLA, "monthly", null, "KRSG"))
+        when(snapshots.findLimits(SLA, "monthly", slots(null, "KRSG", null)))
                 .thenReturn(Optional.of(slaRow("monthly", "All", "KRSG", FRESH)))
                 .thenReturn(Optional.empty());
         List<KpiCardResponse> cards = List.of(slaCard("monthly", LocalDate.of(2026, 8, 1), "60"));
@@ -189,13 +198,13 @@ class KpiThresholdServiceTest {
         KpiCardResponse duringReload = service.applyTo(cards, krsg).get(0);
 
         assertEquals(KpiStatus.AMBER, duringReload.status());
-        verify(snapshots, times(3)).findLimits(SLA, "monthly", null, "KRSG");
+        verify(snapshots, times(3)).findLimits(SLA, "monthly", slots(null, "KRSG", null));
     }
 
     @Test
     void aFailedLookupNeverFailsTheKpiRows() {
         linkSlaSeries(slaRow("monthly", "All", "All", FRESH));
-        when(snapshots.findLimits(SLA, "monthly", null, "KRSG")).thenThrow(new AggQueryException("SELECT", null));
+        when(snapshots.findLimits(SLA, "monthly", slots(null, "KRSG", null))).thenThrow(new AggQueryException("SELECT", null));
 
         KpiCardResponse result = service.applyTo(List.of(slaCard("monthly", LocalDate.of(2026, 8, 1), "60")),
                 selecting(Map.of("site_name", List.of("KRSG")))).get(0);
@@ -206,6 +215,38 @@ class KpiThresholdServiceTest {
     @Test
     void staleLimitsStillColour() {
         linkSlaSeries(slaRow("monthly", "All", "All", FRESH.minusDays(3)));
+
+        KpiCardResponse result = service.applyTo(List.of(slaCard("monthly", LocalDate.of(2026, 8, 1), "60")), NOTHING_SELECTED).get(0);
+
+        assertEquals(KpiStatus.AMBER, result.status());
+    }
+
+    @Test
+    void aThreeFilterKpiLooksUpEverySlotItsFilterNamesName() {
+        String investigationTat = "KPI-012";
+        List<String> names = slots("site", "initiated_through", "resp_dept");
+        when(catalogue.findKpiIdForSeries("investigation-closure-tat")).thenReturn(Optional.of(investigationTat));
+        loadDefaults(List.of(new KpiThresholdSnapshotRow(investigationTat, "monthly", names, slots("All", "All", "All"),
+                "higher_is_worse", null, null, 19.53, 21.7, null, FRESH)));
+        when(snapshots.findLimits(investigationTat, "monthly", slots("KRSG", null, "EHS"))).thenReturn(Optional.of(
+                new KpiThresholdSnapshotRow(investigationTat, "monthly", names, slots("KRSG", "All", "EHS"),
+                        "higher_is_worse", null, null, 18.0, 20.0, null, FRESH)));
+        KpiCardResponse card = new KpiCardResponse("investigation-closure-tat", "Investigation TAT", new BigDecimal("19"), "days",
+                null, "monthly", LocalDate.of(2026, 8, 1), null);
+
+        KpiCardResponse result = service.applyTo(List.of(card),
+                selecting(Map.of("site", List.of("KRSG"), "resp_dept", List.of("EHS")))).get(0);
+
+        assertEquals(KpiStatus.AMBER, result.status());
+        assertEquals(0, new BigDecimal("20").compareTo(result.thresholds().redHigh()));
+    }
+
+    @Test
+    void aDuplicateDefaultRowKeepsTheFirstInsteadOfFailing() {
+        KpiThresholdSnapshotRow first = slaRow("monthly", "All", "All", FRESH);
+        KpiThresholdSnapshotRow duplicate = new KpiThresholdSnapshotRow(SLA, "monthly", SLA_FILTER_NAMES,
+                slots("All", "All", "All"), "higher_is_better", 0.9, 0.95, null, null, null, FRESH);
+        linkSlaSeries(first, duplicate);
 
         KpiCardResponse result = service.applyTo(List.of(slaCard("monthly", LocalDate.of(2026, 8, 1), "60")), NOTHING_SELECTED).get(0);
 

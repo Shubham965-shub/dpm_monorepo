@@ -1,4 +1,5 @@
 import { useState, type CSSProperties, type ReactNode } from 'react'
+import { cn } from '@/lib/utils'
 import { useHeatmapData } from '@/hooks/useHeatmapData'
 import { useFavoriteSections } from '@/hooks/useFavoriteSections'
 import { KPI_DOMAINS, type KpiDefinition } from '@/lib/kpiConfig'
@@ -12,7 +13,7 @@ import { SECTION_SCORE_MOCK } from './mockData'
 import { SectionSummaryBar } from './SectionSummaryBar'
 import { DomainSeverityBoard } from './DomainSeverityBoard'
 import type { SectionFilterValue } from './FilterBar'
-import type { Severity } from './types'
+import { KPI_CARD_GRID_CLASS, type Severity } from './types'
 
 // KPIs whose real shape is a per-category share of a period's total (not a single trending value
 // or a whole-range ranking) - routed to their own dedicated card instead of DomainSeverityBoard or
@@ -146,7 +147,7 @@ export function SectionSummaryList({
                   // items-start: a grid row otherwise stretches every card to match its tallest
                   // sibling (e.g. an 11-row ranking bar next to a 4-row one), leaving the shorter
                   // chart floating with dead space below it instead of sizing to its own content.
-                  <div className="grid grid-cols-1 items-start gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">
+                  <div className={cn(KPI_CARD_GRID_CLASS, 'p-4')}>
                     {rankingKpis.map((kpi) => (
                       <KpiRankingBarCard key={kpi.id} domain={domain} kpi={kpi} globalFilters={globalFilters} />
                     ))}

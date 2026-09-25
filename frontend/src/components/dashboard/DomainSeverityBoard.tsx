@@ -1,12 +1,17 @@
 import { Fragment, type ReactNode } from 'react'
-import { pluralize } from '@/lib/utils'
+import { cn, pluralize } from '@/lib/utils'
 import type { KpiDomain, KpiDefinition } from '@/lib/kpiConfig'
 import type { GlobalKpiFilters } from '@/hooks/useKpiData'
 import { useDomainTrendKpis, type DomainTrendKpiResult } from '@/hooks/useDomainTrendKpis'
-import { SEVERITY_META, type Severity } from './types'
+import { KPI_CARD_GRID_CLASS, SEVERITY_META, type Severity } from './types'
 import { SeverityKpiCard } from './SeverityKpiCard'
 
 const SEVERITY_ORDER: Severity[] = ['action', 'alert', 'in-control']
+
+// items-stretch overrides the shared grid's items-start: every card in a row is the same height,
+// and SeverityKpiCard keeps its chart aligned across them (two-line title slot, footer pinned to
+// the bottom).
+const TIER_GRID_CLASS = cn(KPI_CARD_GRID_CLASS, 'items-stretch px-5 pt-2 pb-4')
 
 /** Renders one domain's severity-tier bands (Figma node 5024:13253's expanded-strip content),
  * fed by real backend data (useDomainTrendKpis) - severity is each KPI's backend status (from its
@@ -59,16 +64,14 @@ export function DomainSeverityBoard({
               </span>
               <span className="text-muted-foreground text-[11px] font-bold">{pluralize(tier.length, 'KPI')}</span>
             </div>
-            {/* Rows stretch so every card in a row is the same size; SeverityKpiCard keeps its chart
-            aligned across them (fixed two-line title slot, footer pinned to the bottom). */}
-            <div className="grid grid-cols-1 gap-3 px-5 pt-2 pb-4 md:grid-cols-2 xl:grid-cols-3">
+            <div className={TIER_GRID_CLASS}>
               {tier.map(renderResult)}
             </div>
           </div>
         )
       })}
       {pending.length > 0 && (
-        <div className="grid grid-cols-1 gap-3 px-5 pt-2 pb-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className={TIER_GRID_CLASS}>
           {pending.map(renderResult)}
         </div>
       )}

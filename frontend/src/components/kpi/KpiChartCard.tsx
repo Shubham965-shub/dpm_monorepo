@@ -60,7 +60,7 @@ export function toChartData(rows: KpiCardResponse[]) {
   return { shownSeries, hiddenCount, chartData }
 }
 
-interface BarRow {
+export interface BarRow {
   name: string
   value: number | null
   unit: string

@@ -6,6 +6,7 @@ import { CATEGORICAL_PALETTE, MAX_SERIES, TOOLTIP_Z_INDEX } from '@/lib/chartPal
 import type { Grain } from '@/lib/kpiSchemas'
 import type { ExtraFilter, KpiDomain } from '@/lib/kpiConfig'
 import { getGrainDateRange } from '@/lib/kpiDateRange'
+import { formatRangeEnd, formatRangeStart } from '@/lib/periodFormat'
 import {
   filterRootCauseRowsToDimension,
   listRootCauseDimensions,
@@ -37,7 +38,7 @@ function LegendEntry({ colorHex, label }: { colorHex: string; label: string }) {
   return (
     <span className="flex items-center gap-1">
       <span className="h-px w-3 shrink-0 border-t border-dashed" style={{ borderColor: colorHex }} />
-      <span className="text-[8px] font-medium" style={{ color: colorHex }}>
+      <span className="text-sm font-medium" style={{ color: colorHex }}>
         {label}
       </span>
     </span>
@@ -47,7 +48,7 @@ function LegendEntry({ colorHex, label }: { colorHex: string; label: string }) {
 function CardShell({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-2 rounded-xl border border-border bg-card p-3">
-      <h3 className="line-clamp-2 text-[11px] font-semibold text-gray-700">{label}</h3>
+      <h3 className="line-clamp-2 text-xl font-semibold text-gray-700">{label}</h3>
       <div className="flex h-24 items-center justify-center text-center text-[11px] text-muted-foreground">
         {children}
       </div>
@@ -176,7 +177,7 @@ export function SeverityKpiCard({
       <div className="flex items-start justify-between gap-2">
         <div>
           {/* Always two lines tall, so a one-line title's chart starts level with a wrapped one's. */}
-          <h3 className="line-clamp-2 min-h-[2lh] text-[11px] font-semibold text-gray-700">{kpi.label}</h3>
+          <h3 className="line-clamp-2 min-h-[2lh] text-xl font-semibold text-gray-700">{kpi.label}</h3>
           {requiredSelects.length > 0 && (
             <p className="text-muted-foreground text-[9px]">
               {requiredSelects
@@ -301,6 +302,14 @@ export function SeverityKpiCard({
         )}
       </div>
 
+      {/* The x-axis is hidden to keep the mini chart clean, so the range's two ends are named here instead. */}
+      {hasData && chartData.length > 0 && (
+        <div className="text-muted-foreground flex justify-between text-xs">
+          <span>{formatRangeStart(String(chartData[0].periodStart), grain)}</span>
+          <span>{formatRangeEnd(String(chartData[chartData.length - 1].periodStart), grain)}</span>
+        </div>
+      )}
+
       {/* mt-auto: in a stretched grid row, the extra height goes above the footer, not inside the chart. */}
       <div className="mt-auto flex items-center gap-2.5">
         {lines.length > 0 ? (
@@ -312,19 +321,19 @@ export function SeverityKpiCard({
 
       <div className="flex items-end justify-between">
         <div>
-          <span className="text-xl font-black" style={{ color: meta.solidHex }}>
+          <span className="text-2xl font-black" style={{ color: meta.solidHex }}>
             {latestValue != null ? latestValue.toFixed(1) : '—'}
           </span>
           <span className="text-muted-foreground ml-1 text-[10px] font-semibold">{unit}</span>
         </div>
         {delta != null && (
           <div className="text-right">
-            <div className="flex items-center justify-end gap-0.5 text-[11px] font-bold" style={{ color: meta.solidHex }}>
+            <div className="flex items-center justify-end gap-0.5 text-base font-semibold" style={{ color: meta.solidHex }}>
               {isUp ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />}
               {isUp ? '+' : ''}
               {delta.toFixed(1)}
             </div>
-            <div className="text-muted-foreground text-[8px]">vs prev</div>
+            <div className="text-muted-foreground text-sm font-medium">vs prev</div>
           </div>
         )}
       </div>

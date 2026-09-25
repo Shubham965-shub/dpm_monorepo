@@ -37,7 +37,7 @@ import org.jboss.logging.Logger;
  * Colours KPI rows against kpi_threshold_snapshot. The backend only looks limits up and compares -
  * it never computes percentiles/amber zones or branches on direction; the snapshot already has.
  * Limits are keyed by each row's own grain (never another grain's) and the request's slicer state.
- * Every KPI's unfiltered ("All"/"All") rows are loaded at once and held in memory, refreshed on a
+ * Every KPI's unfiltered (every filter "All") rows are loaded at once and held in memory, refreshed on a
  * schedule (kpi-thresholds.defaults-refresh-every); a filtered selection is looked up at request time.
  */
 @ApplicationScoped
@@ -84,12 +84,25 @@ public class KpiThresholdService {
 
         static Defaults of(List<KpiThresholdSnapshotRow> rows) {
             return new Defaults(
-                    rows.stream().collect(Collectors.toMap(row -> new DefaultsKey(row.kpiId(), row.grain()), row -> row)),
+                    rows.stream().collect(Collectors.toMap(row -> new DefaultsKey(row.kpiId(), row.grain()), row -> row,
+                            Defaults::keepFirstDuplicate)),
                     rows.stream().collect(Collectors.toMap(KpiThresholdSnapshotRow::kpiId, row -> row, (first, second) -> first)));
+        }
+
+        /**
+         * The primary key makes a duplicate impossible unless the table's shape changes under us (as
+         * when filter_3 was added) - that must never stop the app from starting, only be reported.
+         */
+        private static KpiThresholdSnapshotRow keepFirstDuplicate(KpiThresholdSnapshotRow first, KpiThresholdSnapshotRow second) {
+            LOG.warnf("kpi_threshold_snapshot has more than one default row for %s/%s - using the first; "
+                    + "check the table's filter columns still match KpiThresholdSnapshotRepository.FILTER_SLOTS",
+                    first.kpiId(), first.grain());
+            return first;
         }
     }
 
-    private record LimitsKey(String kpiId, String grain, String filter1Value, String filter2Value) {
+    /** filterValues: one per filter slot, null = that slot's "All" row. */
+    private record LimitsKey(String kpiId, String grain, List<String> filterValues) {
     }
 
     private record SeriesKey(String kpiId, String grain, String unit) {
@@ -104,7 +117,7 @@ public class KpiThresholdService {
 
     /** Loads the defaults before the first request, then re-reads them every defaultsRefreshEvery. */
     void startDefaultsRefresh(@Observes StartupEvent event) {
-        refreshDefaults();
+        refreshDefaultsSafely();
         defaultsRefresher = Executors.newSingleThreadScheduledExecutor(runnable -> {
             Thread thread = new Thread(runnable, "kpi-threshold-defaults-refresh");
             thread.setDaemon(true);
@@ -114,12 +127,13 @@ public class KpiThresholdService {
         defaultsRefresher.scheduleAtFixedRate(this::refreshDefaultsSafely, periodMillis, periodMillis, TimeUnit.MILLISECONDS);
     }
 
-    // An exception escaping a scheduled run would silently cancel every later run.
+    // Thresholds are only colouring - a failure here must never stop the app starting, and one
+    // escaping a scheduled run would silently cancel every later run.
     private void refreshDefaultsSafely() {
         try {
             refreshDefaults();
         } catch (RuntimeException e) {
-            LOG.warn("Scheduled kpi_threshold_snapshot defaults refresh failed - keeping the previous ones", e);
+            LOG.warn("kpi_threshold_snapshot defaults refresh failed - keeping the previous ones", e);
         }
     }
 
@@ -163,21 +177,23 @@ public class KpiThresholdService {
         if (anyRow == null) {
             return Optional.empty();
         }
-        Selection filter1 = select(anyRow.filter1Name(), selectedValues);
-        Selection filter2 = select(anyRow.filter2Name(), selectedValues);
-        Optional<KpiThresholdSnapshotRow> limits = filter1.value() == null && filter2.value() == null
+        List<Selection> selections = anyRow.filterNames().stream().map(name -> select(name, selectedValues)).toList();
+        // Stream.toList, not Collectors/List.of: an unselected slot's value is null.
+        List<String> filterValues = selections.stream().map(Selection::value).toList();
+        boolean multiSelectHint = selections.stream().anyMatch(Selection::multiple);
+        Optional<KpiThresholdSnapshotRow> limits = filterValues.stream().allMatch(value -> value == null)
                 ? Optional.ofNullable(loaded.rows().get(new DefaultsKey(series.kpiId(), series.grain())))
-                : limits(new LimitsKey(series.kpiId(), series.grain(), filter1.value(), filter2.value()));
+                : limits(new LimitsKey(series.kpiId(), series.grain(), filterValues));
         return limits
                 .map(row -> {
                     alertIfStale(row);
-                    return toThresholds(row, series.unit(), filter1.multiple() || filter2.multiple());
+                    return toThresholds(row, series.unit(), multiSelectHint);
                 });
     }
 
     private Optional<KpiThresholdSnapshotRow> limits(LimitsKey key) {
         Optional<KpiThresholdSnapshotRow> row = withRetry(
-                () -> snapshots.findLimits(key.kpiId(), key.grain(), key.filter1Value(), key.filter2Value()));
+                () -> snapshots.findLimits(key.kpiId(), key.grain(), key.filterValues()));
         if (row.isPresent()) {
             lastGoodLimits.put(key, row.get());
             return row;

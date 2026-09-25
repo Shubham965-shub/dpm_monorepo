@@ -10,7 +10,7 @@ function isoWeekInfo(date: Date): { year: number; week: number } {
   return { year: d.getUTCFullYear(), week }
 }
 
-function startOfIsoWeek(date: Date): Date {
+export function startOfIsoWeek(date: Date): Date {
   const d = new Date(date)
   const day = d.getDay() || 7 // Mon=1 .. Sun=7
   d.setDate(d.getDate() - day + 1)
