@@ -5,7 +5,7 @@ import { getGrainDateRange } from '@/lib/kpiDateRange'
 import { useQcScore } from '@/hooks/useQcScore'
 import type { SectionKey } from './mockData'
 import { SECTION_LABELS } from './sectionLabels'
-import { formatScore, scoreBandLabel, scoreBandMeta } from './types'
+import { bandSeverity, formatScore, scoreBandLabel, scoreBandMeta, SEVERITY_ORDER } from './types'
 import { DemoDataBadge } from './DemoDataBadge'
 
 export interface BestEverScore {
@@ -71,21 +71,36 @@ export function QcScoreCard({
         </div>
 
         <div className="mt-4 grid grid-cols-4 gap-2 border-t border-border pt-4">
-          {(Object.keys(SECTION_LABELS) as SectionKey[]).map((key) => {
-            const section = data?.sections.find((s) => s.sectionId === key)
-            const sectionMeta = scoreBandMeta(section?.band ?? null)
-            return (
-              <div key={key} className="flex flex-col items-center text-center">
-                <div className="text-xl font-black" style={{ color: sectionMeta.solidHex }}>
-                  {formatScore(section?.score)}
+          {/* Worst first (left), best last (right) - re-sorted every render rather than the
+          domain's fixed declaration order. Ordered by band severity first, not raw score: a RED
+          section is worse than an AMBER one regardless of their two numeric scores (band isn't
+          simply "score below a cutoff" - see KPI Scoring Specification section 8), so sorting by
+          score alone could rank a RED section above an AMBER one if its average happened to be
+          higher. Score is only the tiebreaker within the same band. No-data sections sort last:
+          they aren't a bad score, just an unavailable one. */}
+          {(Object.keys(SECTION_LABELS) as SectionKey[])
+            .map((key) => ({ key, section: data?.sections.find((s) => s.sectionId === key) }))
+            .sort((a, b) => {
+              const severityRank = (s: typeof a) => {
+                const severity = bandSeverity(s.section?.band ?? null)
+                return severity ? SEVERITY_ORDER.indexOf(severity) : SEVERITY_ORDER.length
+              }
+              return severityRank(a) - severityRank(b) || (a.section?.score ?? Infinity) - (b.section?.score ?? Infinity)
+            })
+            .map(({ key, section }) => {
+              const sectionMeta = scoreBandMeta(section?.band ?? null)
+              return (
+                <div key={key} className="flex flex-col items-center text-center">
+                  <div className="text-xl font-black" style={{ color: sectionMeta.solidHex }}>
+                    {formatScore(section?.score)}
+                  </div>
+                  <div className="pt-0.5 text-[8px] font-bold tracking-wide uppercase" style={{ color: '#99a1af' }}>
+                    {SECTION_LABELS[key].shortLabel}
+                  </div>
+                  <div className="mt-1 h-1 w-full rounded-full" style={{ backgroundColor: sectionMeta.solidHex }} />
                 </div>
-                <div className="pt-0.5 text-[8px] font-bold tracking-wide uppercase" style={{ color: '#99a1af' }}>
-                  {SECTION_LABELS[key].shortLabel}
-                </div>
-                <div className="mt-1 h-1 w-full rounded-full" style={{ backgroundColor: sectionMeta.solidHex }} />
-              </div>
-            )
-          })}
+              )
+            })}
         </div>
 
         {bestEver && (

@@ -38,6 +38,10 @@ export interface HeatmapRow {
 
 export type Severity = Exclude<RagStatus, 'no-data'>
 
+// Worst first, best last - shared by DomainSeverityBoard's tier bands and QcScoreCard's
+// worst-to-best section ordering, so "worst" means the same thing everywhere in the app.
+export const SEVERITY_ORDER: Severity[] = ['action', 'alert', 'in-control']
+
 // Exact hex values pulled from Figma (file T5oSGlK2eTYF8KvKP5M9lF, node 5024:13253 "KPI List") via
 // the Figma MCP get_design_context tool - not eyeballed from a screenshot. Single source shared by
 // every severity-styled component (OverallHeatmapDemo's dot grid, SectionSummaryBar's pills,
@@ -108,6 +112,12 @@ const BAND_SEVERITY: Record<NonNullable<ScoreBand>, Severity> = { GREEN: 'in-con
 
 export function scoreBandMeta(band: ScoreBand): SeverityMeta {
   return severityMeta(band ? BAND_SEVERITY[band] : null)
+}
+
+/** The band's severity - RED is worse than a merely-low score with no red-zone KPI in it, so
+ * ordering "worst to best" must go by this (see QcScoreCard), not by raw score value alone. */
+export function bandSeverity(band: ScoreBand): Severity | null {
+  return band ? BAND_SEVERITY[band] : null
 }
 
 // KPI Scoring Specification section 8's interpretation of each band.
