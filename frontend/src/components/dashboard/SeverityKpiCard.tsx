@@ -6,6 +6,10 @@ import { CATEGORICAL_PALETTE, MAX_SERIES, TOOLTIP_Z_INDEX } from '@/lib/chartPal
 import type { Grain } from '@/lib/kpiSchemas'
 import type { ExtraFilter, KpiDomain } from '@/lib/kpiConfig'
 import { getGrainDateRange } from '@/lib/kpiDateRange'
+import { defaultGrainFor } from '@/lib/kpiDefaultGrain'
+import type { KpiVisibilityLens } from '@/lib/roleAccess'
+import { formatRangeEnd, formatRangeStart } from '@/lib/periodFormat'
+import { FILTER_PILL_CLASS } from '@/lib/filterLabels'
 import {
   filterRootCauseRowsToDimension,
   listRootCauseDimensions,
@@ -15,11 +19,11 @@ import { useKpiData, type GlobalKpiFilters } from '@/hooks/useKpiData'
 import { useExtraFilters } from '@/hooks/useExtraFilters'
 import { computeValueDomain, deriveKpiMetrics, type DomainTrendKpiResult } from '@/hooks/useDomainTrendKpis'
 import type { ExtraFilterState } from '@/components/kpi/ExtraFilterControl'
-import { FiltersPopoverButton } from '@/components/kpi/FiltersPopoverButton'
 import { KpiLineTooltip } from '@/components/kpi/KpiLineTooltip'
 import { boundaryHex, boundaryLines, boundaryZones, severityMeta } from './types'
 import { renderBoundaryOverlay } from './boundaryOverlay'
 import { KpiDetailModal } from './KpiDetailModal'
+import { LegendEntry } from './LegendEntry'
 
 // The compact card's boundary lines: slightly heavier than the default so they read at card size.
 const CARD_OVERLAY_STYLE = { strokeWidth: 1.5, labelFontSize: 9 }
@@ -33,21 +37,10 @@ const GRAIN_OPTIONS: { value: Grain; label: string }[] = [
 ]
 type ViewMode = 'line' | 'bar'
 
-function LegendEntry({ colorHex, label }: { colorHex: string; label: string }) {
-  return (
-    <span className="flex items-center gap-1">
-      <span className="h-px w-3 shrink-0 border-t border-dashed" style={{ borderColor: colorHex }} />
-      <span className="text-[8px] font-medium" style={{ color: colorHex }}>
-        {label}
-      </span>
-    </span>
-  )
-}
-
 function CardShell({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-2 rounded-xl border border-border bg-card p-3">
-      <h3 className="line-clamp-2 text-[11px] font-semibold text-gray-700">{label}</h3>
+      <h3 className="line-clamp-2 text-xl font-semibold text-gray-700">{label}</h3>
       <div className="flex h-24 items-center justify-center text-center text-[11px] text-muted-foreground">
         {children}
       </div>
@@ -63,28 +56,34 @@ export function SeverityKpiCard({
   domain,
   globalFilters,
   result,
+  lens,
 }: {
   domain: KpiDomain
   globalFilters: GlobalKpiFilters
   result: DomainTrendKpiResult
+  /** Picks this card's own default grain from the KPI Framework doc's per-role D/W/M/Q table (see
+   * kpiDefaultGrain.ts) when one exists for this KPI - falls back to the page's Timeline filter
+   * otherwise, same as before that table existed. */
+  lens: KpiVisibilityLens
 }) {
-  // Stores only the card's own pick, tagged with the page grain it was made under - so the card
-  // follows the page Timeline until picked, and a later Timeline change drops a stale pick.
-  const [grainPick, setGrainPick] = useState<{ pageGrain: string; grain: Grain } | null>(null)
-  const grain = grainPick?.pageGrain === globalFilters.grain ? grainPick.grain : (globalFilters.grain as Grain)
-  const setGrain = (next: Grain) => setGrainPick({ pageGrain: globalFilters.grain, grain: next })
+  const defaultGrain = defaultGrainFor(result.kpi.id, lens) ?? (globalFilters.grain as Grain)
+  // Stores only the card's own pick, tagged with the default grain it was made under - so the card
+  // follows that default until picked, and a later change to it (Timeline filter, or lens) drops a
+  // stale pick.
+  const [grainPick, setGrainPick] = useState<{ baseGrain: Grain; grain: Grain } | null>(null)
+  const grain = grainPick?.baseGrain === defaultGrain ? grainPick.grain : defaultGrain
+  const setGrain = (next: Grain) => setGrainPick({ baseGrain: defaultGrain, grain: next })
   const [viewMode, setViewMode] = useState<ViewMode>('line')
   const [detailOpen, setDetailOpen] = useState(false)
-  const [filtersOpen, setFiltersOpen] = useState(false)
 
   const { kpi, isLoading, isError } = result
   const cardFilters = { ...globalFilters, ...getGrainDateRange(grain), grain }
   const { extraStates, setExtraState, extraParams, optionsFor, filterOptionsLoading } =
-    useExtraFilters(domain, kpi, cardFilters, filtersOpen || detailOpen)
+    useExtraFilters(domain, kpi, cardFilters, detailOpen)
   // Untouched filters match the board-level `result` fetch - only count them as "overridden" once
   // the user actually touches one, so mount doesn't immediately refire an identical fetch.
   const [filtersTouched, setFiltersTouched] = useState(false)
-  // Surfaced next to the title (not just inside the collapsed Filters panel) so it's always clear
+  // Surfaced next to the title (filters themselves live only in the expanded view) so it's always clear
   // which required-select value the card's data currently reflects.
   const requiredSelects = kpi.extraFilters
     .map((filter, i) => ({ filter, i }))
@@ -175,7 +174,8 @@ export function SeverityKpiCard({
     >
       <div className="flex items-start justify-between gap-2">
         <div>
-          <h3 className="line-clamp-2 text-[11px] font-semibold text-gray-700">{kpi.label}</h3>
+          {/* Always two lines tall, so a one-line title's chart starts level with a wrapped one's. */}
+          <h3 className="line-clamp-2 min-h-[2lh] text-xl font-semibold text-gray-700">{kpi.label}</h3>
           {requiredSelects.length > 0 && (
             <p className="text-muted-foreground text-[9px]">
               {requiredSelects
@@ -215,36 +215,6 @@ export function SeverityKpiCard({
               </button>
             ))}
           </div>
-          {(kpi.extraFilters.length > 0 || isRootCause) && (
-            <FiltersPopoverButton
-              kpi={kpi}
-              extraStates={extraStates}
-              onExtraStateChange={handleExtraStateChange}
-              optionsFor={optionsFor}
-              filterOptionsLoading={filterOptionsLoading}
-              open={filtersOpen}
-              onOpenChange={setFiltersOpen}
-              extra={
-                isRootCause && (
-                  <label className="flex flex-col gap-1">
-                    <span className="text-muted-foreground text-[11px] font-medium">root cause</span>
-                    <select
-                      className="rounded-md border border-input bg-background px-2 py-1 text-xs"
-                      value={rootCauseDimension ?? ''}
-                      onChange={(e) => setRootCauseDimension(e.target.value || null)}
-                    >
-                      <option value="">Auto (highest, latest period)</option>
-                      {rootCauseOptions.map((option) => (
-                        <option key={option.kpiId} value={option.kpiId}>
-                          {option.dimension}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                )
-              }
-            />
-          )}
           <button className="text-muted-foreground hover:text-foreground" onClick={() => setDetailOpen(true)} title="Expand view">
             <Maximize2 className="size-3.5" />
           </button>
@@ -300,7 +270,16 @@ export function SeverityKpiCard({
         )}
       </div>
 
-      <div className="flex items-center gap-2.5">
+      {/* The x-axis is hidden to keep the mini chart clean, so the range's two ends are named here instead. */}
+      {hasData && chartData.length > 0 && (
+        <div className="text-muted-foreground flex justify-between text-xs">
+          <span>{formatRangeStart(String(chartData[0].periodStart), grain)}</span>
+          <span>{formatRangeEnd(String(chartData[chartData.length - 1].periodStart), grain)}</span>
+        </div>
+      )}
+
+      {/* mt-auto: in a stretched grid row, the extra height goes above the footer, not inside the chart. */}
+      <div className="mt-auto flex items-center gap-2.5">
         {lines.length > 0 ? (
           lines.map((line) => <LegendEntry key={line.name} colorHex={boundaryHex(line.tone)} label={line.label} />)
         ) : (
@@ -310,19 +289,19 @@ export function SeverityKpiCard({
 
       <div className="flex items-end justify-between">
         <div>
-          <span className="text-xl font-black" style={{ color: meta.solidHex }}>
+          <span className="text-2xl font-black" style={{ color: meta.solidHex }}>
             {latestValue != null ? latestValue.toFixed(1) : '—'}
           </span>
           <span className="text-muted-foreground ml-1 text-[10px] font-semibold">{unit}</span>
         </div>
         {delta != null && (
           <div className="text-right">
-            <div className="flex items-center justify-end gap-0.5 text-[11px] font-bold" style={{ color: meta.solidHex }}>
+            <div className="flex items-center justify-end gap-0.5 text-base font-semibold" style={{ color: meta.solidHex }}>
               {isUp ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />}
               {isUp ? '+' : ''}
               {delta.toFixed(1)}
             </div>
-            <div className="text-muted-foreground text-[8px]">vs prev</div>
+            <div className="text-muted-foreground text-sm font-medium">vs prev</div>
           </div>
         )}
       </div>
@@ -343,6 +322,25 @@ export function SeverityKpiCard({
           onExtraStateChange={handleExtraStateChange}
           optionsFor={optionsFor}
           filterOptionsLoading={filterOptionsLoading}
+          filterExtra={
+            isRootCause && (
+              <label className={FILTER_PILL_CLASS}>
+                <span className="text-muted-foreground">Root cause:</span>
+                <select
+                  className="bg-transparent font-semibold outline-none"
+                  value={rootCauseDimension ?? ''}
+                  onChange={(e) => setRootCauseDimension(e.target.value || null)}
+                >
+                  <option value="">Auto (highest, latest period)</option>
+                  {rootCauseOptions.map((option) => (
+                    <option key={option.kpiId} value={option.kpiId}>
+                      {option.dimension}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )
+          }
           onClose={() => setDetailOpen(false)}
         />
       )}

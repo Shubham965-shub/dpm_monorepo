@@ -25,7 +25,6 @@ import com.strides.repository.AggTwRepeatFailureRateRepository;
 import com.strides.repository.AggTwRootCauseDistributionRepository;
 import com.strides.repository.AggTwValidOosRateRepository;
 import com.strides.repository.DepartmentScopeLiterals;
-import com.strides.service.kpi.AppliesKpiThresholds;
 import com.strides.service.kpi.PeriodCombiner;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -42,7 +41,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @ApplicationScoped
-@AppliesKpiThresholds
 public class QmsService {
 
     @Inject

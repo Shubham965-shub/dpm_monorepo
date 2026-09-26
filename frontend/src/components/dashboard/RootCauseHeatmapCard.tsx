@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ChevronDown, Maximize2, SlidersHorizontal } from 'lucide-react'
+import { Maximize2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { TOOLTIP_Z_INDEX, readableTextColor, sequentialGreen } from '@/lib/chartPalette'
 import { formatPeriodTick } from '@/lib/periodFormat'
@@ -10,16 +10,16 @@ import type { KpiCardResponse } from '@/lib/kpiSchemas'
 import { useKpiData, type GlobalKpiFilters } from '@/hooks/useKpiData'
 import { useExtraFilters } from '@/hooks/useExtraFilters'
 import { emptyStateFor } from '@/components/kpi/KpiChartCard'
-import { ExtraFilterControl } from '@/components/kpi/ExtraFilterControl'
 import { SEVERITY_META, type Severity } from './types'
 import { RootCauseHeatmapDetailModal } from './RootCauseHeatmapDetailModal'
 
 // 6 tick labels (5 equal segments) - matches the reference Power BI heatmap's own legend spacing.
 const SCALE_TICK_COUNT = 5
 const ROW_LABEL_WIDTH_PX = 72
-// Matches SeverityKpiCard's own fixed chart height (its "h-40") - every card in the grid stays the
-// same size regardless of how much data it holds, rather than this one growing with its 14 rows.
-const TABLE_HEIGHT_PX = 207
+// Matches SeverityKpiCard's own fixed chart height (its "h-40" = 160px) - every card in the grid
+// stays the same size regardless of how much data it holds, rather than this one growing with its
+// 14 rows.
+const TABLE_HEIGHT_PX = 160
 // Roomier than the card's own ROW_LABEL_WIDTH_PX - the expanded modal has space to spare and
 // dimension labels ("Medical Product") no longer need to truncate there.
 const EXPANDED_ROW_LABEL_WIDTH_PX = 140
@@ -77,7 +77,11 @@ export function RootCauseHeatmapGrid({
   const cellPadding = dense ? 'px-1 py-0.5' : 'px-2 py-1.5'
 
   return (
-    <div className="flex flex-col gap-2">
+    // min-w-0: without it, this grid item's min-width defaults to its content's min-content size
+    // (the table's whitespace-nowrap period columns), which forces the grid track wider than the
+    // shared KPI_CARD_GRID_CLASS's 400px cap regardless - overflow-auto below then handles any
+    // periods that still don't fit at 400px with an internal scrollbar instead of blowing out.
+    <div className="flex min-w-0 flex-col gap-2">
       <div className="overflow-auto" style={{ height: tableHeight }}>
         <table className={cn('w-full border-separate border-spacing-0.5', textSize)}>
           <thead>
@@ -159,10 +163,9 @@ export function RootCauseHeatmapCard({
   globalFilters: GlobalKpiFilters
   severity: Severity | null
 }) {
-  const [filtersOpen, setFiltersOpen] = useState(false)
   const [detailOpen, setDetailOpen] = useState(false)
   const { extraStates, setExtraState, extraParams, requiredSelectMissing, optionsFor, filterOptionsLoading } =
-    useExtraFilters(domain, kpi, globalFilters, filtersOpen || detailOpen)
+    useExtraFilters(domain, kpi, globalFilters, detailOpen)
 
   const query = useKpiData(domain, kpi, globalFilters, extraParams)
   const { dimensionRows, periods, max } = useMemo(() => buildHeatmap(query.data ?? []), [query.data])
@@ -176,41 +179,13 @@ export function RootCauseHeatmapCard({
       style={{ backgroundColor: meta.cardBg, borderColor: meta.solidHex, borderLeftWidth: 3, borderLeftColor: meta.solidHex }}
     >
       <div className="flex items-start justify-between gap-2">
-        <h3 className="line-clamp-2 text-[11px] font-semibold text-gray-700">{kpi.label}</h3>
+        <h3 className="line-clamp-2 text-xl font-semibold text-gray-700">{kpi.label}</h3>
         <div className="flex shrink-0 items-center gap-1">
-          {kpi.extraFilters.length > 0 && (
-            <button
-              onClick={() => setFiltersOpen((v) => !v)}
-              className={cn(
-                'flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-medium',
-                filtersOpen ? 'border-input bg-muted text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground',
-              )}
-            >
-              <SlidersHorizontal className="size-3" />
-              Filters
-              <ChevronDown className={cn('size-3 transition-transform', filtersOpen && 'rotate-180')} />
-            </button>
-          )}
           <button className="text-muted-foreground hover:text-foreground" onClick={() => setDetailOpen(true)} title="Expand view">
             <Maximize2 className="size-3.5" />
           </button>
         </div>
       </div>
-
-      {filtersOpen && kpi.extraFilters.length > 0 && (
-        <div className="flex flex-wrap gap-3 rounded-md bg-muted/40 p-2">
-          {kpi.extraFilters.map((filter, i) => (
-            <ExtraFilterControl
-              key={filter.param}
-              filter={filter}
-              state={extraStates[i]}
-              options={optionsFor(filter)}
-              loading={filterOptionsLoading}
-              onChange={(next) => setExtraState(i, next)}
-            />
-          ))}
-        </div>
-      )}
 
       {emptyState ? (
         <div className="h-24">{emptyState}</div>

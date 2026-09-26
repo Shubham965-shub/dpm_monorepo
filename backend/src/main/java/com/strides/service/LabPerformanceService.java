@@ -7,7 +7,6 @@ import com.strides.repository.AggLimsPrioritySampleComplianceRepository;
 import com.strides.repository.AggLimsSlaAdherenceRepository;
 import com.strides.repository.AggLimsTestsPerAnalystRepository;
 import com.strides.repository.AggLimsTurnAroundTimeRepository;
-import com.strides.service.kpi.AppliesKpiThresholds;
 import com.strides.service.kpi.PeriodCombiner;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -18,7 +17,6 @@ import java.util.Map;
 import java.util.Set;
 
 @ApplicationScoped
-@AppliesKpiThresholds
 public class LabPerformanceService {
 
     @Inject

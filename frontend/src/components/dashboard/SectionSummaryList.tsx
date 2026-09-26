@@ -1,4 +1,5 @@
 import { useState, type CSSProperties, type ReactNode } from 'react'
+import { cn } from '@/lib/utils'
 import { useHeatmapData } from '@/hooks/useHeatmapData'
 import { useFavoriteSections } from '@/hooks/useFavoriteSections'
 import { KPI_DOMAINS, type KpiDefinition } from '@/lib/kpiConfig'
@@ -8,11 +9,15 @@ import type { GlobalKpiFilters } from '@/hooks/useKpiData'
 import { KpiRankingBarCard } from './KpiRankingBarCard'
 import { PriorityComplianceCard } from './PriorityComplianceCard'
 import { RootCauseHeatmapCard } from './RootCauseHeatmapCard'
-import { SECTION_SCORE_MOCK } from './mockData'
+import { SECTION_LABELS } from './sectionLabels'
+import { useQcScore } from '@/hooks/useQcScore'
 import { SectionSummaryBar } from './SectionSummaryBar'
 import { DomainSeverityBoard } from './DomainSeverityBoard'
 import type { SectionFilterValue } from './FilterBar'
-import type { Severity } from './types'
+import type { KpiVisibilityLens } from '@/lib/roleAccess'
+import { KPI_VISIBILITY } from '@/lib/kpiVisibility'
+import { SIDEBAR_HEATMAP_MONTH_COUNT } from '@/lib/kpiDateRange'
+import { countSeverityTiers, KPI_CARD_GRID_CLASS, type Severity } from './types'
 
 // KPIs whose real shape is a per-category share of a period's total (not a single trending value
 // or a whole-range ranking) - routed to their own dedicated card instead of DomainSeverityBoard or
@@ -31,14 +36,21 @@ export function SectionSummaryList({
   site,
   section,
   grain,
+  dateRangeOverride,
   searchQuery,
+  lens,
 }: {
   site: string
   section: SectionFilterValue
   grain: Grain
+  /** Leadership's Timeline: T-7/T-30/T-90/T-180 filter (see LeadershipFilterBar) - a trailing
+   * day-count window in place of getGrainDateRange(grain)'s. Omitted elsewhere. */
+  dateRangeOverride?: { from: string; to: string }
   searchQuery: string
+  lens: KpiVisibilityLens
 }) {
-  const { sections: allSections } = useHeatmapData(site)
+  const visibleKpiIds = KPI_VISIBILITY[lens]
+  const { sections: allSections } = useHeatmapData(site, { unit: 'month', count: SIDEBAR_HEATMAP_MONTH_COUNT })
   const { favorites, toggleFavorite } = useFavoriteSections()
   const filteredSections = section === 'all' ? allSections : allSections.filter((s) => s.key === section)
   // Favorited sections render first (stable otherwise, so non-favorited sections keep their
@@ -59,24 +71,21 @@ export function SectionSummaryList({
   // getGrainDateRange) - independent of the Overall Heatmap above, which always shows its own
   // fixed trailing 3 calendar months (see useHeatmapData). The Performance tab's KpiFilterBar is a
   // separate, user-adjustable filter set - not shared here.
-  const { from, to } = getGrainDateRange(grain)
+  const { from, to } = dateRangeOverride ?? getGrainDateRange(grain)
   const globalFilters: GlobalKpiFilters = { site, grain, from, to }
+  // Same query key as QcScoreCard's, so both read one cached request.
+  const { data: qcScore } = useQcScore(globalFilters)
 
   const rows = sections.map((sec) => {
-        const meta = SECTION_SCORE_MOCK[sec.key]
-        let critical = 0
-        let warning = 0
-        let onTrack = 0
+        const labels = SECTION_LABELS[sec.key]
+        const sectionScore = qcScore?.sections.find((s) => s.sectionId === sec.key)
         // Tier counts are real, derived from the latest month of the already-wired heatmap data
         // (see useHeatmapData) - not the wireframe's placeholder numbers, which didn't match the
-        // real KPI catalogue's per-section counts anyway.
-        for (const row of sec.rows) {
-          const latest = row.cells.at(-1)?.status
-          if (latest === 'action') critical++
-          else if (latest === 'alert') warning++
-          else if (latest === 'in-control') onTrack++
-        }
+        // real KPI catalogue's per-section counts anyway. Restricted to the role-visible KPIs so
+        // the counts match what this role's cards below actually show.
+        const { critical, warning, onTrack } = countSeverityTiers(sec.rows, visibleKpiIds)
         const domain = KPI_DOMAINS.find((d) => d.key === sec.key)
+        const domainKpis = domain?.kpis.filter((kpi) => visibleKpiIds.has(kpi.id))
         // Per-period trend KPIs get the severity-card treatment (DomainSeverityBoard);
         // STACKED_SHARE_KPI_IDS get PriorityComplianceCard's stacked-percentage view;
         // HEATMAP_KPI_IDS get RootCauseHeatmapCard's dimension x period matrix; chartType:'bar'
@@ -84,10 +93,10 @@ export function SectionSummaryList({
         // plain KpiRankingBarCard instead.
         const isSpecialCased = (id: string) => STACKED_SHARE_KPI_IDS.has(id) || HEATMAP_KPI_IDS.has(id)
         const isRanking = (kpi: KpiDefinition) => kpi.chartType === 'bar'
-        let trendKpis = domain?.kpis.filter((kpi) => !isRanking(kpi) && !isSpecialCased(kpi.id)) ?? []
-        let stackedKpis = domain?.kpis.filter((kpi) => STACKED_SHARE_KPI_IDS.has(kpi.id)) ?? []
-        const heatmapKpis = domain?.kpis.filter((kpi) => HEATMAP_KPI_IDS.has(kpi.id)) ?? []
-        let rankingKpis = domain?.kpis.filter((kpi) => isRanking(kpi) && !isSpecialCased(kpi.id)) ?? []
+        let trendKpis = domainKpis?.filter((kpi) => !isRanking(kpi) && !isSpecialCased(kpi.id)) ?? []
+        let stackedKpis = domainKpis?.filter((kpi) => STACKED_SHARE_KPI_IDS.has(kpi.id)) ?? []
+        const heatmapKpis = domainKpis?.filter((kpi) => HEATMAP_KPI_IDS.has(kpi.id)) ?? []
+        let rankingKpis = domainKpis?.filter((kpi) => isRanking(kpi) && !isSpecialCased(kpi.id)) ?? []
         if (isSearching) {
           trendKpis = trendKpis.filter((kpi) => kpi.label.toLowerCase().includes(query))
           stackedKpis = stackedKpis.filter((kpi) => kpi.label.toLowerCase().includes(query))
@@ -109,7 +118,11 @@ export function SectionSummaryList({
           }
         }
         const hasMatch = trendKpis.length > 0 || stackedKpis.length > 0 || rankingKpis.length > 0
-        if (isSearching && !hasMatch) return null
+        // hasMatch already reflects the lens filter (domainKpis above is restricted to
+        // visibleKpiIds) - a role whose KPI Framework column leaves a whole section blank (e.g.
+        // Operator sees nothing under Compliance System) shouldn't render that section's header
+        // and an empty body, regardless of whether a search is also active.
+        if (!hasMatch) return null
         const expanded = isSearching ? true : effectiveExpandedKey === sec.key
 
         return (
@@ -118,13 +131,17 @@ export function SectionSummaryList({
           // reorders the list, instead of it just jumping there.
           <div key={sec.key} style={{ viewTransitionName: `section-${sec.key}` } as CSSProperties}>
             <SectionSummaryBar
-              category={meta.category}
+              category={labels.category}
               title={sec.title}
               critical={critical}
               warning={warning}
               onTrack={onTrack}
-              score={meta.score}
-              deltaPts={meta.deltaPts}
+              score={sectionScore?.score ?? null}
+              deltaPts={
+                sectionScore?.score != null && sectionScore.previousScore != null
+                  ? sectionScore.score - sectionScore.previousScore
+                  : null
+              }
               starred={favorites.has(sec.key)}
               onToggleStar={() => toggleFavorite(sec.key)}
               expanded={expanded}
@@ -133,7 +150,7 @@ export function SectionSummaryList({
             {expanded && domain && (
               <div className="rounded-b-lg border border-t-0 border-border bg-card">
                 {trendKpis.length > 0 && (
-                  <DomainSeverityBoard domain={domain} kpis={trendKpis} globalFilters={globalFilters} companions={companions} />
+                  <DomainSeverityBoard domain={domain} kpis={trendKpis} globalFilters={globalFilters} lens={lens} companions={companions} />
                 )}
                 {stackedKpis.length > 0 && (
                   <div className="flex flex-col gap-3 p-4">
@@ -146,7 +163,7 @@ export function SectionSummaryList({
                   // items-start: a grid row otherwise stretches every card to match its tallest
                   // sibling (e.g. an 11-row ranking bar next to a 4-row one), leaving the shorter
                   // chart floating with dead space below it instead of sizing to its own content.
-                  <div className="grid grid-cols-1 items-start gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">
+                  <div className={cn(KPI_CARD_GRID_CLASS, 'p-4')}>
                     {rankingKpis.map((kpi) => (
                       <KpiRankingBarCard key={kpi.id} domain={domain} kpi={kpi} globalFilters={globalFilters} />
                     ))}

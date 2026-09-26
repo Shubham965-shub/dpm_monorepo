@@ -30,7 +30,9 @@ function FixedPill({ label, value }: { label: string; value: string }) {
   )
 }
 
-function FilterSelect<T extends string>({
+/** Exported for reuse by LeadershipFilterBar's own Plant/Timeline pills - same look, different
+ * option sets. */
+export function FilterSelect<T extends string>({
   label,
   value,
   options,

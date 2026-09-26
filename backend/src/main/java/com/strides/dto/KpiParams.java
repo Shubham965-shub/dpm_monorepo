@@ -17,9 +17,12 @@ public final class KpiParams {
     private KpiParams() {
     }
 
+    /** Also read by KpiThresholdResponseFilter, which sees the raw query string without this default applied. */
+    public static final String DEFAULT_SITE = "KRSG";
+
     public static class DateRange {
         @QueryParam("site")
-        @DefaultValue("KRSG")
+        @DefaultValue(DEFAULT_SITE)
         public String site;
         @QueryParam("grain")
         public String grain;

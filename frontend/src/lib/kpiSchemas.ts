@@ -5,17 +5,19 @@ import { z } from 'zod'
 export const kpiStatusSchema = z.enum(['RED', 'AMBER', 'GREEN']).nullable()
 export type KpiStatus = z.infer<typeof kpiStatusSchema>
 
-// Mirrors backend com.strides.dto.KpiThresholds - the KPI threshold config row this series is
-// linked to: band boundaries the row's status was computed against (a null boundary = unbounded
-// side; all null = no threshold yet). configKpiId is what the expanded chart uses to fetch the
-// KPI's source system / description once (kpiThresholdConfigSchema) - not repeated per data row.
+// Mirrors backend com.strides.dto.KpiThresholds - the kpi_threshold_snapshot limits the row's
+// status was computed against (a null limit = unbounded side). configKpiId is the KPI's
+// dim_kpi_lite id.
+// multiSelectHint: several values of a threshold filter were picked, so the "All" limits were used.
 export const kpiThresholdsSchema = z.object({
   configKpiId: z.string(),
-  direction: z.string(),
+  // Nullable in kpi_threshold_snapshot - a null must not fail the whole card's validation.
+  direction: z.string().nullable(),
   redLow: z.coerce.number().nullable(),
   greenLow: z.coerce.number().nullable(),
   greenHigh: z.coerce.number().nullable(),
   redHigh: z.coerce.number().nullable(),
+  multiSelectHint: z.boolean().optional(),
 })
 export type KpiThresholds = z.infer<typeof kpiThresholdsSchema>
 
@@ -40,18 +42,46 @@ export const kpiCardResponseSchema = z.object({
   denominator: z.coerce.number().nullable(),
   // nullish, not nullable: a backend deployed before this field existed simply omits it.
   thresholds: kpiThresholdsSchema.nullish(),
+  // The period hasn't finished yet, so its value (and colour) is still moving.
+  inProgress: z.boolean().nullish(),
 })
 export type KpiCardResponse = z.infer<typeof kpiCardResponseSchema>
 
 export const kpiCardListSchema = z.array(kpiCardResponseSchema)
 
-// The slice of GET /api/kpi-thresholds/{kpiId} (backend KpiThresholdConfigRow) the expanded chart
-// shows; zod drops every other column.
-export const kpiThresholdConfigSchema = z.object({
-  kpiId: z.string(),
-  sourceSystem: z.string().nullable(),
-  description: z.string().nullable(),
+
+// Mirrors backend com.strides.dto.QcScoreDtos - GET /api/qc-score. Scores are unrounded 0-100
+// (round only for display); null = no data (grey), never 0.
+export const scoreBandSchema = z.enum(['GREEN', 'AMBER', 'RED']).nullable()
+export type ScoreBand = z.infer<typeof scoreBandSchema>
+
+const kpiScoreSchema = z.object({
+  seriesId: z.string(),
+  name: z.string().nullable(),
+  configKpiId: z.string().nullable(),
+  periodStart: z.string().nullable(),
+  actual: z.coerce.number().nullable(),
+  score: z.number().nullable(),
+  previousScore: z.number().nullable(),
+  band: scoreBandSchema,
 })
+
+const sectionScoreSchema = z.object({
+  sectionId: z.string(),
+  score: z.number().nullable(),
+  previousScore: z.number().nullable(),
+  band: scoreBandSchema,
+  kpis: z.array(kpiScoreSchema),
+})
+export type SectionScore = z.infer<typeof sectionScoreSchema>
+
+export const qcScoreSchema = z.object({
+  score: z.number().nullable(),
+  previousScore: z.number().nullable(),
+  band: scoreBandSchema,
+  sections: z.array(sectionScoreSchema),
+})
+export type QcScore = z.infer<typeof qcScoreSchema>
 
 // The 5 grains every agg_*/fact_* table is rolled up to (confirmed live against the dpm DB).
 export const GRAINS = ['daily', 'weekly', 'monthly', 'quarterly', 'yearly'] as const

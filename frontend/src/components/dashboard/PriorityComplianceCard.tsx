@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Maximize2 } from 'lucide-react'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { TOOLTIP_Z_INDEX, greenGradient } from '@/lib/chartPalette'
 import { formatPeriodTick, formatPeriodLabel } from '@/lib/periodFormat'
@@ -8,11 +9,13 @@ import type { Grain, KpiCardResponse } from '@/lib/kpiSchemas'
 import { useKpiData, type GlobalKpiFilters } from '@/hooks/useKpiData'
 import { useExtraFilters } from '@/hooks/useExtraFilters'
 import { emptyStateFor } from '@/components/kpi/KpiChartCard'
-import { FiltersPopoverButton } from '@/components/kpi/FiltersPopoverButton'
 import { SEVERITY_META } from './types'
+import { PriorityComplianceDetailModal } from './PriorityComplianceDetailModal'
 
 const GREEN = SEVERITY_META['in-control']
-const CHART_HEIGHT_PX = 260
+// Matches SeverityKpiCard's own fixed chart height (its "h-40" = 160px), so every card in the grid
+// stays the same size.
+const CHART_HEIGHT_PX = 160
 
 /** Lightest-first (e.g. P4, P3, P2, P1) so index 0 lines up with greenGradient's lightest shade -
  * numeric "Pn" tiers sort by n descending; anything else (unexpected tier labels) sorts after,
@@ -29,7 +32,7 @@ interface TierSlice {
   percent: number
 }
 
-interface PeriodPoint {
+export interface PeriodPoint {
   periodStart: string
   tiers: Record<string, TierSlice>
 }
@@ -68,7 +71,7 @@ interface TooltipEntry {
   payload?: PeriodPoint
 }
 
-function ComplianceTooltip({
+export function ComplianceTooltip({
   active,
   payload,
   label,
@@ -116,9 +119,9 @@ export function PriorityComplianceCard({
   kpi: KpiDefinition
   globalFilters: GlobalKpiFilters
 }) {
-  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [detailOpen, setDetailOpen] = useState(false)
   const { extraStates, setExtraState, extraParams, optionsFor, filterOptionsLoading } =
-    useExtraFilters(domain, kpi, globalFilters, filtersOpen)
+    useExtraFilters(domain, kpi, globalFilters, detailOpen)
 
   const query = useKpiData(domain, kpi, globalFilters, extraParams)
   const { tiers, points } = useMemo(() => toStackedData(query.data ?? []), [query.data])
@@ -135,7 +138,7 @@ export function PriorityComplianceCard({
     >
       <div className="flex items-start justify-between gap-2">
         <div>
-          <h3 className="text-sm font-semibold">{kpi.label}</h3>
+          <h3 className="text-xl font-semibold">{kpi.label}</h3>
           {tiers.length > 0 && (
             <div className="mt-1 flex flex-wrap items-center gap-2.5">
               {tiers.map((tier, i) => (
@@ -147,17 +150,11 @@ export function PriorityComplianceCard({
             </div>
           )}
         </div>
-        {kpi.extraFilters.length > 0 && (
-          <FiltersPopoverButton
-            kpi={kpi}
-            extraStates={extraStates}
-            onExtraStateChange={setExtraState}
-            optionsFor={optionsFor}
-            filterOptionsLoading={filterOptionsLoading}
-            open={filtersOpen}
-            onOpenChange={setFiltersOpen}
-          />
-        )}
+        <div className="flex shrink-0 items-center gap-1">
+          <button className="text-muted-foreground hover:text-foreground" onClick={() => setDetailOpen(true)} title="Expand view">
+            <Maximize2 className="size-3.5" />
+          </button>
+        </div>
       </div>
 
       <div style={{ height: CHART_HEIGHT_PX }} className="w-full">
@@ -196,6 +193,22 @@ export function PriorityComplianceCard({
           </ResponsiveContainer>
         )}
       </div>
+
+      {detailOpen && (
+        <PriorityComplianceDetailModal
+          domainLabel={domain.label}
+          kpi={kpi}
+          tiers={tiers}
+          points={points}
+          colors={colors}
+          grain={globalFilters.grain as Grain}
+          extraStates={extraStates}
+          onExtraStateChange={setExtraState}
+          optionsFor={optionsFor}
+          filterOptionsLoading={filterOptionsLoading}
+          onClose={() => setDetailOpen(false)}
+        />
+      )}
     </div>
   )
 }

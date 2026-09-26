@@ -18,7 +18,7 @@ const HUMAN_ERROR_SEVERITY_KEEP = new Set(['Major', 'Critical'])
  * Root Cause Breakdown defaults to its single highest-count-in-the-latest-period dimension rather
  * than every dimension overlaid - SeverityKpiCard's own dimension dropdown re-slices the same
  * already-fetched rows to a different one without needing this function at all. */
-function filterRowsForKpi(kpiId: string, rows: KpiCardResponse[]): KpiCardResponse[] {
+export function filterRowsForKpi(kpiId: string, rows: KpiCardResponse[]): KpiCardResponse[] {
   if (kpiId === 'human-error-severity') {
     return rows.filter((row) => HUMAN_ERROR_SEVERITY_KEEP.has(extractRowCategory(row.name)))
   }

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { X } from 'lucide-react'
 import {
   CartesianGrid,
@@ -15,8 +16,8 @@ import { formatPeriodTick } from '@/lib/periodFormat'
 import { formatAxisTick } from '@/lib/format'
 import type { ExtraFilter, KpiDefinition } from '@/lib/kpiConfig'
 import { computeValueDomain, type KpiMetrics } from '@/hooks/useDomainTrendKpis'
-import { useKpiThresholdConfig } from '@/hooks/useKpiThresholdConfig'
-import { ExtraFilterControl, type ExtraFilterState } from '@/components/kpi/ExtraFilterControl'
+import type { ExtraFilterState } from '@/components/kpi/ExtraFilterControl'
+import { FilterPills } from '@/components/kpi/FilterPills'
 import { KpiLineTooltip } from '@/components/kpi/KpiLineTooltip'
 import { boundaryHex, boundaryLines, boundaryZones, severityMeta, type Severity } from './types'
 import { renderBoundaryOverlay } from './boundaryOverlay'
@@ -33,10 +34,10 @@ const GRAIN_OPTIONS: { value: Grain; label: string }[] = [
 
 function ThresholdRow({ label, value, unit, colorHex }: { label: string; value: number | null; unit: string | null; colorHex: string }) {
   return (
-    <div className="flex items-center justify-between border-b border-border py-3 last:border-b-0">
+    <div className="flex flex-col gap-1 border-b border-border py-3 last:border-b-0">
       <span className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">{label}</span>
-      <span className="text-lg font-black" style={{ color: colorHex }}>
-        {value != null ? value.toFixed(1) : '—'} <span className="text-muted-foreground text-xs font-normal">{unit}</span>
+      <span className="text-2xl font-black" style={{ color: colorHex }}>
+        {value != null ? value.toFixed(1) : '—'} <span className="text-muted-foreground text-sm font-normal">{unit}</span>
       </span>
     </div>
   )
@@ -56,6 +57,7 @@ export function KpiDetailModal({
   onExtraStateChange,
   optionsFor,
   filterOptionsLoading,
+  filterExtra,
   onClose,
 }: {
   domainLabel: string
@@ -72,10 +74,11 @@ export function KpiDetailModal({
   /** Shares the compact card's live filter-options fetch (see useExtraFilters) rather than the modal re-fetching its own copy. */
   optionsFor: (filter: ExtraFilter) => string[]
   filterOptionsLoading: boolean
+  /** A non-standard control shown alongside the filter pills (e.g. Root Cause Breakdown's dimension picker). */
+  filterExtra?: ReactNode
   onClose: () => void
 }) {
   const { chartData, shownSeries, latestValue, previousValue, unit, thresholds } = metrics
-  const { data: kpiConfig } = useKpiThresholdConfig(thresholds?.configKpiId)
   const meta = severityMeta(severity)
   const delta = previousValue != null && latestValue != null ? latestValue - previousValue : null
   const lines = boundaryLines(thresholds)
@@ -132,45 +135,32 @@ export function KpiDetailModal({
               <span>
                 KPI: <strong className="text-foreground">{directionLabel}</strong>
               </span>
-              {kpiConfig?.sourceSystem && (
-                <span>
-                  Source: <strong className="text-foreground">{kpiConfig.sourceSystem}</strong>
-                </span>
-              )}
             </div>
-            {kpiConfig?.description && (
-              <p className="text-muted-foreground mt-2 max-w-2xl text-xs leading-relaxed">{kpiConfig.description}</p>
-            )}
           </div>
 
-          <div className="flex overflow-hidden rounded-md border border-input">
-            {GRAIN_OPTIONS.map((g) => (
-              <button
-                key={g.value}
-                onClick={() => onGrainChange(g.value)}
-                className="px-2.5 py-1 text-xs font-bold"
-                style={g.value === grain ? { backgroundColor: meta.solidHex, color: 'white' } : { color: 'var(--muted-foreground)' }}
-              >
-                {g.label}
-              </button>
-            ))}
+          <div className="flex flex-col items-end gap-3">
+            <div className="flex overflow-hidden rounded-md border border-input">
+              {GRAIN_OPTIONS.map((g) => (
+                <button
+                  key={g.value}
+                  onClick={() => onGrainChange(g.value)}
+                  className="px-2.5 py-1 text-xs font-bold"
+                  style={g.value === grain ? { backgroundColor: meta.solidHex, color: 'white' } : { color: 'var(--muted-foreground)' }}
+                >
+                  {g.label}
+                </button>
+              ))}
+            </div>
+            <FilterPills
+              kpi={kpi}
+              extraStates={extraStates}
+              onExtraStateChange={onExtraStateChange}
+              optionsFor={optionsFor}
+              filterOptionsLoading={filterOptionsLoading}
+              extra={filterExtra}
+            />
           </div>
         </div>
-
-        {kpi.extraFilters.length > 0 && (
-          <div className="flex flex-wrap gap-4 border-b border-border bg-muted/40 px-6 py-3">
-            {kpi.extraFilters.map((filter, i) => (
-              <ExtraFilterControl
-                key={filter.param}
-                filter={filter}
-                state={extraStates[i]}
-                options={optionsFor(filter)}
-                loading={filterOptionsLoading}
-                onChange={(next) => onExtraStateChange(i, next)}
-              />
-            ))}
-          </div>
-        )}
 
         <div className="flex items-center justify-between px-6 pt-5">
           <h3 className="text-base font-semibold">Trend Chart</h3>
@@ -183,8 +173,9 @@ export function KpiDetailModal({
           </button>
         </div>
 
-        <div className="p-6">
-          <div className="h-72 w-full rounded-lg border border-border p-4">
+        {/* Thresholds sit beside the chart (stacked under it on narrow screens), not below it. */}
+        <div className="grid gap-4 p-6 md:grid-cols-[minmax(0,1fr)_14rem]">
+          <div className="h-80 w-full rounded-lg border border-border p-4">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData} margin={{ top: 8, right: 48, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
@@ -215,9 +206,10 @@ export function KpiDetailModal({
             </ResponsiveContainer>
           </div>
 
-          <div className="mt-4 rounded-lg border border-border p-4">
+          <div className="rounded-lg border border-border p-4">
             <div className="text-muted-foreground text-xs font-bold tracking-wide uppercase">Threshold Status</div>
             <div className="mt-1 flex flex-col">
+              {lines.length === 0 && <p className="text-muted-foreground py-3 text-xs">No threshold configured</p>}
               {[...lines].sort((a, b) => b.y - a.y).map((line) => (
                 <ThresholdRow key={line.name} label={line.name} value={line.y} unit={unit} colorHex={boundaryHex(line.tone)} />
               ))}

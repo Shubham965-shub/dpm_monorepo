@@ -10,7 +10,7 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import java.util.List;
 
-/** Currently backed by mock data - see KpiThresholdConfigRepository. */
+/** The KPI catalogue (dim_kpi_lite). Limits come from kpi_threshold_snapshot instead. */
 @Path("/api/kpi-thresholds")
 @Produces(MediaType.APPLICATION_JSON)
 public class KpiThresholdConfigController {
