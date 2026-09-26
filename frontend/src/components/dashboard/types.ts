@@ -22,9 +22,10 @@ export const KPI_CARD_GRID_CLASS = 'grid grid-cols-[repeat(auto-fill,minmax(max(
 export type RagStatus = 'action' | 'alert' | 'in-control' | 'no-data'
 
 export interface HeatmapCell {
-  month: string
+  /** "Jan" for a monthly-window heatmap, "W38" for a weekly one - see useHeatmapData. */
+  periodLabel: string
   status: RagStatus
-  /** The same primary-series value shown as the KPI card's own score - null when this month has no
+  /** The same primary-series value shown as the KPI card's own score - null when this period has no
    * matching row (no-data). */
   value: number | null
 }
@@ -240,4 +241,24 @@ export function boundaryZones(thresholds: KpiThresholds | null | undefined, doma
 /** A ranking bar chart's value domain - shared by its bars and its pinned axis strip (RankingValueAxis) so the two line up. */
 export function rankingValueDomain(rows: BarRow[]): [number, number] {
   return [0, Math.max(0, ...rows.map((row) => row.value ?? 0))]
+}
+
+/** One section's latest-month tier breakdown, restricted to `visibleKpiIds` (a role lens's KPI
+ * Framework list) - shared by SectionSummaryList's per-section chips and DashboardPage's
+ * page-level severity badge summary, so the two totals can never disagree. */
+export function countSeverityTiers(
+  rows: HeatmapRow[],
+  visibleKpiIds: Set<string>,
+): { critical: number; warning: number; onTrack: number } {
+  let critical = 0
+  let warning = 0
+  let onTrack = 0
+  for (const row of rows) {
+    if (!visibleKpiIds.has(row.slug)) continue
+    const latest = row.cells.at(-1)?.status
+    if (latest === 'action') critical++
+    else if (latest === 'alert') warning++
+    else if (latest === 'in-control') onTrack++
+  }
+  return { critical, warning, onTrack }
 }

@@ -2,6 +2,7 @@ import { Fragment, type ReactNode } from 'react'
 import { cn, pluralize } from '@/lib/utils'
 import type { KpiDomain, KpiDefinition } from '@/lib/kpiConfig'
 import type { GlobalKpiFilters } from '@/hooks/useKpiData'
+import type { KpiVisibilityLens } from '@/lib/roleAccess'
 import { useDomainTrendKpis, type DomainTrendKpiResult } from '@/hooks/useDomainTrendKpis'
 import { KPI_CARD_GRID_CLASS, SEVERITY_META, type Severity } from './types'
 import { SeverityKpiCard } from './SeverityKpiCard'
@@ -29,11 +30,15 @@ export function DomainSeverityBoard({
   domain,
   kpis,
   globalFilters,
+  lens,
   companions,
 }: {
   domain: KpiDomain
   kpis: KpiDefinition[]
   globalFilters: GlobalKpiFilters
+  /** Drives each card's own D/W/M/Q/Y default grain (see kpiDefaultGrain.ts) - the framework doc's
+   * per-role cadence, not just the page's shared Timeline filter. */
+  lens: KpiVisibilityLens
   companions?: Map<string, (severity: Severity | null) => ReactNode>
 }) {
   const results = useDomainTrendKpis(domain, kpis, globalFilters)
@@ -42,7 +47,7 @@ export function DomainSeverityBoard({
   function renderResult(r: DomainTrendKpiResult) {
     return (
       <Fragment key={r.kpi.id}>
-        <SeverityKpiCard domain={domain} globalFilters={globalFilters} result={r} />
+        <SeverityKpiCard domain={domain} globalFilters={globalFilters} result={r} lens={lens} />
         {companions?.get(r.kpi.id)?.(r.severity)}
       </Fragment>
     )

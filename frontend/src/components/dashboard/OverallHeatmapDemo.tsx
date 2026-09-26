@@ -4,15 +4,33 @@ import { Card, CardContent, CardHeader, CardTitle, CardAction } from '@/componen
 import { Button } from '@/components/ui/button'
 import { cn, pluralize } from '@/lib/utils'
 import { TOOLTIP_Z_INDEX } from '@/lib/chartPalette'
-import { useHeatmapData } from '@/hooks/useHeatmapData'
+import { useHeatmapData, type HeatmapWindow } from '@/hooks/useHeatmapData'
 import { severityMeta, formatScore, formatCompactScore, type HeatmapRow, type RagStatus } from './types'
 import type { SectionFilterValue } from './FilterBar'
 
-const MONTH_RANGES = [
-  { label: '3M', months: 3 },
-  { label: '4M', months: 4 },
-  { label: '5M', months: 5 },
-] as const
+export interface HeatmapRangeOption {
+  label: string
+  window: HeatmapWindow
+}
+
+/** CXO/unfiltered's own range pill (see DashboardPage) - Leadership passes its own 3W/4W/5W/1M set
+ * instead (see LEADERSHIP_HEATMAP_RANGES), reusing the same "1M" monthly path this default's last
+ * entry would (a month window is a month window regardless of which pill set offers it). */
+const DEFAULT_RANGE_OPTIONS: HeatmapRangeOption[] = [
+  { label: '3M', window: { unit: 'month', count: 3 } },
+  { label: '4M', window: { unit: 'month', count: 4 } },
+  { label: '5M', window: { unit: 'month', count: 5 } },
+]
+
+/** Leadership's own range pill (see its reference screenshot) - week-by-week detail for the first
+ * 3 options, then a step back out to a full calendar month for "1M" (reusing DEFAULT_RANGE_OPTIONS'
+ * same month path - a month window is a month window regardless of which pill set offers it). */
+export const LEADERSHIP_HEATMAP_RANGES: HeatmapRangeOption[] = [
+  { label: '3W', window: { unit: 'week', count: 3 } },
+  { label: '4W', window: { unit: 'week', count: 4 } },
+  { label: '5W', window: { unit: 'week', count: 5 } },
+  { label: '1M', window: { unit: 'month', count: 1 } },
+]
 
 function cellColorHex(status: RagStatus): string {
   return status === 'no-data' ? 'var(--muted-foreground)' : severityMeta(status).solidHex
@@ -34,7 +52,7 @@ const ROWS_PER_CHUNK = 4
 
 // Instant on hover (no native browser tooltip delay) - matches RootCauseHeatmapCard's own
 // group-hover cell tooltip, so hover responsiveness reads the same across every heatmap in the app.
-function Cell({ kpiName, month, status, value }: { kpiName: string; month: string; status: RagStatus; value: number | null }) {
+function Cell({ kpiName, periodLabel, status, value }: { kpiName: string; periodLabel: string; status: RagStatus; value: number | null }) {
   const colorHex = cellColorHex(status)
   return (
     <span className="group relative flex items-center gap-0.5">
@@ -48,7 +66,7 @@ function Cell({ kpiName, month, status, value }: { kpiName: string; month: strin
       >
         <div className="font-semibold">{kpiName}</div>
         <div>
-          {month}: {formatScore(value)}
+          {periodLabel}: {formatScore(value)}
         </div>
       </span>
     </span>
@@ -97,8 +115,8 @@ function RowChunk({ rows, palette }: { rows: HeatmapRow[]; palette: { bg: string
     <div className="w-44 rounded-[6px] border p-1" style={{ backgroundColor: palette.bg, borderColor: palette.border }}>
       <div className="flex items-center justify-between px-1 py-0.5">
         {rows[0]?.cells.map((c) => (
-          <span key={c.month} className="w-8 text-center text-[10px]" style={{ color: '#99a1af' }}>
-            {c.month}
+          <span key={c.periodLabel} className="w-8 text-center text-[10px]" style={{ color: '#99a1af' }}>
+            {c.periodLabel}
           </span>
         ))}
       </div>
@@ -106,8 +124,8 @@ function RowChunk({ rows, palette }: { rows: HeatmapRow[]; palette: { bg: string
         {rows.map((row) => (
           <div key={row.slug} className="flex items-center justify-between px-1">
             {row.cells.map((cell) => (
-              <span key={cell.month} className="flex w-8 items-center justify-center">
-                <Cell kpiName={row.name} month={cell.month} status={cell.status} value={cell.value} />
+              <span key={cell.periodLabel} className="flex w-8 items-center justify-center">
+                <Cell kpiName={row.name} periodLabel={cell.periodLabel} status={cell.status} value={cell.value} />
               </span>
             ))}
           </div>
@@ -135,20 +153,41 @@ function SectionGrid({ sectionKey, title, rows }: { sectionKey: string; title: s
   )
 }
 
-/** Every KPI across every domain, one cell per trailing month (3/4/5, picked via the top-right
- * pill), value+colour matching exactly what that month would show as the KPI's own card score (see
- * useHeatmapData's primarySeriesRows) - not a separately-invented heuristic. "Only reds" filters
- * down to rows with at least one Critical cell in the visible range. */
-export function OverallHeatmapDemo({ site, section }: { site: string; section: SectionFilterValue }) {
+/** Every KPI across every domain, one cell per trailing period (picked via the top-right pill,
+ * `rangeOptions`), value+colour matching exactly what that period would show as the KPI's own card
+ * score (see useHeatmapData's primarySeriesRows) - not a separately-invented heuristic. "Only reds"
+ * filters down to rows with at least one Critical cell in the visible range. */
+export function OverallHeatmapDemo({
+  site,
+  section,
+  rangeOptions = DEFAULT_RANGE_OPTIONS,
+  visibleKpiIds,
+}: {
+  site: string
+  section: SectionFilterValue
+  /** CXO/unfiltered's monthly 3M/4M/5M pill by default; Leadership passes its own weekly set (see
+   * LEADERSHIP_HEATMAP_RANGES in DashboardPage). */
+  rangeOptions?: HeatmapRangeOption[]
+  /** Leadership's own KPI Framework role-visibility list (see lib/kpiVisibility.ts) - restricts
+   * every section's rows the same way SectionSummaryList's KPI cards already are, so the two never
+   * disagree on which KPIs a role sees. Omitted (CXO/unfiltered) shows every KPI. */
+  visibleKpiIds?: Set<string>
+}) {
   const [onlyReds, setOnlyReds] = useState(false)
-  const [monthCount, setMonthCount] = useState<3 | 4 | 5>(3)
+  const [selectedRange, setSelectedRange] = useState<HeatmapRangeOption>(rangeOptions[0] ?? DEFAULT_RANGE_OPTIONS[0])
   const [legendExpanded, setLegendExpanded] = useState(false)
-  const { sections: allSections, isLoading, isError } = useHeatmapData(site, monthCount)
+  const { sections: allSections, isLoading, isError } = useHeatmapData(site, selectedRange.window)
   const sections = section === 'all' ? allSections : allSections.filter((s) => s.key === section)
-  const visibleSections = sections.map((s) => ({
-    ...s,
-    rows: onlyReds ? s.rows.filter((r) => r.cells.some((c) => c.status === 'action')) : s.rows,
-  }))
+  const visibleSections = sections
+    .map((s) => ({
+      ...s,
+      rows: s.rows
+        .filter((r) => !visibleKpiIds || visibleKpiIds.has(r.slug))
+        .filter((r) => !onlyReds || r.cells.some((c) => c.status === 'action')),
+    }))
+    // A role's KPI list (or "Only reds") can empty a whole section out - matches
+    // SectionSummaryList's own "don't render an empty section shell" rule.
+    .filter((s) => s.rows.length > 0)
   // 2 columns when there's more than one section to balance (matches "QMS side by side" with the
   // rest stacked together) - a single filtered/selected section just gets the one column.
   // balanceIntoColumns processes largest-first and ties go to column 0, so the dominant section
@@ -170,12 +209,12 @@ export function OverallHeatmapDemo({ site, section }: { site: string; section: S
           >
             Only reds
           </Button>
-          {MONTH_RANGES.map((r) => (
+          {rangeOptions.map((r) => (
             <Button
               key={r.label}
               size="sm"
-              variant={r.months === monthCount ? 'default' : 'outline'}
-              onClick={() => setMonthCount(r.months)}
+              variant={r.label === selectedRange.label ? 'default' : 'outline'}
+              onClick={() => setSelectedRange(r)}
             >
               {r.label}
             </Button>

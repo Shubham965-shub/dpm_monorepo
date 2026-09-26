@@ -6,6 +6,8 @@ import { CATEGORICAL_PALETTE, MAX_SERIES, TOOLTIP_Z_INDEX } from '@/lib/chartPal
 import type { Grain } from '@/lib/kpiSchemas'
 import type { ExtraFilter, KpiDomain } from '@/lib/kpiConfig'
 import { getGrainDateRange } from '@/lib/kpiDateRange'
+import { defaultGrainFor } from '@/lib/kpiDefaultGrain'
+import type { KpiVisibilityLens } from '@/lib/roleAccess'
 import { formatRangeEnd, formatRangeStart } from '@/lib/periodFormat'
 import { FILTER_PILL_CLASS } from '@/lib/filterLabels'
 import {
@@ -21,6 +23,7 @@ import { KpiLineTooltip } from '@/components/kpi/KpiLineTooltip'
 import { boundaryHex, boundaryLines, boundaryZones, severityMeta } from './types'
 import { renderBoundaryOverlay } from './boundaryOverlay'
 import { KpiDetailModal } from './KpiDetailModal'
+import { LegendEntry } from './LegendEntry'
 
 // The compact card's boundary lines: slightly heavier than the default so they read at card size.
 const CARD_OVERLAY_STYLE = { strokeWidth: 1.5, labelFontSize: 9 }
@@ -33,17 +36,6 @@ const GRAIN_OPTIONS: { value: Grain; label: string }[] = [
   { value: 'yearly', label: 'Y' },
 ]
 type ViewMode = 'line' | 'bar'
-
-function LegendEntry({ colorHex, label }: { colorHex: string; label: string }) {
-  return (
-    <span className="flex items-center gap-1">
-      <span className="h-px w-3 shrink-0 border-t border-dashed" style={{ borderColor: colorHex }} />
-      <span className="text-sm font-medium" style={{ color: colorHex }}>
-        {label}
-      </span>
-    </span>
-  )
-}
 
 function CardShell({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -64,16 +56,23 @@ export function SeverityKpiCard({
   domain,
   globalFilters,
   result,
+  lens,
 }: {
   domain: KpiDomain
   globalFilters: GlobalKpiFilters
   result: DomainTrendKpiResult
+  /** Picks this card's own default grain from the KPI Framework doc's per-role D/W/M/Q table (see
+   * kpiDefaultGrain.ts) when one exists for this KPI - falls back to the page's Timeline filter
+   * otherwise, same as before that table existed. */
+  lens: KpiVisibilityLens
 }) {
-  // Stores only the card's own pick, tagged with the page grain it was made under - so the card
-  // follows the page Timeline until picked, and a later Timeline change drops a stale pick.
-  const [grainPick, setGrainPick] = useState<{ pageGrain: string; grain: Grain } | null>(null)
-  const grain = grainPick?.pageGrain === globalFilters.grain ? grainPick.grain : (globalFilters.grain as Grain)
-  const setGrain = (next: Grain) => setGrainPick({ pageGrain: globalFilters.grain, grain: next })
+  const defaultGrain = defaultGrainFor(result.kpi.id, lens) ?? (globalFilters.grain as Grain)
+  // Stores only the card's own pick, tagged with the default grain it was made under - so the card
+  // follows that default until picked, and a later change to it (Timeline filter, or lens) drops a
+  // stale pick.
+  const [grainPick, setGrainPick] = useState<{ baseGrain: Grain; grain: Grain } | null>(null)
+  const grain = grainPick?.baseGrain === defaultGrain ? grainPick.grain : defaultGrain
+  const setGrain = (next: Grain) => setGrainPick({ baseGrain: defaultGrain, grain: next })
   const [viewMode, setViewMode] = useState<ViewMode>('line')
   const [detailOpen, setDetailOpen] = useState(false)
 
