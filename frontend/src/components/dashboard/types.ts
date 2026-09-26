@@ -22,8 +22,12 @@ export const KPI_CARD_GRID_CLASS = 'grid grid-cols-[repeat(auto-fill,minmax(max(
 export type RagStatus = 'action' | 'alert' | 'in-control' | 'no-data'
 
 export interface HeatmapCell {
-  month: string
+  /** "Jan" for a monthly-window heatmap, "W38" for a weekly one - see useHeatmapData. */
+  periodLabel: string
   status: RagStatus
+  /** The same primary-series value shown as the KPI card's own score - null when this period has no
+   * matching row (no-data). */
+  value: number | null
 }
 
 export interface HeatmapRow {
@@ -33,6 +37,10 @@ export interface HeatmapRow {
 }
 
 export type Severity = Exclude<RagStatus, 'no-data'>
+
+// Worst first, best last - shared by DomainSeverityBoard's tier bands and QcScoreCard's
+// worst-to-best section ordering, so "worst" means the same thing everywhere in the app.
+export const SEVERITY_ORDER: Severity[] = ['action', 'alert', 'in-control']
 
 // Exact hex values pulled from Figma (file T5oSGlK2eTYF8KvKP5M9lF, node 5024:13253 "KPI List") via
 // the Figma MCP get_design_context tool - not eyeballed from a screenshot. Single source shared by
@@ -106,6 +114,12 @@ export function scoreBandMeta(band: ScoreBand): SeverityMeta {
   return severityMeta(band ? BAND_SEVERITY[band] : null)
 }
 
+/** The band's severity - RED is worse than a merely-low score with no red-zone KPI in it, so
+ * ordering "worst to best" must go by this (see QcScoreCard), not by raw score value alone. */
+export function bandSeverity(band: ScoreBand): Severity | null {
+  return band ? BAND_SEVERITY[band] : null
+}
+
 // KPI Scoring Specification section 8's interpretation of each band.
 const BAND_LABEL: Record<NonNullable<ScoreBand>, string> = { GREEN: 'Performing', AMBER: 'Watch', RED: 'Unacceptable' }
 
@@ -116,6 +130,18 @@ export function scoreBandLabel(band: ScoreBand): string {
 /** Rounding is display-only (the backend keeps full precision); null = no data. */
 export function formatScore(score: number | null | undefined): string {
   return score == null ? '—' : String(Math.round(score))
+}
+
+const COMPACT_SCORE_FORMAT = new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 })
+
+/** Same as formatScore, but abbreviates 4+ digit values (1200 -> "1.2K", 20000 -> "20K") - for a
+ * dense grid (e.g. the Overall Heatmap) where a long number would crowd the cell; the exact value
+ * still shows via the cell's own hover tooltip (formatScore there). Below 1000, defers to
+ * formatScore's own whole-number rounding rather than Intl's compact formatter, which would
+ * otherwise keep a decimal (e.g. "85.4") on a value that's never actually abbreviated. */
+export function formatCompactScore(score: number | null | undefined): string {
+  if (score == null) return '—'
+  return Math.abs(score) < 1000 ? formatScore(score) : COMPACT_SCORE_FORMAT.format(score)
 }
 
 // The dashed limit lines on SeverityKpiCard/KpiDetailModal's charts: the Alert limit (where in
@@ -225,4 +251,24 @@ export function boundaryZones(thresholds: KpiThresholds | null | undefined, doma
 /** A ranking bar chart's value domain - shared by its bars and its pinned axis strip (RankingValueAxis) so the two line up. */
 export function rankingValueDomain(rows: BarRow[]): [number, number] {
   return [0, Math.max(0, ...rows.map((row) => row.value ?? 0))]
+}
+
+/** One section's latest-month tier breakdown, restricted to `visibleKpiIds` (a role lens's KPI
+ * Framework list) - shared by SectionSummaryList's per-section chips and DashboardPage's
+ * page-level severity badge summary, so the two totals can never disagree. */
+export function countSeverityTiers(
+  rows: HeatmapRow[],
+  visibleKpiIds: Set<string>,
+): { critical: number; warning: number; onTrack: number } {
+  let critical = 0
+  let warning = 0
+  let onTrack = 0
+  for (const row of rows) {
+    if (!visibleKpiIds.has(row.slug)) continue
+    const latest = row.cells.at(-1)?.status
+    if (latest === 'action') critical++
+    else if (latest === 'alert') warning++
+    else if (latest === 'in-control') onTrack++
+  }
+  return { critical, warning, onTrack }
 }

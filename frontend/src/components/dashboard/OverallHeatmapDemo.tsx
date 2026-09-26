@@ -3,22 +3,37 @@ import { ChevronDown } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardAction } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { cn, pluralize } from '@/lib/utils'
-import { HEATMAP_MOCK } from './mockData'
-import type { HeatmapRow, RagStatus } from './types'
-import { DemoDataBadge } from './DemoDataBadge'
+import { TOOLTIP_Z_INDEX } from '@/lib/chartPalette'
+import { useHeatmapData, type HeatmapWindow } from '@/hooks/useHeatmapData'
+import { severityMeta, formatScore, formatCompactScore, type HeatmapRow, type RagStatus } from './types'
 import type { SectionFilterValue } from './FilterBar'
 
-// Only 3M has a demo dataset behind it (see mockData.ts's HEATMAP_MOCK) - 4M/5M are kept visible
-// to match the wireframe but disabled, same as the original real-data heatmap this replaced.
-const MONTH_RANGES = ['3M', '4M', '5M'] as const
+export interface HeatmapRangeOption {
+  label: string
+  window: HeatmapWindow
+}
 
-// Exact hex values pulled from Figma (file T5oSGlK2eTYF8KvKP5M9lF, node 5024:20233 cell
-// "Strength" component) via get_design_context.
-const CELL_META: Record<RagStatus, { numberHex: string; value: number }> = {
-  action: { numberHex: '#ec1c24', value: 4 },
-  alert: { numberHex: '#f59e0b', value: 5 },
-  'in-control': { numberHex: '#028662', value: 6 },
-  'no-data': { numberHex: 'var(--muted-foreground)', value: 0 },
+/** CXO/unfiltered's own range pill (see DashboardPage) - Leadership passes its own 3W/4W/5W/1M set
+ * instead (see LEADERSHIP_HEATMAP_RANGES), reusing the same "1M" monthly path this default's last
+ * entry would (a month window is a month window regardless of which pill set offers it). */
+const DEFAULT_RANGE_OPTIONS: HeatmapRangeOption[] = [
+  { label: '3M', window: { unit: 'month', count: 3 } },
+  { label: '4M', window: { unit: 'month', count: 4 } },
+  { label: '5M', window: { unit: 'month', count: 5 } },
+]
+
+/** Leadership's own range pill (see its reference screenshot) - week-by-week detail for the first
+ * 3 options, then a step back out to a full calendar month for "1M" (reusing DEFAULT_RANGE_OPTIONS'
+ * same month path - a month window is a month window regardless of which pill set offers it). */
+export const LEADERSHIP_HEATMAP_RANGES: HeatmapRangeOption[] = [
+  { label: '3W', window: { unit: 'week', count: 3 } },
+  { label: '4W', window: { unit: 'week', count: 4 } },
+  { label: '5W', window: { unit: 'week', count: 5 } },
+  { label: '1M', window: { unit: 'month', count: 1 } },
+]
+
+function cellColorHex(status: RagStatus): string {
+  return status === 'no-data' ? 'var(--muted-foreground)' : severityMeta(status).solidHex
 }
 
 // Rows are chunked into small tinted/bordered sub-groups rather than one long column - matches the
@@ -35,13 +50,24 @@ const SECTION_PALETTE: Record<string, { bg: string; border: string }> = {
 }
 const ROWS_PER_CHUNK = 4
 
-function Cell({ status }: { status: RagStatus }) {
-  const meta = CELL_META[status]
+// Instant on hover (no native browser tooltip delay) - matches RootCauseHeatmapCard's own
+// group-hover cell tooltip, so hover responsiveness reads the same across every heatmap in the app.
+function Cell({ kpiName, periodLabel, status, value }: { kpiName: string; periodLabel: string; status: RagStatus; value: number | null }) {
+  const colorHex = cellColorHex(status)
   return (
-    <span className="flex items-center gap-0.5">
-      <span className="size-1.5 rounded-full" style={{ backgroundColor: meta.numberHex }} />
-      <span className="text-sm font-semibold" style={{ color: meta.numberHex }}>
-        {meta.value}
+    <span className="group relative flex items-center gap-0.5">
+      <span className="size-1.5 rounded-full" style={{ backgroundColor: colorHex }} />
+      <span className="text-sm font-semibold" style={{ color: colorHex }}>
+        {formatCompactScore(value)}
+      </span>
+      <span
+        className="pointer-events-none absolute top-full left-1/2 mt-1 hidden -translate-x-1/2 rounded-md border border-border bg-card p-2 text-[11px] whitespace-nowrap text-foreground shadow-md group-hover:block"
+        style={{ zIndex: TOOLTIP_Z_INDEX }}
+      >
+        <div className="font-semibold">{kpiName}</div>
+        <div>
+          {periodLabel}: {formatScore(value)}
+        </div>
       </span>
     </span>
   )
@@ -50,10 +76,9 @@ function Cell({ status }: { status: RagStatus }) {
 // Matches the in-cell dot exactly (same solid color, same size) rather than the pale square
 // swatch, so the top legend reads as literally the same marker used inside the grid below it.
 function LegendSwatch({ status, label }: { status: RagStatus; label: string }) {
-  const meta = CELL_META[status]
   return (
     <span className="flex items-center gap-1">
-      <span className="size-1.5 rounded-full" style={{ backgroundColor: meta.numberHex }} />
+      <span className="size-1.5 rounded-full" style={{ backgroundColor: cellColorHex(status) }} />
       <span style={{ color: '#6a7282' }}>{label}</span>
     </span>
   )
@@ -90,17 +115,17 @@ function RowChunk({ rows, palette }: { rows: HeatmapRow[]; palette: { bg: string
     <div className="w-44 rounded-[6px] border p-1" style={{ backgroundColor: palette.bg, borderColor: palette.border }}>
       <div className="flex items-center justify-between px-1 py-0.5">
         {rows[0]?.cells.map((c) => (
-          <span key={c.month} className="w-8 text-center text-[10px]" style={{ color: '#99a1af' }}>
-            {c.month}
+          <span key={c.periodLabel} className="w-8 text-center text-[10px]" style={{ color: '#99a1af' }}>
+            {c.periodLabel}
           </span>
         ))}
       </div>
       <div className="flex flex-col gap-0.5">
         {rows.map((row) => (
-          <div key={row.slug} className="flex items-center justify-between px-1" title={row.name}>
+          <div key={row.slug} className="flex items-center justify-between px-1">
             {row.cells.map((cell) => (
-              <span key={cell.month} className="flex w-8 items-center justify-center">
-                <Cell status={cell.status} />
+              <span key={cell.periodLabel} className="flex w-8 items-center justify-center">
+                <Cell kpiName={row.name} periodLabel={cell.periodLabel} status={cell.status} value={cell.value} />
               </span>
             ))}
           </div>
@@ -128,28 +153,53 @@ function SectionGrid({ sectionKey, title, rows }: { sectionKey: string; title: s
   )
 }
 
-/** Static prototype view matching the Figma wireframe's original heatmap layout exactly - see
- * DemoDataBadge. The per-domain expand strips further down this page (SectionSummaryList) are the
- * real-catalogue-backed equivalent. */
-export function OverallHeatmapDemo({ section }: { section: SectionFilterValue }) {
+/** Every KPI across every domain, one cell per trailing period (picked via the top-right pill,
+ * `rangeOptions`), value+colour matching exactly what that period would show as the KPI's own card
+ * score (see useHeatmapData's primarySeriesRows) - not a separately-invented heuristic. "Only reds"
+ * filters down to rows with at least one Critical cell in the visible range. */
+export function OverallHeatmapDemo({
+  site,
+  section,
+  rangeOptions = DEFAULT_RANGE_OPTIONS,
+  visibleKpiIds,
+}: {
+  site: string
+  section: SectionFilterValue
+  /** CXO/unfiltered's monthly 3M/4M/5M pill by default; Leadership passes its own weekly set (see
+   * LEADERSHIP_HEATMAP_RANGES in DashboardPage). */
+  rangeOptions?: HeatmapRangeOption[]
+  /** Leadership's own KPI Framework role-visibility list (see lib/kpiVisibility.ts) - restricts
+   * every section's rows the same way SectionSummaryList's KPI cards already are, so the two never
+   * disagree on which KPIs a role sees. Omitted (CXO/unfiltered) shows every KPI. */
+  visibleKpiIds?: Set<string>
+}) {
   const [onlyReds, setOnlyReds] = useState(false)
-  const [range, setRange] = useState<(typeof MONTH_RANGES)[number]>('3M')
+  const [selectedRange, setSelectedRange] = useState<HeatmapRangeOption>(rangeOptions[0] ?? DEFAULT_RANGE_OPTIONS[0])
   const [legendExpanded, setLegendExpanded] = useState(false)
-  const sections = section === 'all' ? HEATMAP_MOCK : HEATMAP_MOCK.filter((s) => s.key === section)
-  const visibleSections = sections.map((s) => ({
-    ...s,
-    rows: onlyReds ? s.rows.filter((r) => r.cells.some((c) => c.status === 'action')) : s.rows,
-  }))
+  const { sections: allSections, isLoading, isError } = useHeatmapData(site, selectedRange.window)
+  const sections = section === 'all' ? allSections : allSections.filter((s) => s.key === section)
+  const visibleSections = sections
+    .map((s) => ({
+      ...s,
+      rows: s.rows
+        .filter((r) => !visibleKpiIds || visibleKpiIds.has(r.slug))
+        .filter((r) => !onlyReds || r.cells.some((c) => c.status === 'action')),
+    }))
+    // A role's KPI list (or "Only reds") can empty a whole section out - matches
+    // SectionSummaryList's own "don't render an empty section shell" rule.
+    .filter((s) => s.rows.length > 0)
   // 2 columns when there's more than one section to balance (matches "QMS side by side" with the
   // rest stacked together) - a single filtered/selected section just gets the one column.
-  const columns = balanceIntoColumns(visibleSections, visibleSections.length > 1 ? 2 : 1)
+  // balanceIntoColumns processes largest-first and ties go to column 0, so the dominant section
+  // (QMS) always lands there - reversed here so it renders on the right, with the smaller stacked
+  // sections on the left.
+  const columns = [...balanceIntoColumns(visibleSections, visibleSections.length > 1 ? 2 : 1)].reverse()
 
   return (
     <Card size="sm">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
           Overall Heatmap
-          <DemoDataBadge />
         </CardTitle>
         <CardAction className="flex items-center gap-2">
           <Button
@@ -159,16 +209,14 @@ export function OverallHeatmapDemo({ section }: { section: SectionFilterValue })
           >
             Only reds
           </Button>
-          {MONTH_RANGES.map((r) => (
+          {rangeOptions.map((r) => (
             <Button
-              key={r}
+              key={r.label}
               size="sm"
-              variant={r === range ? 'default' : 'outline'}
-              disabled={r !== '3M'}
-              title={r !== '3M' ? 'Demo data only covers the trailing 3 months' : undefined}
-              onClick={() => setRange(r)}
+              variant={r.label === selectedRange.label ? 'default' : 'outline'}
+              onClick={() => setSelectedRange(r)}
             >
-              {r}
+              {r.label}
             </Button>
           ))}
         </CardAction>
@@ -189,7 +237,7 @@ export function OverallHeatmapDemo({ section }: { section: SectionFilterValue })
         </div>
         {legendExpanded && (
           <div className="mb-3 flex flex-wrap items-center gap-4 text-[11px]">
-            {HEATMAP_MOCK.map((s) => {
+            {allSections.map((s) => {
               const palette = SECTION_PALETTE[s.key]
               return (
                 <span key={s.key} className="flex items-center gap-1">
@@ -203,15 +251,21 @@ export function OverallHeatmapDemo({ section }: { section: SectionFilterValue })
             })}
           </div>
         )}
-        <div className="flex flex-col gap-4 sm:flex-row">
-          {columns.map((col, i) => (
-            <div key={i} className="flex flex-1 flex-col">
-              {col.map((s) => (
-                <SectionGrid key={s.title} sectionKey={s.key} title={s.title} rows={s.rows} />
-              ))}
-            </div>
-          ))}
-        </div>
+        {isError ? (
+          <p className="text-muted-foreground text-xs">Couldn't load the heatmap.</p>
+        ) : isLoading ? (
+          <p className="text-muted-foreground text-xs">Loading…</p>
+        ) : (
+          <div className="flex flex-col gap-4 sm:flex-row">
+            {columns.map((col, i) => (
+              <div key={i} className="flex flex-1 flex-col">
+                {col.map((s) => (
+                  <SectionGrid key={s.title} sectionKey={s.key} title={s.title} rows={s.rows} />
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
       </CardContent>
     </Card>
   )

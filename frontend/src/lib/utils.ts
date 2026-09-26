@@ -5,3 +5,10 @@ export function pluralize(count: number, singular: string, plural: string = `${s
   return `${count} ${count === 1 ? singular : plural}`
 }
 
+/** "Ravi Shankar" -> "RS" - shared by any avatar-style initials badge (TopNav's user avatar,
+ * TeamWorkloadOverview's operator roster). */
+export function initials(fullName: string): string {
+  const parts = fullName.trim().split(/\s+/)
+  return ((parts[0]?.[0] ?? '') + (parts.at(-1)?.[0] ?? '')).toUpperCase()
+}
+
