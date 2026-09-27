@@ -117,7 +117,6 @@ public class QcScoreService {
                 new KpiSource(instrumentSection, "pm-adherence", (s, g, f, t) -> instruments.getPmAdherence(s, g, f, t)),
                 new KpiSource(instrumentSection, "breakdown-frequency", (s, g, f, t) -> instruments.getBreakdownFrequency(s, g, f, t)),
                 new KpiSource(instrumentSection, "instrument-failure-rate", (s, g, f, t) -> instruments.getInstrumentFailureRate(s, g, f, t)),
-                new KpiSource(instrumentSection, "qualification-cycle-time", (s, g, f, t) -> instruments.getQualificationCycleTime(s, null, g, f, t)),
 
                 new KpiSource(qmsSection, "invalid-oos-rate", (s, g, f, t) -> qms.getInvalidOosRate(s, null, g, f, t)),
                 new KpiSource(qmsSection, "confirmed-oos-rate", (s, g, f, t) -> qms.getConfirmedOosRate(s, null, g, f, t)),
@@ -138,6 +137,7 @@ public class QcScoreService {
 
                 new KpiSource(peopleSection, "repeat-analysis-rate", (s, g, f, t) -> people.getRepeatAnalysisRate(s, null, g, f, t)),
                 new KpiSource(peopleSection, "reviewer-productivity", (s, g, f, t) -> people.getReviewerProductivity(s, g, f, t)),
+                new KpiSource(peopleSection, "qualification-cycle-time", (s, g, f, t) -> people.getQualificationCycleTime(s, null, g, f, t)),
                 new KpiSource(peopleSection, "rft-documentation", (s, g, f, t) -> people.getRightFirstTime(s, null, g, f, t)),
                 new KpiSource(peopleSection, "training-completion-rate", (s, g, f, t) -> people.getTrainingCompletionRate(s, null, null, null, g, f, t)));
     }

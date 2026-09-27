@@ -28,7 +28,8 @@ const EXCLUDED_OPTIONS: Record<string, Record<string, Set<string>>> = {
  *
  * `filters` must be the same site/grain/from/to the card's own data fetch uses (including any
  * per-card grain override), or the option lists describe a different window than the chart.
- * `optionsVisible` gates the options fetch to when a Filters UI is actually on screen.
+ * `optionsVisible` gates the options fetch to when a Filters UI is actually on screen - the hook's
+ * own compact Filters popover (`filtersPopover`, see FiltersPopoverButton) counts too.
  */
 export function useExtraFilters(
   domain: KpiDomain,
@@ -36,6 +37,7 @@ export function useExtraFilters(
   filters: GlobalKpiFilters,
   optionsVisible: boolean,
 ) {
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const [extraStates, setExtraStates] = useState<ExtraFilterState[]>(() =>
     kpi.extraFilters.map(initialExtraFilterState),
   )
@@ -51,7 +53,7 @@ export function useExtraFilters(
   const optionsQuery = useQuery({
     queryKey: ['kpi-filter-options', domain.key, kpi.id, queryString],
     queryFn: () => getValidated(filterOptionsSchema, `${domain.basePath}/${kpi.path}/filter-options?${queryString}`),
-    enabled: hasDynamicFilters && (optionsVisible || needsOptionsForDefault),
+    enabled: hasDynamicFilters && (optionsVisible || filtersOpen || needsOptionsForDefault),
     // A card mid-selection shouldn't have its dropdowns flash empty while the next cross-filtered
     // list is still loading - same rationale as useKpiData's own placeholderData.
     placeholderData: keepPreviousData,
@@ -88,5 +90,8 @@ export function useExtraFilters(
     requiredSelectMissing,
     optionsFor,
     filterOptionsLoading: optionsQuery.isLoading,
+    filtersPopover: { open: filtersOpen, onOpenChange: setFiltersOpen },
   }
 }
+
+export type ExtraFiltersResult = ReturnType<typeof useExtraFilters>

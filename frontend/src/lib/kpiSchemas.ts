@@ -96,3 +96,13 @@ export type FilterOptions = z.infer<typeof filterOptionsSchema>
 // Mirrors GET /api/filters/sites - the union of every distinct site/site_name value across every
 // agg_* table (see backend SiteOptionsRepository).
 export const siteListSchema = z.array(z.string())
+
+// Mirrors backend com.strides.model.KpiThresholdConfigRow - one KPI catalogue entry
+// (dim_kpi_lite + kpi_info). sourceSystem/summary are null when kpi_info has no row for the KPI.
+export const kpiInfoSchema = z.object({
+  kpiId: z.string(),
+  kpiName: z.string().nullable(),
+  sourceSystem: z.string().nullable(),
+  summary: z.string().nullable(),
+})
+export type KpiInfo = z.infer<typeof kpiInfoSchema>

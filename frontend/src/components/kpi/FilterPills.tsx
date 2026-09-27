@@ -48,7 +48,7 @@ function FilterPill({
 
 /**
  * A KPI's extraFilters as "Label: value ▾" pills, each opening its own popover - the expanded
- * views' only filter UI (the compact cards show none). `extra` appends a non-standard control,
+ * views' filter UI (the compact cards use FiltersPopoverButton, sharing the same filter state). `extra` appends a non-standard control,
  * e.g. Root Cause Breakdown's dimension picker; style it with FILTER_PILL_CLASS to match.
  */
 export function FilterPills({

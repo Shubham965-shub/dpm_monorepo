@@ -5,6 +5,9 @@ import type { ExtraFilter, KpiDefinition } from '@/lib/kpiConfig'
 import type { BarRow } from '@/components/kpi/KpiChartCard'
 import type { ExtraFilterState } from '@/components/kpi/ExtraFilterControl'
 import { FilterPills } from '@/components/kpi/FilterPills'
+import { KpiInfoDropdown } from '@/components/kpi/KpiInfoDropdown'
+import { GrainToggle } from '@/components/kpi/GrainToggle'
+import type { Grain } from '@/lib/kpiSchemas'
 import { SEVERITY_META, rankingValueDomain } from './types'
 import {
   barShapeFor,
@@ -27,22 +30,27 @@ const MODAL_CHART_RIGHT_MARGIN_PX = 24
 export function KpiRankingBarDetailModal({
   domainLabel,
   kpi,
+  grain,
   rankingData,
   notes,
   extraStates,
   onExtraStateChange,
   optionsFor,
   filterOptionsLoading,
+  onGrainChange,
   onClose,
 }: {
   domainLabel: string
   kpi: KpiDefinition
+  grain: Grain
   rankingData: BarRow[]
   notes: string[]
   extraStates: ExtraFilterState[]
   onExtraStateChange: (i: number, next: ExtraFilterState) => void
   optionsFor: (filter: ExtraFilter) => string[]
   filterOptionsLoading: boolean
+  /** Shares the compact card's grain (see useCardGrain), same as its filters. */
+  onGrainChange: (grain: Grain) => void
   onClose: () => void
 }) {
   return (
@@ -65,14 +73,20 @@ export function KpiRankingBarDetailModal({
               {domainLabel} · {kpi.id}
             </div>
             <h2 className="text-2xl font-bold">{kpi.label}</h2>
+            <div className="mt-3">
+              <KpiInfoDropdown kpiId={kpi.id} />
+            </div>
           </div>
-          <FilterPills
-            kpi={kpi}
-            extraStates={extraStates}
-            onExtraStateChange={onExtraStateChange}
-            optionsFor={optionsFor}
-            filterOptionsLoading={filterOptionsLoading}
-          />
+          <div className="flex flex-col items-end gap-3">
+            <GrainToggle grain={grain} onChange={onGrainChange} activeHex={GREEN.solidHex} size="modal" />
+            <FilterPills
+              kpi={kpi}
+              extraStates={extraStates}
+              onExtraStateChange={onExtraStateChange}
+              optionsFor={optionsFor}
+              filterOptionsLoading={filterOptionsLoading}
+            />
+          </div>
         </div>
 
         <div className="p-6">

@@ -148,6 +148,10 @@ export const KPI_DOMAINS: KpiDomain[] = [
           { kind: 'multiSelect', param: 'trainingType' },
         ],
       },
+      {
+        id: 'qualification-cycle-time', label: 'Qualification Cycle Time', path: 'qualification-cycle-time',
+        extraFilters: [{ kind: 'multiSelect', param: 'designation' }],
+      },
     ],
   },
   {
@@ -164,10 +168,6 @@ export const KPI_DOMAINS: KpiDomain[] = [
       { id: 'pm-adherence', label: 'PM Adherence %', path: 'pm-adherence', extraFilters: [] },
       { id: 'breakdown-frequency', label: 'Breakdown Frequency', path: 'breakdown-frequency', extraFilters: [] },
       { id: 'failure-rate', label: 'Instrument Failure Rate', path: 'failure-rate', extraFilters: [] },
-      {
-        id: 'qualification-cycle-time', label: 'Qualification Cycle Time', path: 'qualification-cycle-time',
-        extraFilters: [{ kind: 'multiSelect', param: 'designation' }],
-      },
     ],
   },
   {

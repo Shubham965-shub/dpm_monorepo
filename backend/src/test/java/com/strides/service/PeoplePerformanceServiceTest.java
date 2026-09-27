@@ -8,7 +8,9 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 import com.strides.model.AggCwTrainingCompletionRateRow;
+import com.strides.model.PeriodTotal;
 import com.strides.repository.AggCwTrainingCompletionRateRepository;
+import com.strides.repository.AggLimsQualificationCycleTimeRepository;
 import com.strides.repository.DepartmentScopeLiterals;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -26,6 +28,8 @@ class PeoplePerformanceServiceTest {
 
     @Mock
     AggCwTrainingCompletionRateRepository trainingCompletionRateRepository;
+    @Mock
+    AggLimsQualificationCycleTimeRepository qualificationCycleTimeRepository;
     @Mock
     DepartmentScopeLiterals deptLiterals;
 
@@ -83,5 +87,19 @@ class PeoplePerformanceServiceTest {
         var result = service.getTrainingCompletionRate("KRSG", "IT", null, null, "monthly", period, period.plusMonths(1));
 
         assertEquals(BigDecimal.valueOf(100.00).setScale(2), result.get(0).value());
+    }
+
+    @Test
+    void getQualificationCycleTime_combinesWeightedAverage_hasNoStatus_thresholdNeedsADesignationColumnThatDoesntEvaluateAgainstOne() {
+        LocalDate period = LocalDate.of(2026, 8, 1);
+        when(qualificationCycleTimeRepository.findTotals(eq("KRSG"), anySet(), eq("monthly"), any(), any()))
+                .thenReturn(List.of(new PeriodTotal(period, "monthly", 48, 4)));
+
+        var result = service.getQualificationCycleTime("KRSG", null, "monthly", period, period.plusMonths(1));
+
+        assertEquals("qualification-cycle-time", result.get(0).kpiId());
+        assertEquals(BigDecimal.valueOf(12.00).setScale(2), result.get(0).value());
+        assertEquals("days", result.get(0).unit());
+        assertNull(result.get(0).status());
     }
 }

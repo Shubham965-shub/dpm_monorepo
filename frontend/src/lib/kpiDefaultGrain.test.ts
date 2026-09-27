@@ -34,9 +34,9 @@ describe('kpiDefaultGrain - confirmed exceptions to the naive "one grain step pe
     // - "RCIs Beyond Timeline" sits directly below "Investigation Closure TAT" in the doc's own
     //   "3a. Investigation Metrics" subsection, yet stays daily.
     expect(defaultGrainFor('rci-beyond-timeline', 'supervisor')).toBe('daily')
-    // - qualification-cycle-time is filed under the instrument-health domain in kpiConfig.ts, but
-    //   behaves like its QMS cycle-time/investigation siblings above, not like its own domain's
-    //   other KPIs (availability/downtime/calibration-compliance), which all stay daily.
+    // - qualification-cycle-time (people-performance in kpiConfig.ts) behaves like its QMS
+    //   cycle-time/investigation siblings above, not like the instrument KPIs
+    //   (availability/downtime/calibration-compliance), which all stay daily.
     expect(defaultGrainFor('availability', 'supervisor')).toBe('daily')
   })
 

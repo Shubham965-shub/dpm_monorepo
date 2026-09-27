@@ -4,6 +4,7 @@ import com.strides.dto.DepartmentScope;
 import com.strides.dto.KpiCardResponse;
 import com.strides.model.AggCwTrainingCompletionRateRow;
 import com.strides.repository.AggCwTrainingCompletionRateRepository;
+import com.strides.repository.AggLimsQualificationCycleTimeRepository;
 import com.strides.repository.AggLimsRepeatAnalysisRateRepository;
 import com.strides.repository.AggLimsReviewerProductivityIndexRepository;
 import com.strides.repository.AggLimsRightFirstTimeRepository;
@@ -34,6 +35,8 @@ public class PeoplePerformanceService {
     AggLimsRightFirstTimeRepository rightFirstTimeRepository;
     @Inject
     AggCwTrainingCompletionRateRepository trainingCompletionRateRepository;
+    @Inject
+    AggLimsQualificationCycleTimeRepository qualificationCycleTimeRepository;
     @Inject
     DepartmentScopeLiterals deptLiterals;
 
@@ -115,5 +118,16 @@ public class PeoplePerformanceService {
             String trainingType, String grain, LocalDate from, LocalDate to) {
         return trainingCompletionRateRepository.filterOptions(site, grain, from, to,
                 PeriodCombiner.parseSelection(department), PeriodCombiner.parseSelection(trainingType));
+    }
+
+    /** designation: comma-separated list to combine, or null/blank for ALL (designation is now a real identity/role column, confirmed live). */
+    public List<KpiCardResponse> getQualificationCycleTime(String siteName, String designation, String grain, LocalDate from, LocalDate to) {
+        Set<String> selected = PeriodCombiner.parseSelection(designation);
+        var totals = qualificationCycleTimeRepository.findTotals(siteName, selected, grain, from, to);
+        return PeriodCombiner.fromTotals(totals, 1, "qualification-cycle-time", "Qualification Cycle Time", "days");
+    }
+
+    public Map<String, List<String>> getQualificationCycleTimeFilterOptions(String siteName, String grain, LocalDate from, LocalDate to) {
+        return qualificationCycleTimeRepository.filterOptions(siteName, grain, from, to);
     }
 }

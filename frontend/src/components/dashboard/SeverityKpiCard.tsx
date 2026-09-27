@@ -3,10 +3,7 @@ import { ArrowDown, ArrowUp, Maximize2 } from 'lucide-react'
 import { Bar, BarChart, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { cn } from '@/lib/utils'
 import { CATEGORICAL_PALETTE, MAX_SERIES, TOOLTIP_Z_INDEX } from '@/lib/chartPalette'
-import type { Grain } from '@/lib/kpiSchemas'
 import type { ExtraFilter, KpiDomain } from '@/lib/kpiConfig'
-import { getGrainDateRange } from '@/lib/kpiDateRange'
-import { defaultGrainFor } from '@/lib/kpiDefaultGrain'
 import type { KpiVisibilityLens } from '@/lib/roleAccess'
 import { formatRangeEnd, formatRangeStart } from '@/lib/periodFormat'
 import { FILTER_PILL_CLASS } from '@/lib/filterLabels'
@@ -17,8 +14,11 @@ import {
 } from '@/lib/rootCauseDimensions'
 import { useKpiData, type GlobalKpiFilters } from '@/hooks/useKpiData'
 import { useExtraFilters } from '@/hooks/useExtraFilters'
+import { useCardGrain } from '@/hooks/useCardGrain'
 import { computeValueDomain, deriveKpiMetrics, type DomainTrendKpiResult } from '@/hooks/useDomainTrendKpis'
 import type { ExtraFilterState } from '@/components/kpi/ExtraFilterControl'
+import { FiltersPopoverButton } from '@/components/kpi/FiltersPopoverButton'
+import { GrainToggle } from '@/components/kpi/GrainToggle'
 import { KpiLineTooltip } from '@/components/kpi/KpiLineTooltip'
 import { boundaryHex, boundaryLines, boundaryZones, severityMeta } from './types'
 import { renderBoundaryOverlay } from './boundaryOverlay'
@@ -28,13 +28,6 @@ import { LegendEntry } from './LegendEntry'
 // The compact card's boundary lines: slightly heavier than the default so they read at card size.
 const CARD_OVERLAY_STYLE = { strokeWidth: 1.5, labelFontSize: 9 }
 
-const GRAIN_OPTIONS: { value: Grain; label: string }[] = [
-  { value: 'daily', label: 'D' },
-  { value: 'weekly', label: 'W' },
-  { value: 'monthly', label: 'M' },
-  { value: 'quarterly', label: 'Q' },
-  { value: 'yearly', label: 'Y' },
-]
 type ViewMode = 'line' | 'bar'
 
 function CardShell({ label, children }: { label: string; children: React.ReactNode }) {
@@ -66,24 +59,17 @@ export function SeverityKpiCard({
    * otherwise, same as before that table existed. */
   lens: KpiVisibilityLens
 }) {
-  const defaultGrain = defaultGrainFor(result.kpi.id, lens) ?? (globalFilters.grain as Grain)
-  // Stores only the card's own pick, tagged with the default grain it was made under - so the card
-  // follows that default until picked, and a later change to it (Timeline filter, or lens) drops a
-  // stale pick.
-  const [grainPick, setGrainPick] = useState<{ baseGrain: Grain; grain: Grain } | null>(null)
-  const grain = grainPick?.baseGrain === defaultGrain ? grainPick.grain : defaultGrain
-  const setGrain = (next: Grain) => setGrainPick({ baseGrain: defaultGrain, grain: next })
+  const { grain, setGrain, cardFilters } = useCardGrain(result.kpi.id, lens, globalFilters)
   const [viewMode, setViewMode] = useState<ViewMode>('line')
   const [detailOpen, setDetailOpen] = useState(false)
 
   const { kpi, isLoading, isError } = result
-  const cardFilters = { ...globalFilters, ...getGrainDateRange(grain), grain }
-  const { extraStates, setExtraState, extraParams, optionsFor, filterOptionsLoading } =
-    useExtraFilters(domain, kpi, cardFilters, detailOpen)
+  const filters = useExtraFilters(domain, kpi, cardFilters, detailOpen)
+  const { extraStates, setExtraState, extraParams, optionsFor, filterOptionsLoading } = filters
   // Untouched filters match the board-level `result` fetch - only count them as "overridden" once
   // the user actually touches one, so mount doesn't immediately refire an identical fetch.
   const [filtersTouched, setFiltersTouched] = useState(false)
-  // Surfaced next to the title (filters themselves live only in the expanded view) so it's always clear
+  // Surfaced next to the title (not just inside the Filters popover) so it's always clear
   // which required-select value the card's data currently reflects.
   const requiredSelects = kpi.extraFilters
     .map((filter, i) => ({ filter, i }))
@@ -122,10 +108,34 @@ export function SeverityKpiCard({
     { enabled: isOverridden || isRootCause },
   )
   const rootCauseOptions = isRootCause ? listRootCauseDimensions(overrideQuery.data ?? []) : []
+  // One control for both the compact Filters popover and the expanded view's pills.
+  const rootCausePicker = isRootCause && (
+    <label className={FILTER_PILL_CLASS}>
+      <span className="text-muted-foreground">Root cause:</span>
+      <select
+        className="bg-transparent font-semibold outline-none"
+        value={rootCauseDimension ?? ''}
+        onChange={(e) => setRootCauseDimension(e.target.value || null)}
+      >
+        <option value="">Auto (highest, latest period)</option>
+        {rootCauseOptions.map((option) => (
+          <option key={option.kpiId} value={option.kpiId}>
+            {option.dimension}
+          </option>
+        ))}
+      </select>
+    </label>
+  )
   const rootCauseEffectiveKpiId = isRootCause
     ? (rootCauseDimension ?? pickMaximalRootCauseDimension(overrideQuery.data ?? []))
     : null
-  const metrics = isRootCause
+  // A failed card-level fetch (the user's own filter/grain pick, or Root Cause's own data) keeps the
+  // card and its controls on screen - swapping it for "Request failed." would leave nothing to undo
+  // the pick with. It shows as empty data instead, with the error in the chart area.
+  const overrideFailed = (isOverridden || isRootCause) && overrideQuery.isError
+  const metrics = overrideFailed
+    ? deriveKpiMetrics(kpi.id, [])
+    : isRootCause
     ? deriveKpiMetrics(
         rootCauseEffectiveKpiId ?? kpi.id,
         rootCauseEffectiveKpiId ? filterRootCauseRowsToDimension(overrideQuery.data ?? [], rootCauseEffectiveKpiId) : [],
@@ -139,7 +149,7 @@ export function SeverityKpiCard({
   // over, but a background refetch for the new selection is still in flight.
   const showingStaleOverride = (isOverridden || isRootCause) && overrideQuery.isFetching
   const effectiveIsLoading = isRootCause ? overrideQuery.isLoading : isLoading
-  const effectiveIsError = isRootCause ? overrideQuery.isError : isError || (isOverridden && overrideQuery.isError)
+  const effectiveIsError = !isRootCause && !isOverridden && isError
 
   if (effectiveIsLoading) {
     return <CardShell label={kpi.label}>Loading…</CardShell>
@@ -203,18 +213,13 @@ export function SeverityKpiCard({
               </button>
             ))}
           </div>
-          <div className="flex overflow-hidden rounded-md border" style={{ borderColor: meta.paleHex }}>
-            {GRAIN_OPTIONS.map((g) => (
-              <button
-                key={g.value}
-                onClick={() => setGrain(g.value)}
-                className={cn('px-1.5 py-0.5 text-[8px] font-bold', g.value !== grain && 'text-muted-foreground')}
-                style={g.value === grain ? { backgroundColor: meta.solidHex, color: 'white' } : undefined}
-              >
-                {g.label}
-              </button>
-            ))}
-          </div>
+          <GrainToggle grain={grain} onChange={setGrain} activeHex={meta.solidHex} borderHex={meta.paleHex} />
+          <FiltersPopoverButton
+            kpi={kpi}
+            filters={filters}
+            onExtraStateChange={handleExtraStateChange}
+            extra={rootCausePicker}
+          />
           <button className="text-muted-foreground hover:text-foreground" onClick={() => setDetailOpen(true)} title="Expand view">
             <Maximize2 className="size-3.5" />
           </button>
@@ -225,8 +230,13 @@ export function SeverityKpiCard({
       the whole row) would otherwise blow the chart up to match its full width. */}
       <div className={cn('h-40 w-full', showingStaleOverride && 'opacity-40')}>
         {!hasData ? (
-          <div className="flex h-full items-center justify-center text-center text-[11px] text-muted-foreground">
-            No data for this selection.
+          <div
+            className={cn(
+              'flex h-full items-center justify-center text-center text-[11px]',
+              overrideFailed ? 'text-destructive' : 'text-muted-foreground',
+            )}
+          >
+            {overrideFailed ? 'Request failed - change the filter or grain to retry.' : 'No data for this selection.'}
           </div>
         ) : (
         <ResponsiveContainer width="100%" height="100%">
@@ -322,25 +332,7 @@ export function SeverityKpiCard({
           onExtraStateChange={handleExtraStateChange}
           optionsFor={optionsFor}
           filterOptionsLoading={filterOptionsLoading}
-          filterExtra={
-            isRootCause && (
-              <label className={FILTER_PILL_CLASS}>
-                <span className="text-muted-foreground">Root cause:</span>
-                <select
-                  className="bg-transparent font-semibold outline-none"
-                  value={rootCauseDimension ?? ''}
-                  onChange={(e) => setRootCauseDimension(e.target.value || null)}
-                >
-                  <option value="">Auto (highest, latest period)</option>
-                  {rootCauseOptions.map((option) => (
-                    <option key={option.kpiId} value={option.kpiId}>
-                      {option.dimension}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )
-          }
+          filterExtra={rootCausePicker}
           onClose={() => setDetailOpen(false)}
         />
       )}
