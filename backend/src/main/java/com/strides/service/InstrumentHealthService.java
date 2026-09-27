@@ -5,7 +5,6 @@ import com.strides.repository.AggLimsBreakdownsFrequencyRepository;
 import com.strides.repository.AggLimsCalPmComplianceRepository;
 import com.strides.repository.AggLimsInstrumentFailureRateRepository;
 import com.strides.repository.AggLimsInstrumentUtilizationRepository;
-import com.strides.repository.AggLimsQualificationCycleTimeRepository;
 import com.strides.service.kpi.PeriodCombiner;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -27,8 +26,6 @@ public class InstrumentHealthService {
     AggLimsBreakdownsFrequencyRepository breakdownsFrequencyRepository;
     @Inject
     AggLimsInstrumentFailureRateRepository failureRateRepository;
-    @Inject
-    AggLimsQualificationCycleTimeRepository qualificationCycleTimeRepository;
 
     /**
      * utilization_pct = sum_capped_usage_hours / sum_available_time (used hours over available hours).
@@ -112,17 +109,6 @@ public class InstrumentHealthService {
                         "instrument-failure-rate", "Instrument Failure Rate", row.failureRate(), "ratio",
                         null, row.grain(), row.periodStart(), null))
                 .toList();
-    }
-
-    /** designation: comma-separated list to combine, or null/blank for ALL (designation is now a real identity/role column, confirmed live). */
-    public List<KpiCardResponse> getQualificationCycleTime(String siteName, String designation, String grain, LocalDate from, LocalDate to) {
-        Set<String> selected = PeriodCombiner.parseSelection(designation);
-        var totals = qualificationCycleTimeRepository.findTotals(siteName, selected, grain, from, to);
-        return PeriodCombiner.fromTotals(totals, 1, "qualification-cycle-time", "Qualification Cycle Time", "days");
-    }
-
-    public Map<String, List<String>> getQualificationCycleTimeFilterOptions(String siteName, String grain, LocalDate from, LocalDate to) {
-        return qualificationCycleTimeRepository.filterOptions(siteName, grain, from, to);
     }
 
     /** instGroup's live option list - shared by utilization/availability/downtime (same underlying table/column). */

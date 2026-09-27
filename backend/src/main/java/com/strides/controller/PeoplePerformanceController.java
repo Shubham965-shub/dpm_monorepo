@@ -67,4 +67,18 @@ public class PeoplePerformanceController {
         return service.getTrainingCompletionRateFilterOptions(p.site, p.department, p.trainingType,
                 RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
     }
+
+    @GET
+    @Path("/qualification-cycle-time")
+    public List<KpiCardResponse> qualificationCycleTime(@BeanParam KpiParams.WithDesignation p) {
+        return service.getQualificationCycleTime(p.site, p.designation,
+                RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
+    }
+
+    @GET
+    @Path("/qualification-cycle-time/filter-options")
+    public Map<String, List<String>> qualificationCycleTimeFilterOptions(@BeanParam KpiParams.WithDesignation p) {
+        return service.getQualificationCycleTimeFilterOptions(p.site,
+                RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
+    }
 }

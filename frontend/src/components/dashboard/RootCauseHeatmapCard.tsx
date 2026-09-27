@@ -9,7 +9,11 @@ import type { Grain } from '@/lib/kpiSchemas'
 import type { KpiCardResponse } from '@/lib/kpiSchemas'
 import { useKpiData, type GlobalKpiFilters } from '@/hooks/useKpiData'
 import { useExtraFilters } from '@/hooks/useExtraFilters'
+import { useCardGrain } from '@/hooks/useCardGrain'
+import type { KpiVisibilityLens } from '@/lib/roleAccess'
 import { emptyStateFor } from '@/components/kpi/KpiChartCard'
+import { FiltersPopoverButton } from '@/components/kpi/FiltersPopoverButton'
+import { GrainToggle } from '@/components/kpi/GrainToggle'
 import { SEVERITY_META, type Severity } from './types'
 import { RootCauseHeatmapDetailModal } from './RootCauseHeatmapDetailModal'
 
@@ -157,20 +161,23 @@ export function RootCauseHeatmapCard({
   kpi,
   globalFilters,
   severity,
+  lens,
 }: {
   domain: KpiDomain
   kpi: KpiDefinition
   globalFilters: GlobalKpiFilters
   severity: Severity | null
+  /** Picks the card's default D/W/M/Q/Y grain - see useCardGrain. */
+  lens: KpiVisibilityLens
 }) {
   const [detailOpen, setDetailOpen] = useState(false)
-  const { extraStates, setExtraState, extraParams, requiredSelectMissing, optionsFor, filterOptionsLoading } =
-    useExtraFilters(domain, kpi, globalFilters, detailOpen)
+  const { grain, setGrain, cardFilters } = useCardGrain(kpi.id, lens, globalFilters)
+  const filters = useExtraFilters(domain, kpi, cardFilters, detailOpen)
+  const { extraStates, setExtraState, extraParams, requiredSelectMissing, optionsFor, filterOptionsLoading } = filters
 
-  const query = useKpiData(domain, kpi, globalFilters, extraParams)
+  const query = useKpiData(domain, kpi, cardFilters, extraParams)
   const { dimensionRows, periods, max } = useMemo(() => buildHeatmap(query.data ?? []), [query.data])
   const emptyState = emptyStateFor(requiredSelectMissing, query, dimensionRows.length === 0)
-  const grain = globalFilters.grain as Grain
   const meta = SEVERITY_META[severity ?? 'in-control']
 
   return (
@@ -181,6 +188,8 @@ export function RootCauseHeatmapCard({
       <div className="flex items-start justify-between gap-2">
         <h3 className="line-clamp-2 text-xl font-semibold text-gray-700">{kpi.label}</h3>
         <div className="flex shrink-0 items-center gap-1">
+          <GrainToggle grain={grain} onChange={setGrain} activeHex={meta.solidHex} borderHex={meta.paleHex} />
+          <FiltersPopoverButton kpi={kpi} filters={filters} />
           <button className="text-muted-foreground hover:text-foreground" onClick={() => setDetailOpen(true)} title="Expand view">
             <Maximize2 className="size-3.5" />
           </button>
@@ -202,6 +211,7 @@ export function RootCauseHeatmapCard({
           periods={periods}
           max={max}
           grain={grain}
+          onGrainChange={setGrain}
           extraStates={extraStates}
           onExtraStateChange={setExtraState}
           optionsFor={optionsFor}

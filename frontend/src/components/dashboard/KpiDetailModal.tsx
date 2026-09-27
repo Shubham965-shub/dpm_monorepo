@@ -19,18 +19,13 @@ import { computeValueDomain, type KpiMetrics } from '@/hooks/useDomainTrendKpis'
 import type { ExtraFilterState } from '@/components/kpi/ExtraFilterControl'
 import { FilterPills } from '@/components/kpi/FilterPills'
 import { KpiLineTooltip } from '@/components/kpi/KpiLineTooltip'
-import { boundaryHex, boundaryLines, boundaryZones, severityMeta, type Severity } from './types'
+import { KpiInfoDropdown } from '@/components/kpi/KpiInfoDropdown'
+import { GrainToggle } from '@/components/kpi/GrainToggle'
+import { SEVERITY_META, boundaryHex, boundaryLines, boundaryZones, severityMeta, type Severity } from './types'
 import { renderBoundaryOverlay } from './boundaryOverlay'
 
 const MODAL_OVERLAY_STYLE = { strokeWidth: 1, labelFontSize: 10 }
 
-const GRAIN_OPTIONS: { value: Grain; label: string }[] = [
-  { value: 'daily', label: 'D' },
-  { value: 'weekly', label: 'W' },
-  { value: 'monthly', label: 'M' },
-  { value: 'quarterly', label: 'Q' },
-  { value: 'yearly', label: 'Y' },
-]
 
 function ThresholdRow({ label, value, unit, colorHex }: { label: string; value: number | null; unit: string | null; colorHex: string }) {
   return (
@@ -131,26 +126,19 @@ export function KpiDetailModal({
                 {meta.label}
               </span>
             </div>
-            <div className="text-muted-foreground mt-2 flex flex-wrap gap-x-4 text-xs">
-              <span>
-                KPI: <strong className="text-foreground">{directionLabel}</strong>
+            <div className="mt-3 flex items-center gap-x-6">
+              <KpiInfoDropdown kpiId={kpi.id} />
+              <span
+                className="shrink-0 text-sm font-bold tracking-wider whitespace-nowrap capitalize"
+                style={{ color: thresholds ? SEVERITY_META['in-control'].solidHex : undefined }}
+              >
+                KPI: {directionLabel}
               </span>
             </div>
           </div>
 
-          <div className="flex flex-col items-end gap-3">
-            <div className="flex overflow-hidden rounded-md border border-input">
-              {GRAIN_OPTIONS.map((g) => (
-                <button
-                  key={g.value}
-                  onClick={() => onGrainChange(g.value)}
-                  className="px-2.5 py-1 text-xs font-bold"
-                  style={g.value === grain ? { backgroundColor: meta.solidHex, color: 'white' } : { color: 'var(--muted-foreground)' }}
-                >
-                  {g.label}
-                </button>
-              ))}
-            </div>
+          <div className="flex shrink-0 flex-col items-end gap-3">
+            <GrainToggle grain={grain} onChange={onGrainChange} activeHex={meta.solidHex} size="modal" />
             <FilterPills
               kpi={kpi}
               extraStates={extraStates}

@@ -4,7 +4,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import type { ExtraFilter } from '@/lib/kpiConfig'
 import type { ExtraParams } from '@/hooks/useKpiData'
 import { fuzzyMatch } from '@/lib/fuzzyMatch'
-import { summarizeFilter } from '@/lib/filterLabels'
+import { filterLabel, summarizeFilter } from '@/lib/filterLabels'
 import { cn } from '@/lib/utils'
 
 export type ExtraFilterState =
@@ -192,7 +192,7 @@ export function ExtraFilterControl({
     }
     return (
       <label className="flex flex-col gap-1">
-        <span className={labelClass}>{filter.param}{filter.required ? ' *' : ''}</span>
+        <span className={labelClass}>{filterLabel(filter.param)}{filter.required ? ' *' : ''}</span>
         <select className={inputClass} value={state.value} onChange={(e) => onChange({ kind: 'select', value: e.target.value })}>
           {!filter.required && <option value="">All</option>}
           {filter.required && state.value === '' && (
@@ -216,7 +216,7 @@ export function ExtraFilterControl({
     // trigger button summarizes the current selection, the popover holds the actual search+list.
     return (
       <fieldset className="flex flex-col gap-1">
-        <span className={labelClass}>{filter.param}</span>
+        <span className={labelClass}>{filterLabel(filter.param)}</span>
         {noOptions ? (
           empty
         ) : (
@@ -248,7 +248,7 @@ export function ExtraFilterControl({
     if (variant === 'panel') return input
     return (
       <label className="flex flex-col gap-1">
-        <span className={labelClass}>{filter.param}</span>
+        <span className={labelClass}>{filterLabel(filter.param)}</span>
         {input}
       </label>
     )

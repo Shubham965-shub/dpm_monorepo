@@ -112,7 +112,7 @@ export function SectionSummaryList({
             const hostId = HEATMAP_COMPANION_HOST_ID[kpi.id]
             if (hostId) {
               companions.set(hostId, (severity) => (
-                <RootCauseHeatmapCard key={kpi.id} domain={domain} kpi={kpi} globalFilters={globalFilters} severity={severity} />
+                <RootCauseHeatmapCard key={kpi.id} domain={domain} kpi={kpi} globalFilters={globalFilters} severity={severity} lens={lens} />
               ))
             }
           }
@@ -155,7 +155,7 @@ export function SectionSummaryList({
                 {stackedKpis.length > 0 && (
                   <div className="flex flex-col gap-3 p-4">
                     {stackedKpis.map((kpi) => (
-                      <PriorityComplianceCard key={kpi.id} domain={domain} kpi={kpi} globalFilters={globalFilters} />
+                      <PriorityComplianceCard key={kpi.id} domain={domain} kpi={kpi} globalFilters={globalFilters} lens={lens} />
                     ))}
                   </div>
                 )}
@@ -165,7 +165,7 @@ export function SectionSummaryList({
                   // chart floating with dead space below it instead of sizing to its own content.
                   <div className={cn(KPI_CARD_GRID_CLASS, 'p-4')}>
                     {rankingKpis.map((kpi) => (
-                      <KpiRankingBarCard key={kpi.id} domain={domain} kpi={kpi} globalFilters={globalFilters} />
+                      <KpiRankingBarCard key={kpi.id} domain={domain} kpi={kpi} globalFilters={globalFilters} lens={lens} />
                     ))}
                   </div>
                 )}

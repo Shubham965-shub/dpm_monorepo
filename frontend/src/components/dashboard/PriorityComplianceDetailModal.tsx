@@ -6,6 +6,8 @@ import type { ExtraFilter, KpiDefinition } from '@/lib/kpiConfig'
 import type { Grain } from '@/lib/kpiSchemas'
 import type { ExtraFilterState } from '@/components/kpi/ExtraFilterControl'
 import { FilterPills } from '@/components/kpi/FilterPills'
+import { KpiInfoDropdown } from '@/components/kpi/KpiInfoDropdown'
+import { GrainToggle } from '@/components/kpi/GrainToggle'
 import { SEVERITY_META } from './types'
 import { ComplianceTooltip, type PeriodPoint } from './PriorityComplianceCard'
 
@@ -28,6 +30,7 @@ export function PriorityComplianceDetailModal({
   onExtraStateChange,
   optionsFor,
   filterOptionsLoading,
+  onGrainChange,
   onClose,
 }: {
   domainLabel: string
@@ -40,6 +43,8 @@ export function PriorityComplianceDetailModal({
   onExtraStateChange: (i: number, next: ExtraFilterState) => void
   optionsFor: (filter: ExtraFilter) => string[]
   filterOptionsLoading: boolean
+  /** Shares the compact card's grain (see useCardGrain), same as its filters. */
+  onGrainChange: (grain: Grain) => void
   onClose: () => void
 }) {
   return (
@@ -62,14 +67,20 @@ export function PriorityComplianceDetailModal({
               {domainLabel} · {kpi.id}
             </div>
             <h2 className="text-2xl font-bold">{kpi.label}</h2>
+            <div className="mt-3">
+              <KpiInfoDropdown kpiId={kpi.id} />
+            </div>
           </div>
-          <FilterPills
-            kpi={kpi}
-            extraStates={extraStates}
-            onExtraStateChange={onExtraStateChange}
-            optionsFor={optionsFor}
-            filterOptionsLoading={filterOptionsLoading}
-          />
+          <div className="flex flex-col items-end gap-3">
+            <GrainToggle grain={grain} onChange={onGrainChange} activeHex={GREEN.solidHex} size="modal" />
+            <FilterPills
+              kpi={kpi}
+              extraStates={extraStates}
+              onExtraStateChange={onExtraStateChange}
+              optionsFor={optionsFor}
+              filterOptionsLoading={filterOptionsLoading}
+            />
+          </div>
         </div>
 
         <div className="p-6">

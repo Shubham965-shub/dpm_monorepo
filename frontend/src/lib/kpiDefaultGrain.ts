@@ -13,11 +13,10 @@ import type { KpiVisibilityLens } from './roleAccess'
  * the two columns agree on every row except `priority-sample-compliance` (Manager=D, HOD=W), where
  * HOD's slower cadence was picked.
  *
- * KPIs rendered by something other than SeverityKpiCard (PriorityComplianceCard's
- * priority-sample-compliance, RootCauseHeatmapCard's root-cause-consolidated, KpiRankingBarCard's
- * capa-aging-status/human-error-by-product/product-wise-failure) are still listed here for
- * completeness even though nothing currently reads their entry - none of those card types has a
- * grain toggle to default.
+ * Read through useCardGrain by every KPI card's D/W/M/Q/Y toggle - SeverityKpiCard,
+ * PriorityComplianceCard (priority-sample-compliance), RootCauseHeatmapCard
+ * (root-cause-consolidated) and KpiRankingBarCard
+ * (capa-aging-status/human-error-by-product/product-wise-failure).
  */
 export const KPI_DEFAULT_GRAIN: Partial<Record<string, Partial<Record<KpiVisibilityLens, Grain>>>> = {
   'sample-tat': { operator: 'daily', supervisor: 'daily', leadership: 'weekly', cxo: 'monthly' },

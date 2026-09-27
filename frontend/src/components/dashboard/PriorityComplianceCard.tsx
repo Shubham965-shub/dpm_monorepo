@@ -8,7 +8,11 @@ import type { KpiDomain, KpiDefinition } from '@/lib/kpiConfig'
 import type { Grain, KpiCardResponse } from '@/lib/kpiSchemas'
 import { useKpiData, type GlobalKpiFilters } from '@/hooks/useKpiData'
 import { useExtraFilters } from '@/hooks/useExtraFilters'
+import { useCardGrain } from '@/hooks/useCardGrain'
+import type { KpiVisibilityLens } from '@/lib/roleAccess'
 import { emptyStateFor } from '@/components/kpi/KpiChartCard'
+import { FiltersPopoverButton } from '@/components/kpi/FiltersPopoverButton'
+import { GrainToggle } from '@/components/kpi/GrainToggle'
 import { SEVERITY_META } from './types'
 import { PriorityComplianceDetailModal } from './PriorityComplianceDetailModal'
 
@@ -114,16 +118,20 @@ export function PriorityComplianceCard({
   domain,
   kpi,
   globalFilters,
+  lens,
 }: {
   domain: KpiDomain
   kpi: KpiDefinition
   globalFilters: GlobalKpiFilters
+  /** Picks the card's default D/W/M/Q/Y grain - see useCardGrain. */
+  lens: KpiVisibilityLens
 }) {
   const [detailOpen, setDetailOpen] = useState(false)
-  const { extraStates, setExtraState, extraParams, optionsFor, filterOptionsLoading } =
-    useExtraFilters(domain, kpi, globalFilters, detailOpen)
+  const { grain, setGrain, cardFilters } = useCardGrain(kpi.id, lens, globalFilters)
+  const filters = useExtraFilters(domain, kpi, cardFilters, detailOpen)
+  const { extraStates, setExtraState, extraParams, optionsFor, filterOptionsLoading } = filters
 
-  const query = useKpiData(domain, kpi, globalFilters, extraParams)
+  const query = useKpiData(domain, kpi, cardFilters, extraParams)
   const { tiers, points } = useMemo(() => toStackedData(query.data ?? []), [query.data])
   const emptyState = emptyStateFor(false, query, points.length === 0)
   // Darkest = P1 (or whichever tier sorts first numerically), lightest = the highest-numbered
@@ -151,6 +159,8 @@ export function PriorityComplianceCard({
           )}
         </div>
         <div className="flex shrink-0 items-center gap-1">
+          <GrainToggle grain={grain} onChange={setGrain} activeHex={GREEN.solidHex} borderHex={GREEN.paleHex} />
+          <FiltersPopoverButton kpi={kpi} filters={filters} />
           <button className="text-muted-foreground hover:text-foreground" onClick={() => setDetailOpen(true)} title="Expand view">
             <Maximize2 className="size-3.5" />
           </button>
@@ -164,7 +174,7 @@ export function PriorityComplianceCard({
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis
                 dataKey="periodStart"
-                tickFormatter={(v: string) => formatPeriodTick(v, globalFilters.grain as Grain)}
+                tickFormatter={(v: string) => formatPeriodTick(v, grain)}
                 interval="preserveStartEnd"
                 tick={{ fontSize: 10 }}
                 stroke="var(--muted-foreground)"
@@ -177,7 +187,7 @@ export function PriorityComplianceCard({
                 width={36}
               />
               <Tooltip
-                content={(props) => <ComplianceTooltip {...props} grain={globalFilters.grain} />}
+                content={(props) => <ComplianceTooltip {...props} grain={grain} />}
                 wrapperStyle={{ zIndex: TOOLTIP_Z_INDEX }}
               />
               {tiers.map((tier, i) => (
@@ -197,11 +207,12 @@ export function PriorityComplianceCard({
       {detailOpen && (
         <PriorityComplianceDetailModal
           domainLabel={domain.label}
+          onGrainChange={setGrain}
           kpi={kpi}
           tiers={tiers}
           points={points}
           colors={colors}
-          grain={globalFilters.grain as Grain}
+          grain={grain}
           extraStates={extraStates}
           onExtraStateChange={setExtraState}
           optionsFor={optionsFor}

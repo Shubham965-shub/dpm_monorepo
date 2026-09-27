@@ -5,7 +5,11 @@ import { TOOLTIP_Z_INDEX } from '@/lib/chartPalette'
 import type { KpiDomain, KpiDefinition } from '@/lib/kpiConfig'
 import { useKpiData, type GlobalKpiFilters } from '@/hooks/useKpiData'
 import { useExtraFilters } from '@/hooks/useExtraFilters'
+import { useCardGrain } from '@/hooks/useCardGrain'
+import type { KpiVisibilityLens } from '@/lib/roleAccess'
 import { toBarData, emptyStateFor, type BarRow } from '@/components/kpi/KpiChartCard'
+import { FiltersPopoverButton } from '@/components/kpi/FiltersPopoverButton'
+import { GrainToggle } from '@/components/kpi/GrainToggle'
 import { SEVERITY_META, rankingValueDomain } from './types'
 import { KpiRankingBarDetailModal } from './KpiRankingBarDetailModal'
 
@@ -105,16 +109,20 @@ export function KpiRankingBarCard({
   domain,
   kpi,
   globalFilters,
+  lens,
 }: {
   domain: KpiDomain
   kpi: KpiDefinition
   globalFilters: GlobalKpiFilters
+  /** Picks the card's default D/W/M/Q/Y grain - see useCardGrain. */
+  lens: KpiVisibilityLens
 }) {
   const [detailOpen, setDetailOpen] = useState(false)
-  const { extraStates, setExtraState, extraParams, requiredSelectMissing, optionsFor, filterOptionsLoading } =
-    useExtraFilters(domain, kpi, globalFilters, detailOpen)
+  const { grain, setGrain, cardFilters } = useCardGrain(kpi.id, lens, globalFilters)
+  const filters = useExtraFilters(domain, kpi, cardFilters, detailOpen)
+  const { extraStates, setExtraState, extraParams, requiredSelectMissing, optionsFor, filterOptionsLoading } = filters
 
-  const query = useKpiData(domain, kpi, globalFilters, extraParams)
+  const query = useKpiData(domain, kpi, cardFilters, extraParams)
   const rankingData = useMemo(() => toBarData(query.data ?? []), [query.data])
   const valueDomain = rankingValueDomain(rankingData)
   const emptyState = emptyStateFor(requiredSelectMissing, query, rankingData.length === 0)
@@ -133,6 +141,8 @@ export function KpiRankingBarCard({
       <div className="flex items-start justify-between gap-2">
         <h3 className="line-clamp-2 text-xl font-semibold text-gray-700">{kpi.label}</h3>
         <div className="flex shrink-0 items-center gap-1">
+          <GrainToggle grain={grain} onChange={setGrain} activeHex={GREEN.solidHex} borderHex={GREEN.paleHex} />
+          <FiltersPopoverButton kpi={kpi} filters={filters} />
           <button className="text-muted-foreground hover:text-foreground" onClick={() => setDetailOpen(true)} title="Expand view">
             <Maximize2 className="size-3.5" />
           </button>
@@ -172,6 +182,8 @@ export function KpiRankingBarCard({
       {detailOpen && (
         <KpiRankingBarDetailModal
           domainLabel={domain.label}
+          grain={grain}
+          onGrainChange={setGrain}
           kpi={kpi}
           rankingData={rankingData}
           notes={notes}

@@ -69,6 +69,19 @@ public class KpiThresholdConfigRepository extends AbstractAggRepository<KpiThres
             "root-cause-by-", "KPI-024",
             "root-cause-consolidated-", "KPI-025");
 
+    /**
+     * Dashboard card ids (frontend kpiConfig.ts) that aren't themselves a series id above - either
+     * named differently from their series, or left out of colouring on purpose but still a
+     * catalogue KPI with reference text (the heatmap views, CAPA Aging's category ranking).
+     */
+    private static final Map<String, String> CARD_ONLY_TO_KPI_ID = Map.of(
+            "availability", "KPI-022",
+            "downtime", "KPI-023",
+            "failure-rate", "KPI-007",
+            "root-cause", "KPI-024",
+            "root-cause-consolidated", "KPI-025",
+            "capa-aging-status", "KPI-032");
+
     public List<KpiThresholdConfigRow> findAll() {
         return query(SELECT_CATALOGUE + " ORDER BY \"KPI_ID\"", KpiThresholdConfigRepository::mapRow);
     }
@@ -89,6 +102,12 @@ public class KpiThresholdConfigRepository extends AbstractAggRepository<KpiThres
                     .orElse(null);
         }
         return Optional.ofNullable(kpiId);
+    }
+
+    /** A dashboard card id -> its catalogue KPI_ID; most card ids are also their series id. In-memory only. */
+    public Optional<String> findKpiIdForCard(String cardKpiId) {
+        String kpiId = CARD_ONLY_TO_KPI_ID.get(cardKpiId);
+        return kpiId != null ? Optional.of(kpiId) : findKpiIdForSeries(cardKpiId);
     }
 
     private static KpiThresholdConfigRow mapRow(ResultSet rs) throws SQLException {
