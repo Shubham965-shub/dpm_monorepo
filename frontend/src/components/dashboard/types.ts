@@ -19,6 +19,14 @@ import type { BarRow } from '@/components/kpi/KpiChartCard'
  */
 export const KPI_CARD_GRID_CLASS = 'grid grid-cols-[repeat(auto-fill,minmax(max(200px,calc(33.333%-0.5rem)),400px))] items-start gap-3'
 
+/** Stable DOM id for a KPI's own card, wherever it renders (SeverityKpiCard, KpiRankingBarCard,
+ * PriorityComplianceCard, RootCauseHeatmapCard) - lets the Overall Heatmap scroll straight to a
+ * KPI's real card when that KPI's cell is clicked (see OverallHeatmapDemo's onKpiClick and
+ * SectionSummaryList's scrollToKpi). */
+export function kpiAnchorId(kpiId: string): string {
+  return `kpi-card-${kpiId}`
+}
+
 export type RagStatus = 'action' | 'alert' | 'in-control' | 'no-data'
 
 export interface HeatmapCell {
@@ -93,15 +101,17 @@ export const SEVERITY_META: Record<
 
 type SeverityMeta = (typeof SEVERITY_META)[Severity]
 
-// Neutral grey for a KPI with no configured threshold - it has data, just no colour judgement, so
-// it must not borrow a severity's styling (a green border would read as "On Track").
+// Plain black-and-white for a KPI with no configured threshold - it has data, just no colour
+// judgement, so it must not borrow a severity's styling (even a pale tint would read as a real
+// band) or default to any particular colour at all: no background tint (plain white card,
+// matching the page's own background), and the chart/border/value render in flat black.
 const NO_THRESHOLD_META: SeverityMeta = {
   label: 'No threshold',
-  solidHex: '#6b7280',
+  solidHex: '#000000',
   paleHex: '#e5e7eb',
-  cardBg: '#fafafa',
-  bandBg: '#f9fafb',
-  pillDotHex: '#d1d5db',
+  cardBg: '#ffffff',
+  bandBg: '#ffffff',
+  pillDotHex: '#000000',
 }
 
 export function severityMeta(severity: Severity | null): SeverityMeta {

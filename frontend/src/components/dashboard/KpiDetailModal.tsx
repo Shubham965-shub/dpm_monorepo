@@ -12,7 +12,7 @@ import {
 } from 'recharts'
 import { CATEGORICAL_PALETTE, MAX_SERIES, TOOLTIP_Z_INDEX } from '@/lib/chartPalette'
 import type { Grain } from '@/lib/kpiSchemas'
-import { formatPeriodTick } from '@/lib/periodFormat'
+import { evenTickInterval, formatPeriodTick } from '@/lib/periodFormat'
 import { formatAxisTick } from '@/lib/format'
 import type { ExtraFilter, KpiDefinition } from '@/lib/kpiConfig'
 import { computeValueDomain, type KpiMetrics } from '@/hooks/useDomainTrendKpis'
@@ -170,7 +170,7 @@ export function KpiDetailModal({
                 <XAxis
                   dataKey="periodStart"
                   tickFormatter={(v: string) => formatPeriodTick(v, grain)}
-                  interval="preserveStartEnd"
+                  interval={evenTickInterval(chartData.length)}
                   tick={{ fontSize: 10 }}
                   stroke="var(--muted-foreground)"
                 />

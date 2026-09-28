@@ -1,7 +1,7 @@
 import { X } from 'lucide-react'
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { TOOLTIP_Z_INDEX } from '@/lib/chartPalette'
-import { formatPeriodTick } from '@/lib/periodFormat'
+import { evenTickInterval, formatPeriodTick } from '@/lib/periodFormat'
 import type { ExtraFilter, KpiDefinition } from '@/lib/kpiConfig'
 import type { Grain } from '@/lib/kpiSchemas'
 import type { ExtraFilterState } from '@/components/kpi/ExtraFilterControl'
@@ -94,7 +94,7 @@ export function PriorityComplianceDetailModal({
                   <XAxis
                     dataKey="periodStart"
                     tickFormatter={(v: string) => formatPeriodTick(v, grain)}
-                    interval="preserveStartEnd"
+                    interval={evenTickInterval(points.length)}
                     tick={{ fontSize: 11 }}
                     stroke="var(--muted-foreground)"
                   />

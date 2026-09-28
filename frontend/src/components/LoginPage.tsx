@@ -55,7 +55,7 @@ export function LoginPage() {
           </svg>
           <div className="dpm-login__mark-bar" />
           <div>
-            <strong>DPM</strong>
+            <strong>Helios</strong>
             <span>PERFORMANCE MONITORING</span>
           </div>
         </div>

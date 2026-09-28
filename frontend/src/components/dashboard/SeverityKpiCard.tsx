@@ -20,7 +20,7 @@ import type { ExtraFilterState } from '@/components/kpi/ExtraFilterControl'
 import { FiltersPopoverButton } from '@/components/kpi/FiltersPopoverButton'
 import { GrainToggle } from '@/components/kpi/GrainToggle'
 import { KpiLineTooltip } from '@/components/kpi/KpiLineTooltip'
-import { boundaryHex, boundaryLines, boundaryZones, severityMeta } from './types'
+import { boundaryHex, boundaryLines, boundaryZones, kpiAnchorId, severityMeta } from './types'
 import { renderBoundaryOverlay } from './boundaryOverlay'
 import { KpiDetailModal } from './KpiDetailModal'
 import { LegendEntry } from './LegendEntry'
@@ -30,9 +30,9 @@ const CARD_OVERLAY_STYLE = { strokeWidth: 1.5, labelFontSize: 9 }
 
 type ViewMode = 'line' | 'bar'
 
-function CardShell({ label, children }: { label: string; children: React.ReactNode }) {
+function CardShell({ id, label, children }: { id: string; label: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-2 rounded-xl border border-border bg-card p-3">
+    <div id={id} className="flex flex-col gap-2 rounded-xl border border-border bg-card p-3">
       <h3 className="line-clamp-2 text-xl font-semibold text-gray-700">{label}</h3>
       <div className="flex h-24 items-center justify-center text-center text-[11px] text-muted-foreground">
         {children}
@@ -153,10 +153,10 @@ export function SeverityKpiCard({
   const effectiveIsError = !isRootCause && !isOverridden && isError
 
   if (effectiveIsLoading) {
-    return <CardShell label={kpi.label}>Loading…</CardShell>
+    return <CardShell id={kpiAnchorId(kpi.id)} label={kpi.label}>Loading…</CardShell>
   }
   if (effectiveIsError) {
-    return <CardShell label={kpi.label}>Request failed.</CardShell>
+    return <CardShell id={kpiAnchorId(kpi.id)} label={kpi.label}>Request failed.</CardShell>
   }
 
   // A filter/grain selection can legitimately narrow a KPI down to zero matching rows - that
@@ -180,6 +180,7 @@ export function SeverityKpiCard({
 
   return (
     <div
+      id={kpiAnchorId(kpi.id)}
       className="flex flex-col gap-2 rounded-xl border-t border-r border-b p-3"
       style={{ backgroundColor: meta.cardBg, borderColor: meta.solidHex, borderLeftWidth: 3, borderLeftColor: meta.solidHex }}
     >

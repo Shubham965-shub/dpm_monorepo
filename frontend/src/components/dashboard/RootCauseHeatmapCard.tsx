@@ -14,7 +14,7 @@ import type { KpiVisibilityLens } from '@/lib/roleAccess'
 import { emptyStateFor } from '@/components/kpi/KpiChartCard'
 import { FiltersPopoverButton } from '@/components/kpi/FiltersPopoverButton'
 import { GrainToggle } from '@/components/kpi/GrainToggle'
-import { SEVERITY_META, type Severity } from './types'
+import { SEVERITY_META, kpiAnchorId, type Severity } from './types'
 import { RootCauseHeatmapDetailModal } from './RootCauseHeatmapDetailModal'
 
 // 6 tick labels (5 equal segments) - matches the reference Power BI heatmap's own legend spacing.
@@ -182,6 +182,7 @@ export function RootCauseHeatmapCard({
 
   return (
     <div
+      id={kpiAnchorId(kpi.id)}
       className="flex flex-col gap-2 rounded-xl border-t border-r border-b p-3"
       style={{ backgroundColor: meta.cardBg, borderColor: meta.solidHex, borderLeftWidth: 3, borderLeftColor: meta.solidHex }}
     >

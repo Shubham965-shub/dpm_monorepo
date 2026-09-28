@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Maximize2 } from 'lucide-react'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { TOOLTIP_Z_INDEX, greenGradient } from '@/lib/chartPalette'
-import { formatPeriodTick, formatPeriodLabel } from '@/lib/periodFormat'
+import { evenTickInterval, formatPeriodTick, formatPeriodLabel } from '@/lib/periodFormat'
 import { extractRowCategory } from '@/lib/kpiRowName'
 import type { KpiDomain, KpiDefinition } from '@/lib/kpiConfig'
 import type { Grain, KpiCardResponse } from '@/lib/kpiSchemas'
@@ -13,7 +13,7 @@ import type { KpiVisibilityLens } from '@/lib/roleAccess'
 import { emptyStateFor } from '@/components/kpi/KpiChartCard'
 import { FiltersPopoverButton } from '@/components/kpi/FiltersPopoverButton'
 import { GrainToggle } from '@/components/kpi/GrainToggle'
-import { SEVERITY_META } from './types'
+import { SEVERITY_META, kpiAnchorId } from './types'
 import { PriorityComplianceDetailModal } from './PriorityComplianceDetailModal'
 
 const GREEN = SEVERITY_META['in-control']
@@ -141,6 +141,7 @@ export function PriorityComplianceCard({
 
   return (
     <div
+      id={kpiAnchorId(kpi.id)}
       className="flex flex-col gap-2 rounded-xl border-t border-r border-b p-3"
       style={{ backgroundColor: GREEN.cardBg, borderColor: GREEN.solidHex, borderLeftWidth: 3, borderLeftColor: GREEN.solidHex }}
     >
@@ -175,7 +176,7 @@ export function PriorityComplianceCard({
               <XAxis
                 dataKey="periodStart"
                 tickFormatter={(v: string) => formatPeriodTick(v, grain)}
-                interval="preserveStartEnd"
+                interval={evenTickInterval(points.length)}
                 tick={{ fontSize: 10 }}
                 stroke="var(--muted-foreground)"
               />
