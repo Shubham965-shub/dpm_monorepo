@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -136,14 +137,26 @@ class QmsServiceTest {
 
     @Test
     void humanErrorSeverity_overallEntry_hasNoStatus_thresholdsRemoved() {
-        when(humanErrorSeverityRepository.find(eq("KRSG"), any(), eq("monthly"), any(), any()))
+        when(humanErrorSeverityRepository.find(eq("KRSG"), isNull(), any(), eq("monthly"), any(), any()))
                 .thenReturn(List.of(
                         new AggTwHumanErrorSeverityRow("monthly", PERIOD, "KRSG", "Critical", 1),
                         new AggTwHumanErrorSeverityRow("monthly", PERIOD, "KRSG", "Major", 2)));
 
-        var result = service.getHumanErrorSeverity("KRSG", null, "monthly", PERIOD, PERIOD.plusMonths(1));
+        var result = service.getHumanErrorSeverity("KRSG", null, null, "monthly", PERIOD, PERIOD.plusMonths(1));
 
         assertNull(overallOf(result).status());
+    }
+
+    @Test
+    void humanErrorSeverity_oneClassPicked_returnsOnlyThatClass_withNoOverallEntry() {
+        when(humanErrorSeverityRepository.find(eq("KRSG"), eq("Critical"), any(), eq("monthly"), any(), any()))
+                .thenReturn(List.of(new AggTwHumanErrorSeverityRow("monthly", PERIOD, "KRSG", "Critical", 1)));
+
+        var result = service.getHumanErrorSeverity("KRSG", "Critical", null, "monthly", PERIOD, PERIOD.plusMonths(1));
+
+        assertEquals(1, result.size());
+        assertEquals("human-error-severity", result.get(0).kpiId());
+        assertEquals("Human Error Severity (Critical)", result.get(0).name());
     }
 
     @Test

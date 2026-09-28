@@ -5,11 +5,12 @@ describe('kpiDefaultGrain - confirmed exceptions to the naive "one grain step pe
   // Re-verified against the source PDF's rendered page images (not just text extraction) before
   // locking these in - each is a real, distinct cell in the framework doc, not a transcription slip.
 
-  it('CXO drops to quarterly (not monthly) for 3 instrument-reliability KPIs', () => {
+  it('CXO drops to quarterly (not monthly) for 4 instrument-reliability KPIs', () => {
     expect(defaultGrainFor('downtime', 'cxo')).toBe('quarterly')
     expect(defaultGrainFor('calibration-compliance', 'cxo')).toBe('quarterly')
     expect(defaultGrainFor('breakdown-frequency', 'cxo')).toBe('quarterly')
-    // Every other CXO-visible KPI stays monthly - these 3 aren't part of a blanket "CXO = quarterly" rule.
+    expect(defaultGrainFor('pm-adherence', 'cxo')).toBe('quarterly')
+    // Every other CXO-visible KPI stays monthly - these 4 aren't part of a blanket "CXO = quarterly" rule.
     expect(defaultGrainFor('availability', 'cxo')).toBe('monthly')
   })
 

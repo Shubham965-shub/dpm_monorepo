@@ -31,7 +31,8 @@ export const KPI_DEFAULT_GRAIN: Partial<Record<string, Partial<Record<KpiVisibil
   availability: { supervisor: 'daily', leadership: 'weekly', cxo: 'monthly' },
   downtime: { supervisor: 'daily', leadership: 'weekly', cxo: 'quarterly' },
   'calibration-compliance': { supervisor: 'daily', leadership: 'weekly', cxo: 'quarterly' },
-  'pm-adherence': { supervisor: 'daily', leadership: 'weekly' },
+  // CXO added on business request (2026-09-28) - the doc's cell is blank; quarterly like its instrument siblings.
+  'pm-adherence': { supervisor: 'daily', leadership: 'weekly', cxo: 'quarterly' },
   'breakdown-frequency': { supervisor: 'daily', leadership: 'weekly', cxo: 'quarterly' },
   'failure-rate': { supervisor: 'daily', leadership: 'weekly' },
   'invalid-oos-rate': { supervisor: 'weekly', leadership: 'weekly', cxo: 'monthly' },

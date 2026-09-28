@@ -118,11 +118,11 @@ const LEADERSHIP_VISIBLE_KPI_IDS = new Set([
   'repeat-analysis-rate',
 ])
 
-/** CXO's column drops 6 implemented rows relative to Supervisor/Leadership - all granular
+/** CXO's column drops 5 implemented rows relative to Supervisor/Leadership - all granular
  * per-analyst/per-instrument detail (HPLC Sequences/Samples per Analyst, GC/Dissolution
- * Utilization, PM Adherence, Instrument Failure Rate) - but keeps `root-cause-consolidated` (CXO's
- * own cell is filled, same as Manager/HOD). Written out in full rather than derived from another
- * role's set. */
+ * Utilization, Instrument Failure Rate) - but keeps `root-cause-consolidated` (CXO's own cell is
+ * filled, same as Manager/HOD). PM Adherence is added on top of the doc's column (business
+ * request, 2026-09-28). Written out in full rather than derived from another role's set. */
 const CXO_VISIBLE_KPI_IDS = new Set([
   'sample-tat',
   'sla-adherence',
@@ -132,6 +132,7 @@ const CXO_VISIBLE_KPI_IDS = new Set([
   'availability',
   'downtime',
   'calibration-compliance',
+  'pm-adherence',
   'breakdown-frequency',
   'invalid-oos-rate',
   'confirmed-oos-rate',
