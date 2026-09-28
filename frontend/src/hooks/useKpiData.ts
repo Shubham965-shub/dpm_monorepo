@@ -2,6 +2,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { getValidated } from '@/lib/apiClient'
 import { kpiCardListSchema } from '@/lib/kpiSchemas'
 import type { KpiDomain, KpiDefinition } from '@/lib/kpiConfig'
+import { defaultExtraParams } from '@/components/kpi/ExtraFilterControl'
 
 export interface GlobalKpiFilters {
   site: string
@@ -20,7 +21,9 @@ export type ExtraParams = [string, string][]
 
 /** Shared by every KPI fetch (useKpiData, useExtraFilters' filter-options fetch, and the board/heatmap
  * batch fetches) so identical inputs always produce the identical query string - and so the same cache key. */
-export function buildKpiQueryString(globalFilters: GlobalKpiFilters, kpi: KpiDefinition, extraParams: ExtraParams = []) {
+/** extraParams defaults to the KPI's untouched filter state (see defaultExtraParams), so a
+ * board-level fetch matches what the card itself sends before its filters are touched. */
+export function buildKpiQueryString(globalFilters: GlobalKpiFilters, kpi: KpiDefinition, extraParams: ExtraParams = defaultExtraParams(kpi)) {
   const params = new URLSearchParams()
   params.set('site', globalFilters.site)
   params.set('grain', globalFilters.grain)

@@ -42,6 +42,8 @@ export interface HeatmapRow {
   slug: string
   name: string
   cells: HeatmapCell[]
+  /** Non-All filters the cells were fetched with (see defaultFilterSummaries) - empty for most KPIs. */
+  defaultFilters: string[]
 }
 
 export type Severity = Exclude<RagStatus, 'no-data'>
@@ -255,7 +257,8 @@ export function boundaryZones(thresholds: KpiThresholds | null | undefined, doma
   if (redLow != null) zones.push({ y1: bottom, y2: redLow, ...action })
   if (greenHigh != null) zones.push({ y1: greenHigh, y2: redHigh ?? top, ...alert })
   if (redHigh != null) zones.push({ y1: redHigh, y2: top, ...action })
-  return zones
+  // Equal limits (e.g. both 0) leave zero-height bands - they draw nothing and would share a React key.
+  return zones.filter((zone) => zone.y1 !== zone.y2)
 }
 
 /** A ranking bar chart's value domain - shared by its bars and its pinned axis strip (RankingValueAxis) so the two line up. */

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import type { ExtraFilter } from '@/lib/kpiConfig'
+import type { ExtraFilter, KpiDefinition } from '@/lib/kpiConfig'
 import type { ExtraParams } from '@/hooks/useKpiData'
 import { fuzzyMatch } from '@/lib/fuzzyMatch'
 import { filterLabel, summarizeFilter } from '@/lib/filterLabels'
@@ -19,12 +19,17 @@ export type ExtraFilterState =
 export function initialExtraFilterState(filter: ExtraFilter): ExtraFilterState {
   switch (filter.kind) {
     case 'select':
-      return { kind: 'select', value: '' }
+      return { kind: 'select', value: filter.defaultValue ?? '' }
     case 'multiSelect':
       return { kind: 'multiSelect', value: [], allChecked: true }
     case 'numberInput':
       return { kind: 'numberInput', value: '' }
   }
+}
+
+/** The params a KPI sends before anyone touches its filters - only a select's defaultValue yields any. */
+export function defaultExtraParams(kpi: KpiDefinition): ExtraParams {
+  return kpi.extraFilters.flatMap((filter) => resolveExtraParams(filter, initialExtraFilterState(filter)))
 }
 
 /** One filter -> 0 or 1 query-param entries (a repeated multiSelect can still yield several, one per value). */

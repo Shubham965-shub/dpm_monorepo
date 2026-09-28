@@ -225,8 +225,15 @@ public class QmsController {
 
     @GET
     @Path("/human-error-severity")
-    public List<KpiCardResponse> humanErrorSeverity(@BeanParam KpiParams.WithDepartmentScope p) {
-        return service.getHumanErrorSeverity(p.site, p.departmentScope,
+    public List<KpiCardResponse> humanErrorSeverity(@BeanParam KpiParams.WithFinalClassification p) {
+        return service.getHumanErrorSeverity(p.site, p.finalClassification, p.departmentScope,
+                RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
+    }
+
+    @GET
+    @Path("/human-error-severity/filter-options")
+    public Map<String, List<String>> humanErrorSeverityFilterOptions(@BeanParam KpiParams.WithFinalClassification p) {
+        return service.getHumanErrorSeverityFilterOptions(p.site,
                 RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
     }
 

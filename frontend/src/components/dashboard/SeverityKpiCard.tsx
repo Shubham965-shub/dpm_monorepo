@@ -6,7 +6,7 @@ import { CATEGORICAL_PALETTE, MAX_SERIES, TOOLTIP_Z_INDEX } from '@/lib/chartPal
 import type { ExtraFilter, KpiDomain } from '@/lib/kpiConfig'
 import type { KpiVisibilityLens } from '@/lib/roleAccess'
 import { formatRangeEnd, formatRangeStart } from '@/lib/periodFormat'
-import { FILTER_PILL_CLASS } from '@/lib/filterLabels'
+import { ACTIVE_FILTER_CLASS, FILTER_PILL_CLASS, filterLabel } from '@/lib/filterLabels'
 import {
   filterRootCauseRowsToDimension,
   listRootCauseDimensions,
@@ -109,8 +109,9 @@ export function SeverityKpiCard({
   )
   const rootCauseOptions = isRootCause ? listRootCauseDimensions(overrideQuery.data ?? []) : []
   // One control for both the compact Filters popover and the expanded view's pills.
+  // Always narrowed to one dimension - auto-picked or chosen - so it always counts as applied.
   const rootCausePicker = isRootCause && (
-    <label className={FILTER_PILL_CLASS}>
+    <label className={cn(FILTER_PILL_CLASS, ACTIVE_FILTER_CLASS)}>
       <span className="text-muted-foreground">Root cause:</span>
       <select
         className="bg-transparent font-semibold outline-none"
@@ -190,7 +191,7 @@ export function SeverityKpiCard({
           {requiredSelects.length > 0 && (
             <p className="text-muted-foreground text-[9px]">
               {requiredSelects
-                .map(({ filter, i }) => `${filter.param}: ${(extraStates[i] as { value: string }).value}`)
+                .map(({ filter, i }) => `${filterLabel(filter.param)}: ${(extraStates[i] as { value: string }).value}`)
                 .join(', ')}
             </p>
           )}
@@ -220,6 +221,7 @@ export function SeverityKpiCard({
             filters={filters}
             onExtraStateChange={handleExtraStateChange}
             extra={rootCausePicker}
+            extraActive={isRootCause}
           />
           <button className="text-muted-foreground hover:text-foreground" onClick={() => setDetailOpen(true)} title="Expand view">
             <Maximize2 className="size-3.5" />

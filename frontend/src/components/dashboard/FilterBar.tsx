@@ -1,6 +1,8 @@
 import { ChevronDown } from 'lucide-react'
 import { GRAINS, type Grain } from '@/lib/kpiSchemas'
 import { KPI_DOMAINS } from '@/lib/kpiConfig'
+import { ACTIVE_FILTER_CLASS } from '@/lib/filterLabels'
+import { cn } from '@/lib/utils'
 import type { SectionKey } from './mockData'
 
 export type SectionFilterValue = 'all' | SectionKey
@@ -9,6 +11,8 @@ export interface DashboardFilters {
   section: SectionFilterValue
   grain: Grain
 }
+
+export const DEFAULT_DASHBOARD_FILTERS: DashboardFilters = { section: 'all', grain: 'monthly' }
 
 const GRAIN_LABEL: Record<Grain, string> = {
   daily: 'Daily',
@@ -35,16 +39,23 @@ function FixedPill({ label, value }: { label: string; value: string }) {
 export function FilterSelect<T extends string>({
   label,
   value,
+  defaultValue,
   options,
   onChange,
 }: {
   label: string
   value: T
+  /** Highlights the pill once `value` moves off it - omit for a filter with nothing to change. */
+  defaultValue?: T
   options: { value: T; label: string }[]
   onChange: (value: T) => void
 }) {
+  const active = defaultValue !== undefined && value !== defaultValue
   return (
-    <div className="flex items-center gap-1.5 rounded-lg border border-border bg-muted/50 px-3 py-1.5 text-sm">
+    <div
+      className={cn('flex items-center gap-1.5 rounded-lg border border-border bg-muted/50 px-3 py-1.5 text-sm', active && ACTIVE_FILTER_CLASS)}
+      title={active ? 'Filter applied' : undefined}
+    >
       <span className="text-muted-foreground">{label}:</span>
       {/* The chevron must sit inside the <select>'s own box (via this relative wrapper + absolute
       position + the select's pr-4 reserving that space) - laid out as a plain sibling instead, it
@@ -68,6 +79,15 @@ export function FilterSelect<T extends string>({
   )
 }
 
+/** Shown in a filter bar only while something in it is off its default. */
+export function ResetFiltersButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} className="text-muted-foreground hover:text-foreground self-center text-sm underline-offset-2 hover:underline">
+      Reset filters
+    </button>
+  )
+}
+
 export function FilterBar({
   value,
   onChange,
@@ -87,15 +107,20 @@ export function FilterBar({
       <FilterSelect
         label="Section"
         value={value.section}
+        defaultValue={DEFAULT_DASHBOARD_FILTERS.section}
         options={sectionOptions}
         onChange={(section) => onChange({ ...value, section })}
       />
       <FilterSelect
         label="Timeline"
         value={value.grain}
+        defaultValue={DEFAULT_DASHBOARD_FILTERS.grain}
         options={grainOptions}
         onChange={(grain) => onChange({ ...value, grain })}
       />
+      {(value.section !== DEFAULT_DASHBOARD_FILTERS.section || value.grain !== DEFAULT_DASHBOARD_FILTERS.grain) && (
+        <ResetFiltersButton onClick={() => onChange(DEFAULT_DASHBOARD_FILTERS)} />
+      )}
     </div>
   )
 }

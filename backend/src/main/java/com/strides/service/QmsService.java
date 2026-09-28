@@ -452,11 +452,16 @@ public class QmsService {
 
     /**
      * Per-classification raw counts, plus one "Overall" entry per period totaling all severities.
+     * finalClassification: one class only (and no Overall entry - there is nothing to total), or
+     * null/blank for every class. It's also a kpi_threshold_snapshot filter slot for KPI-028, so a
+     * picked class is coloured against its own limits rather than the far higher "All" ones.
      * departmentScope: QC | ALL (default ALL) - slice pattern on failure_category_slice, see
      * backend/README.md's "Department scope" section.
      */
-    public List<KpiCardResponse> getHumanErrorSeverity(String site, String departmentScope, String grain, LocalDate from, LocalDate to) {
-        List<AggTwHumanErrorSeverityRow> rows = humanErrorSeverityRepository.find(site, DepartmentScope.parse(departmentScope), grain, from, to);
+    public List<KpiCardResponse> getHumanErrorSeverity(String site, String finalClassification, String departmentScope,
+            String grain, LocalDate from, LocalDate to) {
+        List<AggTwHumanErrorSeverityRow> rows = humanErrorSeverityRepository.find(site, finalClassification,
+                DepartmentScope.parse(departmentScope), grain, from, to);
 
         List<KpiCardResponse> perClassification = rows.stream()
                 .map(row -> new KpiCardResponse(
@@ -477,7 +482,12 @@ public class QmsService {
                 .sorted(Comparator.comparing(KpiCardResponse::periodStart))
                 .toList();
 
-        return Stream.concat(perClassification.stream(), overall.stream()).toList();
+        boolean oneClass = finalClassification != null && !finalClassification.isBlank();
+        return oneClass ? perClassification : Stream.concat(perClassification.stream(), overall.stream()).toList();
+    }
+
+    public Map<String, List<String>> getHumanErrorSeverityFilterOptions(String site, String grain, LocalDate from, LocalDate to) {
+        return humanErrorSeverityRepository.filterOptions(site, grain, from, to);
     }
 
     /**
