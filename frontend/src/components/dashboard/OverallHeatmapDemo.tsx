@@ -60,8 +60,13 @@ function Cell({ kpiName, periodLabel, status, value }: { kpiName: string; period
       <span className="text-sm font-semibold" style={{ color: colorHex }}>
         {formatCompactScore(value)}
       </span>
+      {/* Bounded width + wrapping, not whitespace-nowrap - a long KPI name centered over a 32px
+      cell (see the "left-1/2 -translate-x-1/2" below) would otherwise render as one unbounded-width
+      line, pushing well past the cell's own edges and off the visible page for cells near the
+      heatmap's left/right edges. Wrapping keeps the tooltip's total width fixed regardless of name
+      length, so it only ever grows taller, never wider. */}
       <span
-        className="pointer-events-none absolute top-full left-1/2 mt-1 hidden -translate-x-1/2 rounded-md border border-border bg-card p-2 text-[11px] whitespace-nowrap text-foreground shadow-md group-hover:block"
+        className="pointer-events-none absolute top-full left-1/2 mt-1 hidden w-40 -translate-x-1/2 rounded-md border border-border bg-card p-2 text-[11px] break-words text-foreground shadow-md group-hover:block"
         style={{ zIndex: TOOLTIP_Z_INDEX }}
       >
         <div className="font-semibold">{kpiName}</div>
@@ -196,7 +201,11 @@ export function OverallHeatmapDemo({
   const columns = [...balanceIntoColumns(visibleSections, visibleSections.length > 1 ? 2 : 1)].reverse()
 
   return (
-    <Card size="sm">
+    // Card's own base styling clips overflow (for rounded image corners - see card.tsx) - overridden
+    // here (not hand-edited there, per this primitive's own convention) so each cell's absolutely-
+    // positioned hover tooltip can actually escape the card's bounds instead of being invisibly cut
+    // off at its edge, which is what was still happening after merely bounding the tooltip's own width.
+    <Card size="sm" className="overflow-visible">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
           Overall Heatmap

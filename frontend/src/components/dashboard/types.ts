@@ -91,15 +91,17 @@ export const SEVERITY_META: Record<
 
 type SeverityMeta = (typeof SEVERITY_META)[Severity]
 
-// Neutral grey for a KPI with no configured threshold - it has data, just no colour judgement, so
-// it must not borrow a severity's styling (a green border would read as "On Track").
+// Plain black-and-white for a KPI with no configured threshold - it has data, just no colour
+// judgement, so it must not borrow a severity's styling (even a pale tint would read as a real
+// band) or default to any particular colour at all: no background tint (plain white card,
+// matching the page's own background), and the chart/border/value render in flat black.
 const NO_THRESHOLD_META: SeverityMeta = {
   label: 'No threshold',
-  solidHex: '#6b7280',
+  solidHex: '#000000',
   paleHex: '#e5e7eb',
-  cardBg: '#fafafa',
-  bandBg: '#f9fafb',
-  pillDotHex: '#d1d5db',
+  cardBg: '#ffffff',
+  bandBg: '#ffffff',
+  pillDotHex: '#000000',
 }
 
 export function severityMeta(severity: Severity | null): SeverityMeta {
