@@ -12,7 +12,8 @@
  */
 
 export type ExtraFilter =
-  | { kind: 'select'; param: string; required?: boolean }
+  /** defaultValue: preselected instead of blank/"All" - sent from the very first fetch, board-level included. */
+  | { kind: 'select'; param: string; required?: boolean; defaultValue?: string }
   /** repeated: true sends selections as repeated params (?param=A&param=B) instead of comma-joined -
    * required when an option value can itself contain a comma (e.g. a department name), see
    * backend/README.md's "Filter syntax" note. */
@@ -28,6 +29,9 @@ export interface KpiDefinition {
   extraFilters: ExtraFilter[]
   /** Sent on every fetch and not user-changeable - lets one endpoint back several cards, each pinned to one slice. */
   fixedParams?: [string, string][]
+  /** The untouched view is narrowed below All by the card itself rather than by a filter's
+   * defaultValue (e.g. Root Cause Breakdown's auto-picked dimension) - shown wherever that's flagged. */
+  defaultNarrowing?: string
   /**
    * 'line' (default) = one point per period, one line per series - a time series.
    * 'bar' = one horizontal bar per row's `name`, summed across the whole date range rather than
@@ -89,7 +93,10 @@ export const KPI_DOMAINS: KpiDomain[] = [
         ],
       },
       { id: 'repeat-failure-rate', label: 'Repeat Failure Rate', path: 'repeat-failure-rate', extraFilters: [{ kind: 'multiSelect', param: 'recordType' }] },
-      { id: 'root-cause', label: 'Root Cause Breakdown', path: 'root-cause', extraFilters: [{ kind: 'multiSelect', param: 'recordType' }] },
+      {
+        id: 'root-cause', label: 'Root Cause Breakdown', path: 'root-cause', extraFilters: [{ kind: 'multiSelect', param: 'recordType' }],
+        defaultNarrowing: 'Root cause: highest in latest period',
+      },
       { id: 'root-cause-consolidated', label: 'Root Cause (Consolidated)', path: 'root-cause/consolidated', extraFilters: [{ kind: 'multiSelect', param: 'recordType' }] },
       {
         id: 'capa-aging-status', label: 'CAPA Aging Status', path: 'capa-aging-status',
@@ -115,7 +122,12 @@ export const KPI_DOMAINS: KpiDomain[] = [
       { id: 'capa-recurrence-rate', label: 'CAPA Recurrence Rate', path: 'capa-recurrence-rate', extraFilters: [] },
       { id: 'human-error-rate', label: 'Human Error Rate', path: 'human-error-rate', extraFilters: [] },
       { id: 'repeat-human-error-rate', label: 'Repeat Human Error Rate', path: 'repeat-human-error-rate', extraFilters: [] },
-      { id: 'human-error-severity', label: 'Human Error Severity', path: 'human-error-severity', extraFilters: [] },
+      {
+        // One class at a time: final_classification is a KPI-028 threshold slot, and the unfiltered
+        // "All" limits sit far above any single class's own (e.g. KRSG monthly 43 vs Critical 0.8).
+        id: 'human-error-severity', label: 'Human Error Severity', path: 'human-error-severity',
+        extraFilters: [{ kind: 'select', param: 'finalClassification', required: true, defaultValue: 'Critical' }],
+      },
       {
         id: 'human-error-by-product', label: 'Human Error by Product', path: 'human-error-by-product',
         extraFilters: [{ kind: 'multiSelect', param: 'material', repeated: true }],

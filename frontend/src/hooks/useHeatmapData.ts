@@ -9,6 +9,7 @@ import type { SectionKey } from '@/components/dashboard/mockData'
 import { toChartData } from '@/components/kpi/KpiChartCard'
 import { filterRowsForKpi } from './useDomainTrendKpis'
 import { buildKpiQueryString } from './useKpiData'
+import { defaultFilterSummaries } from '@/lib/filterLabels'
 
 export interface HeatmapSectionData {
   key: SectionKey
@@ -143,7 +144,9 @@ export function useHeatmapData(site: string, window: HeatmapWindow) {
         })
       }
 
-      sections.find((s) => s.key === domain.key)?.rows.push({ slug: kpi.id, name: kpi.label, cells })
+      sections
+        .find((s) => s.key === domain.key)
+        ?.rows.push({ slug: kpi.id, name: kpi.label, cells, defaultFilters: defaultFilterSummaries(kpi) })
     }
   }
 

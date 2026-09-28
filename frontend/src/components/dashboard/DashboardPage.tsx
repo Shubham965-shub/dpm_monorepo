@@ -8,8 +8,8 @@ import {
   type OperatorSupervisorView,
   type KpiVisibilityLens,
 } from '@/lib/roleAccess'
-import { FilterBar, type DashboardFilters } from './FilterBar'
-import { LeadershipFilterBar, type LeadershipTrailingDays } from './LeadershipFilterBar'
+import { DEFAULT_DASHBOARD_FILTERS, FilterBar, type DashboardFilters } from './FilterBar'
+import { DEFAULT_LEADERSHIP_TRAILING_DAYS, LeadershipFilterBar, type LeadershipTrailingDays } from './LeadershipFilterBar'
 import { OverallHeatmapDemo, LEADERSHIP_HEATMAP_RANGES } from './OverallHeatmapDemo'
 import { QcScoreCard } from './QcScoreCard'
 import { PositiveSignals } from './PositiveSignals'
@@ -61,12 +61,12 @@ export function DashboardPage() {
   const lens: KpiVisibilityLens =
     activeRole === 'CXO' ? 'cxo' : activeRole === 'Leadership' ? 'leadership' : operationsLensChoice
   const showOperatorSupervisorToggle = activeRole === 'Operations'
-  const [filters, setFilters] = useState<DashboardFilters>({ section: 'all', grain: 'monthly' })
+  const [filters, setFilters] = useState<DashboardFilters>(DEFAULT_DASHBOARD_FILTERS)
   const [searchQuery, setSearchQuery] = useState('')
   // Leadership's own Timeline filter (see LeadershipFilterBar) - a trailing day-count window
   // rather than the shared FilterBar's aggregation-grain Timeline, since its reference screenshot
   // has no Section filter and labels its Timeline pill "T-30", not a grain name.
-  const [leadershipTrailingDays, setLeadershipTrailingDays] = useState<LeadershipTrailingDays>(30)
+  const [leadershipTrailingDays, setLeadershipTrailingDays] = useState<LeadershipTrailingDays>(DEFAULT_LEADERSHIP_TRAILING_DAYS)
   const leadershipDateRange = trailingDayRange(leadershipTrailingDays)
 
   // Shares SectionSummaryList's own query cache (same site/month-count key) rather than issuing a

@@ -49,10 +49,23 @@ const SECTION_PALETTE: Record<string, { bg: string; border: string }> = {
   'people-performance': { bg: 'rgba(186,225,255,0.15)', border: '#bae1ff' },
 }
 const ROWS_PER_CHUNK = 4
+const DEFAULT_FILTER_MARKER_CLASS = 'border-foreground/50'
 
 // Instant on hover (no native browser tooltip delay) - matches RootCauseHeatmapCard's own
 // group-hover cell tooltip, so hover responsiveness reads the same across every heatmap in the app.
-function Cell({ kpiName, periodLabel, status, value }: { kpiName: string; periodLabel: string; status: RagStatus; value: number | null }) {
+function Cell({
+  kpiName,
+  defaultFilters,
+  periodLabel,
+  status,
+  value,
+}: {
+  kpiName: string
+  defaultFilters: string[]
+  periodLabel: string
+  status: RagStatus
+  value: number | null
+}) {
   const colorHex = cellColorHex(status)
   return (
     <span className="group relative flex items-center gap-0.5">
@@ -65,6 +78,11 @@ function Cell({ kpiName, periodLabel, status, value }: { kpiName: string; period
         style={{ zIndex: TOOLTIP_Z_INDEX }}
       >
         <div className="font-semibold">{kpiName}</div>
+        {defaultFilters.map((f) => (
+          <div key={f} className="text-muted-foreground">
+            {f}
+          </div>
+        ))}
         <div>
           {periodLabel}: {formatScore(value)}
         </div>
@@ -122,10 +140,23 @@ function RowChunk({ rows, palette }: { rows: HeatmapRow[]; palette: { bg: string
       </div>
       <div className="flex flex-col gap-0.5">
         {rows.map((row) => (
-          <div key={row.slug} className="flex items-center justify-between px-1">
+          <div
+            key={row.slug}
+            // Same left marker as the legend's "Default filter" entry - this row isn't All.
+            className={cn(
+              'flex items-center justify-between border-l-2 px-1',
+              row.defaultFilters.length > 0 ? DEFAULT_FILTER_MARKER_CLASS : 'border-transparent',
+            )}
+          >
             {row.cells.map((cell) => (
               <span key={cell.periodLabel} className="flex w-8 items-center justify-center">
-                <Cell kpiName={row.name} periodLabel={cell.periodLabel} status={cell.status} value={cell.value} />
+                <Cell
+                  kpiName={row.name}
+                  defaultFilters={row.defaultFilters}
+                  periodLabel={cell.periodLabel}
+                  status={cell.status}
+                  value={cell.value}
+                />
               </span>
             ))}
           </div>
@@ -226,6 +257,12 @@ export function OverallHeatmapDemo({
           <LegendSwatch status="in-control" label="In Control" />
           <LegendSwatch status="alert" label="Alert Limit" />
           <LegendSwatch status="action" label="Action Limit" />
+          {visibleSections.some((sec) => sec.rows.some((r) => r.defaultFilters.length > 0)) && (
+            <span className="flex items-center gap-1" title="Hover a cell to see which filter">
+              <span className={cn('h-3 border-l-2', DEFAULT_FILTER_MARKER_CLASS)} />
+              <span style={{ color: '#6a7282' }}>Not "All" (default filter)</span>
+            </span>
+          )}
           <button
             onClick={() => setLegendExpanded((v) => !v)}
             className="flex items-center gap-1"

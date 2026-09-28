@@ -2,7 +2,8 @@ import { useState, type ReactNode } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import type { ExtraFilter, KpiDefinition } from '@/lib/kpiConfig'
-import { FILTER_PILL_CLASS, filterLabel, summarizeFilter } from '@/lib/filterLabels'
+import { ACTIVE_FILTER_CLASS, FILTER_PILL_CLASS, filterLabel, isFilterActive, summarizeFilter } from '@/lib/filterLabels'
+import { cn } from '@/lib/utils'
 import { ExtraFilterControl, type ExtraFilterState } from './ExtraFilterControl'
 
 function FilterPill({
@@ -22,7 +23,11 @@ function FilterPill({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button type="button" className={FILTER_PILL_CLASS}>
+        <button
+          type="button"
+          // An applied filter's pill (anything but All) stands out from the ones still at All.
+          className={cn(FILTER_PILL_CLASS, isFilterActive(filter, state) && ACTIVE_FILTER_CLASS)}
+        >
           <span className="text-muted-foreground">{filterLabel(filter.param)}:</span>
           <span className="max-w-40 truncate font-semibold">{summarizeFilter(filter, state)}</span>
           <ChevronDown className="size-3.5 shrink-0 opacity-60" />
