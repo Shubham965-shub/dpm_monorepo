@@ -13,7 +13,7 @@ import type { KpiVisibilityLens } from '@/lib/roleAccess'
 import { emptyStateFor } from '@/components/kpi/KpiChartCard'
 import { FiltersPopoverButton } from '@/components/kpi/FiltersPopoverButton'
 import { GrainToggle } from '@/components/kpi/GrainToggle'
-import { SEVERITY_META } from './types'
+import { SEVERITY_META, kpiAnchorId } from './types'
 import { PriorityComplianceDetailModal } from './PriorityComplianceDetailModal'
 
 const GREEN = SEVERITY_META['in-control']
@@ -141,6 +141,7 @@ export function PriorityComplianceCard({
 
   return (
     <div
+      id={kpiAnchorId(kpi.id)}
       className="flex flex-col gap-2 rounded-xl border-t border-r border-b p-3"
       style={{ backgroundColor: GREEN.cardBg, borderColor: GREEN.solidHex, borderLeftWidth: 3, borderLeftColor: GREEN.solidHex }}
     >

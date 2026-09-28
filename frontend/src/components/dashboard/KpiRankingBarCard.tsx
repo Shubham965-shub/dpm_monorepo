@@ -10,7 +10,7 @@ import type { KpiVisibilityLens } from '@/lib/roleAccess'
 import { toBarData, emptyStateFor, type BarRow } from '@/components/kpi/KpiChartCard'
 import { FiltersPopoverButton } from '@/components/kpi/FiltersPopoverButton'
 import { GrainToggle } from '@/components/kpi/GrainToggle'
-import { SEVERITY_META, rankingValueDomain } from './types'
+import { SEVERITY_META, kpiAnchorId, rankingValueDomain } from './types'
 import { KpiRankingBarDetailModal } from './KpiRankingBarDetailModal'
 
 // This is real, live-fetched data with no computed severity/status (unlike SeverityKpiCard's real
@@ -135,6 +135,7 @@ export function KpiRankingBarCard({
 
   return (
     <div
+      id={kpiAnchorId(kpi.id)}
       className="flex flex-col gap-2 rounded-xl border-t border-r border-b p-3"
       style={{ backgroundColor: GREEN.cardBg, borderColor: GREEN.solidHex, borderLeftWidth: 3, borderLeftColor: GREEN.solidHex }}
     >

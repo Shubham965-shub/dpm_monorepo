@@ -19,6 +19,14 @@ import type { BarRow } from '@/components/kpi/KpiChartCard'
  */
 export const KPI_CARD_GRID_CLASS = 'grid grid-cols-[repeat(auto-fill,minmax(max(200px,calc(33.333%-0.5rem)),400px))] items-start gap-3'
 
+/** Stable DOM id for a KPI's own card, wherever it renders (SeverityKpiCard, KpiRankingBarCard,
+ * PriorityComplianceCard, RootCauseHeatmapCard) - lets the Overall Heatmap scroll straight to a
+ * KPI's real card when that KPI's cell is clicked (see OverallHeatmapDemo's onKpiClick and
+ * SectionSummaryList's scrollToKpi). */
+export function kpiAnchorId(kpiId: string): string {
+  return `kpi-card-${kpiId}`
+}
+
 export type RagStatus = 'action' | 'alert' | 'in-control' | 'no-data'
 
 export interface HeatmapCell {

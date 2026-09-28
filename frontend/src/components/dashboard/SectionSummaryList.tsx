@@ -1,4 +1,4 @@
-import { useState, type CSSProperties, type ReactNode } from 'react'
+import { forwardRef, useImperativeHandle, useState, type CSSProperties, type ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 import { useHeatmapData } from '@/hooks/useHeatmapData'
 import { useFavoriteSections } from '@/hooks/useFavoriteSections'
@@ -17,7 +17,7 @@ import type { SectionFilterValue } from './FilterBar'
 import type { KpiVisibilityLens } from '@/lib/roleAccess'
 import { KPI_VISIBILITY } from '@/lib/kpiVisibility'
 import { SIDEBAR_HEATMAP_MONTH_COUNT } from '@/lib/kpiDateRange'
-import { countSeverityTiers, KPI_CARD_GRID_CLASS, type Severity } from './types'
+import { countSeverityTiers, kpiAnchorId, KPI_CARD_GRID_CLASS, type Severity } from './types'
 
 // KPIs whose real shape is a per-category share of a period's total (not a single trending value
 // or a whole-range ranking) - routed to their own dedicated card instead of DomainSeverityBoard or
@@ -32,23 +32,25 @@ const STACKED_SHARE_KPI_IDS = new Set(['priority-sample-compliance'])
 const HEATMAP_KPI_IDS = new Set(['root-cause-consolidated'])
 const HEATMAP_COMPANION_HOST_ID: Record<string, string> = { 'root-cause-consolidated': 'root-cause' }
 
-export function SectionSummaryList({
-  site,
-  section,
-  grain,
-  dateRangeOverride,
-  searchQuery,
-  lens,
-}: {
-  site: string
-  section: SectionFilterValue
-  grain: Grain
-  /** Leadership's Timeline: T-7/T-30/T-90/T-180 filter (see LeadershipFilterBar) - a trailing
-   * day-count window in place of getGrainDateRange(grain)'s. Omitted elsewhere. */
-  dateRangeOverride?: { from: string; to: string }
-  searchQuery: string
-  lens: KpiVisibilityLens
-}) {
+export interface SectionSummaryListHandle {
+  /** Expands `sectionKey`'s accordion band (if it isn't already) and scrolls to `kpiId`'s own card
+   * once it's in the DOM - see OverallHeatmapDemo's onKpiClick, which this backs. */
+  scrollToKpi: (kpiId: string, sectionKey: string) => void
+}
+
+export const SectionSummaryList = forwardRef<
+  SectionSummaryListHandle,
+  {
+    site: string
+    section: SectionFilterValue
+    grain: Grain
+    /** Leadership's Timeline: T-7/T-30/T-90/T-180 filter (see LeadershipFilterBar) - a trailing
+     * day-count window in place of getGrainDateRange(grain)'s. Omitted elsewhere. */
+    dateRangeOverride?: { from: string; to: string }
+    searchQuery: string
+    lens: KpiVisibilityLens
+  }
+>(function SectionSummaryList({ site, section, grain, dateRangeOverride, searchQuery, lens }, ref) {
   const visibleKpiIds = KPI_VISIBILITY[lens]
   const { sections: allSections } = useHeatmapData(site, { unit: 'month', count: SIDEBAR_HEATMAP_MONTH_COUNT })
   const { favorites, toggleFavorite } = useFavoriteSections()
@@ -59,6 +61,29 @@ export function SectionSummaryList({
     (a, b) => Number(favorites.has(b.key)) - Number(favorites.has(a.key)),
   )
   const [expandedKey, setExpandedKey] = useState<string | null>('lab-performance')
+  useImperativeHandle(ref, () => ({
+    scrollToKpi(kpiId, sectionKey) {
+      setExpandedKey(sectionKey)
+      // A single requestAnimationFrame after setExpandedKey isn't reliably enough: the section's
+      // own layout is still settling a frame or two later (Recharts' ResponsiveContainer measures
+      // via ResizeObserver post-mount, and the browser's own scroll anchoring - compensating for
+      // content above the fold changing height as the accordion opens - can fight a scrollIntoView
+      // issued too early, landing on the section instead of the specific card). Poll across frames
+      // instead, up to a small budget, and scroll only once the card is actually there.
+      const id = kpiAnchorId(kpiId)
+      let attempts = 0
+      const tryScroll = () => {
+        const el = document.getElementById(id)
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          return
+        }
+        attempts += 1
+        if (attempts < 30) requestAnimationFrame(tryScroll)
+      }
+      requestAnimationFrame(tryScroll)
+    },
+  }))
   const query = searchQuery.trim().toLowerCase()
   const isSearching = query.length > 0
   // The top Section filter picking one domain should actually open it, not just narrow the list
@@ -185,4 +210,4 @@ export function SectionSummaryList({
       )}
     </div>
   )
-}
+})

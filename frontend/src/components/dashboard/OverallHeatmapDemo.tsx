@@ -52,10 +52,24 @@ const ROWS_PER_CHUNK = 4
 
 // Instant on hover (no native browser tooltip delay) - matches RootCauseHeatmapCard's own
 // group-hover cell tooltip, so hover responsiveness reads the same across every heatmap in the app.
-function Cell({ kpiName, periodLabel, status, value }: { kpiName: string; periodLabel: string; status: RagStatus; value: number | null }) {
+function Cell({
+  kpiName,
+  periodLabel,
+  status,
+  value,
+  onClick,
+}: {
+  kpiName: string
+  periodLabel: string
+  status: RagStatus
+  value: number | null
+  /** Scrolls to this cell's own KPI card below (see SectionSummaryList's scrollToKpi) - undefined
+   * only if a caller ever renders a Cell with no click target, which none do today. */
+  onClick?: () => void
+}) {
   const colorHex = cellColorHex(status)
   return (
-    <span className="group relative flex items-center gap-0.5">
+    <button type="button" onClick={onClick} className="group relative flex cursor-pointer items-center gap-0.5 text-left">
       <span className="size-1.5 rounded-full" style={{ backgroundColor: colorHex }} />
       <span className="text-sm font-semibold" style={{ color: colorHex }}>
         {formatCompactScore(value)}
@@ -74,7 +88,7 @@ function Cell({ kpiName, periodLabel, status, value }: { kpiName: string; period
           {periodLabel}: {formatScore(value)}
         </div>
       </span>
-    </span>
+    </button>
   )
 }
 
@@ -115,7 +129,15 @@ function balanceIntoColumns<T extends { rows: unknown[] }>(sections: T[], column
   return columns
 }
 
-function RowChunk({ rows, palette }: { rows: HeatmapRow[]; palette: { bg: string; border: string } }) {
+function RowChunk({
+  rows,
+  palette,
+  onKpiClick,
+}: {
+  rows: HeatmapRow[]
+  palette: { bg: string; border: string }
+  onKpiClick: (kpiId: string) => void
+}) {
   return (
     <div className="w-44 rounded-[6px] border p-1" style={{ backgroundColor: palette.bg, borderColor: palette.border }}>
       <div className="flex items-center justify-between px-1 py-0.5">
@@ -130,7 +152,13 @@ function RowChunk({ rows, palette }: { rows: HeatmapRow[]; palette: { bg: string
           <div key={row.slug} className="flex items-center justify-between px-1">
             {row.cells.map((cell) => (
               <span key={cell.periodLabel} className="flex w-8 items-center justify-center">
-                <Cell kpiName={row.name} periodLabel={cell.periodLabel} status={cell.status} value={cell.value} />
+                <Cell
+                  kpiName={row.name}
+                  periodLabel={cell.periodLabel}
+                  status={cell.status}
+                  value={cell.value}
+                  onClick={() => onKpiClick(row.slug)}
+                />
               </span>
             ))}
           </div>
@@ -140,7 +168,17 @@ function RowChunk({ rows, palette }: { rows: HeatmapRow[]; palette: { bg: string
   )
 }
 
-function SectionGrid({ sectionKey, title, rows }: { sectionKey: string; title: string; rows: HeatmapRow[] }) {
+function SectionGrid({
+  sectionKey,
+  title,
+  rows,
+  onKpiClick,
+}: {
+  sectionKey: string
+  title: string
+  rows: HeatmapRow[]
+  onKpiClick?: (kpiId: string, sectionKey: string) => void
+}) {
   const chunks = chunk(rows, ROWS_PER_CHUNK)
   const palette = SECTION_PALETTE[sectionKey]
   return (
@@ -151,7 +189,12 @@ function SectionGrid({ sectionKey, title, rows }: { sectionKey: string; title: s
       </div>
       <div className="flex flex-wrap gap-2 rounded-b-[6px] border border-t-0 border-border p-2">
         {chunks.map((rowChunk, i) => (
-          <RowChunk key={rowChunk[0]?.slug ?? i} rows={rowChunk} palette={palette} />
+          <RowChunk
+            key={rowChunk[0]?.slug ?? i}
+            rows={rowChunk}
+            palette={palette}
+            onKpiClick={(kpiId) => onKpiClick?.(kpiId, sectionKey)}
+          />
         ))}
       </div>
     </div>
@@ -167,16 +210,23 @@ export function OverallHeatmapDemo({
   section,
   rangeOptions = DEFAULT_RANGE_OPTIONS,
   visibleKpiIds,
+  onKpiClick,
 }: {
   site: string
   section: SectionFilterValue
   /** CXO/unfiltered's monthly 3M/4M/5M pill by default; Leadership passes its own weekly set (see
    * LEADERSHIP_HEATMAP_RANGES in DashboardPage). */
   rangeOptions?: HeatmapRangeOption[]
-  /** Leadership's own KPI Framework role-visibility list (see lib/kpiVisibility.ts) - restricts
-   * every section's rows the same way SectionSummaryList's KPI cards already are, so the two never
-   * disagree on which KPIs a role sees. Omitted (CXO/unfiltered) shows every KPI. */
+  /** The current lens's KPI Framework role-visibility list (see lib/kpiVisibility.ts) - restricts
+   * every section's rows the same way SectionSummaryList's KPI cards already are, so the two can
+   * never disagree on which KPIs a role sees (a heatmap cell whose KPI has no matching card would
+   * otherwise be a dead end for onKpiClick's scroll-to). DashboardPage passes this for every lens
+   * that renders this component; omitted only shows every KPI, unfiltered. */
   visibleKpiIds?: Set<string>
+  /** Scrolls to (and expands, if collapsed) the clicked KPI's own real card in the section list
+   * below - see DashboardPage's wiring to SectionSummaryList's scrollToKpi. Omitted only if a
+   * caller has no section list to scroll (none do today). */
+  onKpiClick?: (kpiId: string, sectionKey: string) => void
 }) {
   const [onlyReds, setOnlyReds] = useState(false)
   const [selectedRange, setSelectedRange] = useState<HeatmapRangeOption>(rangeOptions[0] ?? DEFAULT_RANGE_OPTIONS[0])
@@ -269,7 +319,7 @@ export function OverallHeatmapDemo({
             {columns.map((col, i) => (
               <div key={i} className="flex flex-1 flex-col">
                 {col.map((s) => (
-                  <SectionGrid key={s.title} sectionKey={s.key} title={s.title} rows={s.rows} />
+                  <SectionGrid key={s.title} sectionKey={s.key} title={s.title} rows={s.rows} onKpiClick={onKpiClick} />
                 ))}
               </div>
             ))}
