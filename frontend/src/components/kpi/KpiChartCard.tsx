@@ -17,7 +17,7 @@ import { useExtraFilters } from '@/hooks/useExtraFilters'
 import { CATEGORICAL_PALETTE, MAX_SERIES, STATUS_COLORS, TOOLTIP_Z_INDEX } from '@/lib/chartPalette'
 import { ExtraFilterControl } from './ExtraFilterControl'
 import { KpiLineTooltip } from './KpiLineTooltip'
-import { formatPeriodTick } from '@/lib/periodFormat'
+import { evenTickInterval, formatPeriodTick } from '@/lib/periodFormat'
 import { seriesKeyFor } from '@/lib/kpiRowName'
 import type { Grain, KpiCardResponse } from '@/lib/kpiSchemas'
 
@@ -161,7 +161,7 @@ export function KpiChartCard({ domain, kpi, globalFilters }: {
                 <XAxis
                   dataKey="periodStart"
                   tickFormatter={(v: string) => formatPeriodTick(v, globalFilters.grain as Grain)}
-                  interval="preserveStartEnd"
+                  interval={evenTickInterval(chartData.length)}
                   tick={{ fontSize: 10 }}
                   stroke="var(--muted-foreground)"
                 />

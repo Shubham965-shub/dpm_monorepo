@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Maximize2 } from 'lucide-react'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { TOOLTIP_Z_INDEX, greenGradient } from '@/lib/chartPalette'
-import { formatPeriodTick, formatPeriodLabel } from '@/lib/periodFormat'
+import { evenTickInterval, formatPeriodTick, formatPeriodLabel } from '@/lib/periodFormat'
 import { extractRowCategory } from '@/lib/kpiRowName'
 import type { KpiDomain, KpiDefinition } from '@/lib/kpiConfig'
 import type { Grain, KpiCardResponse } from '@/lib/kpiSchemas'
@@ -176,7 +176,7 @@ export function PriorityComplianceCard({
               <XAxis
                 dataKey="periodStart"
                 tickFormatter={(v: string) => formatPeriodTick(v, grain)}
-                interval="preserveStartEnd"
+                interval={evenTickInterval(points.length)}
                 tick={{ fontSize: 10 }}
                 stroke="var(--muted-foreground)"
               />
