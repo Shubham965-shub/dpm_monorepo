@@ -14,6 +14,17 @@ function formatEdgeDate(date: Date, grain: Grain): string {
   return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
 }
 
+/** "Dec '25" - the short year appended only when `date` isn't in `today`'s year, so the common
+ * current-year case stays compact. */
+function withYearIfNotCurrent(label: string, date: Date, today: Date): string {
+  return date.getFullYear() === today.getFullYear() ? label : `${label} '${String(date.getFullYear()).slice(-2)}`
+}
+
+/** A month's short name ("Sep"), plus a short year when it isn't the current year ("Dec '25"). */
+export function formatMonthLabel(date: Date, today: Date = new Date()): string {
+  return withYearIfNotCurrent(date.toLocaleDateString('en-US', { month: 'short' }), date, today)
+}
+
 /** Where a chart's range starts: the first day of its first period (a week starts on its Monday). */
 export function formatRangeStart(periodStart: string, grain: Grain): string {
   const date = new Date(`${periodStart}T00:00:00`)
@@ -37,12 +48,12 @@ export function formatRangeEnd(periodStart: string, grain: Grain): string {
 // yearly points are each a whole month/quarter/year, never a specific day - their periodStart's
 // day-of-month is always 1 (a modeling artifact, not real information), so the tick shows the
 // month name (+ year for quarterly, which can span a year boundary within one range) instead of
-// that meaningless "the 1st".
-export function formatPeriodTick(periodStart: string, grain: Grain): string {
+// that meaningless "the 1st". Daily/monthly ticks outside the current year get a short year.
+export function formatPeriodTick(periodStart: string, grain: Grain, today: Date = new Date()): string {
   const date = new Date(`${periodStart}T00:00:00`)
-  if (grain === 'daily') return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  if (grain === 'daily') return withYearIfNotCurrent(date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), date, today)
   if (grain === 'weekly') return formatIsoWeekTick(periodStart)
-  if (grain === 'monthly') return date.toLocaleDateString('en-US', { month: 'short' })
+  if (grain === 'monthly') return formatMonthLabel(date, today)
   if (grain === 'quarterly') return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
   return date.toLocaleDateString('en-US', { year: 'numeric' })
 }

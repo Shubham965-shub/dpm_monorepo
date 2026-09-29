@@ -27,8 +27,10 @@ export function buildKpiQueryString(globalFilters: GlobalKpiFilters, kpi: KpiDef
   const params = new URLSearchParams()
   params.set('site', globalFilters.site)
   params.set('grain', globalFilters.grain)
-  params.set('from', globalFilters.from)
-  params.set('to', globalFilters.to)
+  if (!kpi.snapshot) {
+    params.set('from', globalFilters.from)
+    params.set('to', globalFilters.to)
+  }
   for (const [key, value] of [...(kpi.fixedParams ?? []), ...extraParams]) params.append(key, value)
   return params.toString()
 }

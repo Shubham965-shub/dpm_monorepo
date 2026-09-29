@@ -109,8 +109,14 @@ public abstract class AbstractAggRepository<T> {
     protected List<String> distinctValues(String table, String siteColumn, String column, String site,
             String grain, LocalDate from, LocalDate to, Map<String, Set<String>> siblingFilters) {
         StringBuilder sql = new StringBuilder("SELECT DISTINCT ").append(column).append(" FROM ").append(table)
-                .append(" WHERE ").append(siteColumn).append(" = ? AND grain = ? AND period_start BETWEEN ? AND ?");
-        List<Object> params = new ArrayList<>(List.of(site, grain, from, to));
+                .append(" WHERE ").append(siteColumn).append(" = ? AND grain = ?");
+        List<Object> params = new ArrayList<>(List.of(site, grain));
+        // Null from/to = no period filter - the open-CAPA snapshot endpoints (AbstractOpenCapaRepository).
+        if (from != null && to != null) {
+            sql.append(" AND period_start BETWEEN ? AND ?");
+            params.add(from);
+            params.add(to);
+        }
         for (Map.Entry<String, Set<String>> entry : siblingFilters.entrySet()) {
             Set<String> values = excludeAllSentinel(entry.getValue());
             if (!values.isEmpty()) {

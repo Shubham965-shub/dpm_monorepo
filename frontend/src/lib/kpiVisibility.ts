@@ -15,9 +15,10 @@ import type { KpiVisibilityLens } from './roleAccess'
  * the single real `root-cause` id (Root Cause Breakdown), which already holds every dimension
  * behind its own picker rather than being 11 separate KPIs.
  *
- * Two real KPIs that exist in kpiConfig.ts but never appear in the framework doc at all
- * (`capa-open-by-date-opened`, and `reviewer-productivity` - the latter IS in the doc but as a
- * red-text row) are conservatively left out of every list rather than guessed into one.
+ * `reviewer-productivity` is in the doc only as a red-text row, so it's left out of every list.
+ * `capa-aging` isn't in the doc - added (business request, 2026-09-29) wherever the doc has
+ * `capa-aging-status`, which it replaces on the dashboard (its bars are stacked by level, so it
+ * shows the level breakdown too).
  */
 const OPERATOR_VISIBLE_KPI_IDS = new Set([
   'sample-tat',
@@ -66,7 +67,7 @@ const SUPERVISOR_VISIBLE_KPI_IDS = new Set([
   'oos-trend',
   'oot-trend',
   'deviations',
-  'capa-aging-status',
+  'capa-aging',
   'product-wise-failure',
   'qualification-cycle-time',
   'training-completion-rate',
@@ -111,7 +112,7 @@ const LEADERSHIP_VISIBLE_KPI_IDS = new Set([
   'oos-trend',
   'oot-trend',
   'deviations',
-  'capa-aging-status',
+  'capa-aging',
   'product-wise-failure',
   'qualification-cycle-time',
   'training-completion-rate',
@@ -152,7 +153,7 @@ const CXO_VISIBLE_KPI_IDS = new Set([
   'oos-trend',
   'oot-trend',
   'deviations',
-  'capa-aging-status',
+  'capa-aging',
   'product-wise-failure',
   'qualification-cycle-time',
   'training-completion-rate',

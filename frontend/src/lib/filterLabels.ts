@@ -13,6 +13,7 @@ export const ACTIVE_FILTER_CLASS = 'border-foreground/40 bg-muted font-semibold'
 const FILTER_LABEL_OVERRIDES: Record<string, string> = {
   respDept: 'Responsible Department',
   instGroup: 'Instrument Group',
+  respDeptSlice: 'Responsible Department',
 }
 
 /** "sampleType" -> "Sample type" - a filter's query-param name as a readable label. */

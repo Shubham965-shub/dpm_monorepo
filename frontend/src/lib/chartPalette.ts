@@ -17,6 +17,17 @@ export const MAX_SERIES = CATEGORICAL_PALETTE.length
 // other in-card element so it's never clipped by content underneath it.
 export const TOOLTIP_Z_INDEX = 50
 
+// CAPA levels are colored distinctly (per product decision) - keyed by the exact "L1".."L5" level
+// names the backend returns. Shared by CAPA Aging Status's ranking bars and CAPA Aging's stacked
+// segments, so a level reads as the same color on both.
+export const CAPA_AGING_LEVEL_COLORS: Record<string, string> = {
+  L1: '#DEEFFF',
+  L2: '#41A4FF',
+  L3: '#E8D166',
+  L4: '#EFB5B9',
+  L5: '#D64550',
+}
+
 const GREEN_GRADIENT_LIGHT: [number, number, number] = [209, 250, 229] // emerald-100
 const GREEN_GRADIENT_DARK: [number, number, number] = [6, 78, 59] // emerald-900
 

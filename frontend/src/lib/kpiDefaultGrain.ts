@@ -54,6 +54,8 @@ export const KPI_DEFAULT_GRAIN: Partial<Record<string, Partial<Record<KpiVisibil
   'oot-trend': { supervisor: 'daily', leadership: 'weekly', cxo: 'monthly' },
   deviations: { supervisor: 'daily', leadership: 'weekly', cxo: 'monthly' },
   'capa-aging-status': { supervisor: 'daily', leadership: 'weekly', cxo: 'monthly' },
+  // Not in the doc - monthly for every role, matching Power BI's CAPA Status/Aging page.
+  'capa-aging': { supervisor: 'monthly', leadership: 'monthly', cxo: 'monthly' },
   'product-wise-failure': { supervisor: 'daily', leadership: 'weekly', cxo: 'monthly' },
   'qualification-cycle-time': { supervisor: 'weekly', leadership: 'weekly', cxo: 'monthly' },
   'training-completion-rate': { operator: 'daily', supervisor: 'weekly', leadership: 'weekly', cxo: 'monthly' },

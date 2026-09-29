@@ -1,5 +1,6 @@
 import type { Grain } from './kpiSchemas'
 import { startOfIsoWeek, formatIsoWeekTick } from './isoWeek'
+import { formatMonthLabel } from './periodFormat'
 
 export interface MonthColumn {
   /** "YYYY-MM", matches the first 7 chars of a KpiCardResponse.periodStart. */
@@ -77,7 +78,7 @@ export function getTrailingMonthRange(monthCount: number, today: Date = new Date
     const lastDayOfMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0)
     months.push({
       key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
-      label: d.toLocaleString('en-US', { month: 'short' }),
+      label: formatMonthLabel(d, today),
       from: toIsoDate(d),
       to: lastDayOfMonth < today ? toIsoDate(lastDayOfMonth) : overallTo,
     })

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Maximize2 } from 'lucide-react'
 import { Bar, BarChart, CartesianGrid, Rectangle, ResponsiveContainer, Tooltip, XAxis, YAxis, type BarShapeProps } from 'recharts'
-import { TOOLTIP_Z_INDEX } from '@/lib/chartPalette'
+import { CAPA_AGING_LEVEL_COLORS, TOOLTIP_Z_INDEX } from '@/lib/chartPalette'
 import type { KpiDomain, KpiDefinition } from '@/lib/kpiConfig'
 import { useKpiData, type GlobalKpiFilters } from '@/hooks/useKpiData'
 import { useExtraFilters } from '@/hooks/useExtraFilters'
@@ -18,18 +18,6 @@ import { KpiRankingBarDetailModal } from './KpiRankingBarDetailModal'
 // doesn't support. Reuses the exact same card chrome (border + tinted background) as
 // SeverityKpiCard so the two card types read as one design system, not two.
 const GREEN = SEVERITY_META['in-control']
-
-// CAPA Aging Status colors each level bar distinctly (per product decision) rather than the
-// uniform ranking-card green every other chartType:'bar' KPI uses - keyed by the exact "L1".."L5"
-// name QmsService.getCapaAgingStatus groups rows by. Not a legend-carrying identity channel (the
-// Y-axis category label already names each bar) - purely a reinforcing visual cue.
-const CAPA_AGING_LEVEL_COLORS: Record<string, string> = {
-  L1: '#DEEFFF',
-  L2: '#41A4FF',
-  L3: '#E8D166',
-  L4: '#EFB5B9',
-  L5: '#D64550',
-}
 
 export function barFillFor(kpiId: string, categoryName: string): string {
   return kpiId === 'capa-aging-status' ? (CAPA_AGING_LEVEL_COLORS[categoryName] ?? GREEN.solidHex) : GREEN.solidHex

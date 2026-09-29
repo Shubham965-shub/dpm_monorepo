@@ -21,7 +21,11 @@ import com.strides.model.PeriodSum;
 import com.strides.model.MedianTatRow;
 import com.strides.model.PeriodTotal;
 import com.strides.model.RootCauseTotal;
+import com.strides.model.PeriodTierTotal;
+import com.strides.repository.AbstractOpenCapaRepository;
+import com.strides.repository.AggTwCapaAgingStatusRepository;
 import com.strides.repository.AggTwCapaEffectivenessRepository;
+import com.strides.repository.AggTwCapaOpenByDueDateRepository;
 import com.strides.repository.AggTwDeviationsRepository;
 import com.strides.repository.AggTwHumanErrorSeverityRepository;
 import com.strides.repository.AggTwInvalidOosRateRepository;
@@ -61,6 +65,10 @@ class QmsServiceTest {
     AggTwRepeatFailureRateRepository repeatFailureRateRepository;
     @Mock
     AggTwCapaEffectivenessRepository capaEffectivenessRepository;
+    @Mock
+    AggTwCapaAgingStatusRepository capaAgingStatusRepository;
+    @Mock
+    AggTwCapaOpenByDueDateRepository capaOpenByDueDateRepository;
     @Mock
     AggTwDeviationsRepository deviationsRepository;
     @Mock
@@ -241,6 +249,43 @@ class QmsServiceTest {
         var result = service.getRepeatFailureRate("KRSG", null, null, "monthly", PERIOD, PERIOD.plusMonths(1));
 
         assertNull(result.get(0).note());
+    }
+
+    @Test
+    void capaAging_defaultsToDateOpened_oneRowPerPeriodAndLevel() {
+        var expected = new AbstractOpenCapaRepository.Filter("KRSG", DepartmentScope.ALL, null, Set.of(), Set.of(),
+                null, null, "monthly", null, null);
+        LocalDate december = LocalDate.of(2025, 12, 1);
+        when(capaAgingStatusRepository.findPeriodLevelTotals(expected)).thenReturn(List.of(
+                new PeriodTierTotal(december, "monthly", "L1", 3),
+                new PeriodTierTotal(december, "monthly", "L2", 1),
+                new PeriodTierTotal(december, "monthly", "L4", 1)));
+
+        var result = service.getCapaAging("KRSG", null, null, null, null, null, "monthly", null, null);
+
+        assertEquals(List.of("L1", "L2", "L4"), result.stream().map(KpiCardResponse::name).toList());
+        assertTrue(result.stream().allMatch(r -> r.kpiId().equals("capa-aging") && r.periodStart().equals(december)));
+        assertEquals(5, result.stream().mapToInt(r -> r.value().intValue()).sum());
+        verifyNoInteractions(capaOpenByDueDateRepository);
+    }
+
+    @Test
+    void capaAging_dueDate_readsDueDateTable_pinnedToChosenDepartmentSlice() {
+        var expected = new AbstractOpenCapaRepository.Filter("KRSG", DepartmentScope.ALL, "Quality Control Department",
+                Set.of("CAPA In Progress"), Set.of(), null, null, "monthly", null, null);
+        when(capaOpenByDueDateRepository.findPeriodLevelTotals(expected))
+                .thenReturn(List.of(new PeriodTierTotal(PERIOD, "monthly", "L1", 11)));
+
+        var result = service.getCapaAging("KRSG", "Due Date", null, "Quality Control Department", "CAPA In Progress", null, "monthly", null, null);
+
+        assertEquals(BigDecimal.valueOf(11), result.get(0).value());
+        verifyNoInteractions(capaAgingStatusRepository);
+    }
+
+    @Test
+    void capaAging_rejectsUnknownDateBasis() {
+        assertThrows(BadRequestException.class,
+                () -> service.getCapaAging("KRSG", "Closed", null, null, null, null, "monthly", null, null));
     }
 
     @Test

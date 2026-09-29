@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { evenTickInterval, formatRangeEnd, formatRangeStart } from './periodFormat'
+import { evenTickInterval, formatPeriodTick, formatRangeEnd, formatRangeStart } from './periodFormat'
+
+describe('formatPeriodTick', () => {
+  const TODAY = new Date(2026, 8, 29)
+
+  it('adds a short year only to months/days outside the current year', () => {
+    expect(formatPeriodTick('2026-09-01', 'monthly', TODAY)).toBe('Sep')
+    expect(formatPeriodTick('2025-12-01', 'monthly', TODAY)).toBe("Dec '25")
+    expect(formatPeriodTick('2027-01-01', 'monthly', TODAY)).toBe("Jan '27")
+    expect(formatPeriodTick('2025-12-31', 'daily', TODAY)).toBe("Dec 31 '25")
+  })
+})
 
 describe('formatRangeStart / formatRangeEnd', () => {
   it('names the exact weekday and date for daily points', () => {
