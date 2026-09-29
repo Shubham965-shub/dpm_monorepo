@@ -104,14 +104,6 @@ export const KPI_DOMAINS: KpiDomain[] = [
       { id: 'pm-adherence', label: 'PM Adherence %', path: 'pm-adherence', extraFilters: [] },
       { id: 'breakdown-frequency', label: 'Breakdown Frequency', path: 'breakdown-frequency', extraFilters: [] },
       { id: 'failure-rate', label: 'Instrument Failure Rate', path: 'failure-rate', extraFilters: [] },
-      {
-        // Confirmed live: GET /api/instrument-health/qualification-cycle-time is real (200);
-        // /api/people-performance/qualification-cycle-time 404s - this KPI's real endpoint sits
-        // under instrument-health's basePath, so it must stay in this domain regardless of which
-        // dashboard section a spec groups it under for display.
-        id: 'qualification-cycle-time', label: 'Qualification Cycle Time', path: 'qualification-cycle-time',
-        extraFilters: [{ kind: 'multiSelect', param: 'designation' }],
-      },
     ],
   },
   {
@@ -218,6 +210,11 @@ export const KPI_DOMAINS: KpiDomain[] = [
           { kind: 'multiSelect', param: 'department' },
           { kind: 'multiSelect', param: 'trainingType' },
         ],
+      },
+      {
+        // Served by PeoplePerformanceController since faf7c11 - /api/instrument-health/qualification-cycle-time 404s.
+        id: 'qualification-cycle-time', label: 'Qualification Cycle Time', path: 'qualification-cycle-time',
+        extraFilters: [{ kind: 'multiSelect', param: 'designation' }],
       },
     ],
   },

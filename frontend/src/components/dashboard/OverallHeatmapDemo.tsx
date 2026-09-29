@@ -59,12 +59,14 @@ function Cell({
   periodLabel,
   status,
   value,
+  onClick,
 }: {
   kpiName: string
   defaultFilters: string[]
   periodLabel: string
   status: RagStatus
   value: number | null
+  onClick: () => void
 }) {
   const colorHex = cellColorHex(status)
   return (
@@ -169,6 +171,7 @@ function RowChunk({
                   periodLabel={cell.periodLabel}
                   status={cell.status}
                   value={cell.value}
+                  onClick={() => onKpiClick(row.slug)}
                 />
               </span>
             ))}
