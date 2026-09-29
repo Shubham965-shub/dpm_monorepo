@@ -9,12 +9,12 @@ import { initialExtraFilterState, resolveExtraParams, type ExtraFilterState } fr
 const DYNAMIC_KINDS = new Set<ExtraFilter['kind']>(['select', 'multiSelect'])
 
 // Per-KPI option exclusions - values the backend's live distinct-value list includes but a
-// specific KPI's filter shouldn't surface. CAPA Aging Status tracks open/aging CAPAs specifically,
+// specific KPI's filter shouldn't surface. The CAPA snapshot cards track open CAPAs specifically,
 // so "Closed - Done" isn't a meaningful status to filter by there even though the column has it.
+const OPEN_CAPA_EXCLUSIONS = { recordStatus: new Set(['Closed - Done']) }
 const EXCLUDED_OPTIONS: Record<string, Record<string, Set<string>>> = {
-  'capa-aging-status': {
-    recordStatus: new Set(['Closed - Done']),
-  },
+  'capa-aging-status': OPEN_CAPA_EXCLUSIONS,
+  'capa-aging': OPEN_CAPA_EXCLUSIONS,
 }
 
 /**

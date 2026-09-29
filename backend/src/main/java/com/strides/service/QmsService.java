@@ -1,5 +1,6 @@
 package com.strides.service;
 
+import com.strides.dto.CapaDateBasis;
 import com.strides.dto.DepartmentScope;
 import com.strides.dto.InvalidOosTestScope;
 import com.strides.dto.KpiCardResponse;
@@ -7,7 +8,9 @@ import com.strides.model.AggTwHumanErrorSeverityRow;
 import com.strides.model.MedianTatRow;
 import com.strides.model.PeriodTotal;
 import com.strides.model.RootCauseTotal;
+import com.strides.repository.AbstractOpenCapaRepository;
 import com.strides.repository.AggTwCapaAgingStatusRepository;
+import com.strides.repository.AggTwCapaOpenByDueDateRepository;
 import com.strides.repository.AggTwCapaEffectivenessRepository;
 import com.strides.repository.AggTwCapaRecurrenceRateRepository;
 import com.strides.repository.AggTwDeviationsRepository;
@@ -63,6 +66,8 @@ public class QmsService {
     AggTwRootCauseDistributionRepository rootCauseDistributionRepository;
     @Inject
     AggTwCapaAgingStatusRepository capaAgingStatusRepository;
+    @Inject
+    AggTwCapaOpenByDueDateRepository capaOpenByDueDateRepository;
     @Inject
     AggTwCapaEffectivenessRepository capaEffectivenessRepository;
     @Inject
@@ -341,57 +346,77 @@ public class QmsService {
     }
 
     /**
-     * recordStatus: comma-separated list to combine, or null/blank for ALL - summed away in Postgres.
-     * level: comma-separated list of aging tiers (L1-L5) to include, or null/blank for ALL - a
-     * selected level always stays its own row rather than being blended with others, since it's a
-     * distinct axis, not a value to sum away. Matches Power BI's "Level" slicer.
-     * The catalogue's "% overdue beyond 60 days" doesn't map cleanly onto these levels, so raw
-     * per-level counts are returned without a synthesized status.
+     * Open-CAPA snapshot (Power BI's CAPA Status/Aging page). from/to both null = every currently
+     * open CAPA, no date filter - see AbstractOpenCapaRepository. recordStatus/level: comma-separated
+     * lists, or null/blank for ALL. minAgingDays/maxAgingDays: per-CAPA aging range, either bound optional.
+     * departmentScope: QC | ALL (default ALL) - see backend/README.md's "Department scope" section;
+     * respDeptSlice (one department, or null/blank) overrides it.
      */
+    private static AbstractOpenCapaRepository.Filter openCapaFilter(String site, String departmentScope, String respDeptSlice,
+            String recordStatus, String level, Double minAgingDays, Double maxAgingDays, String grain, LocalDate from, LocalDate to) {
+        return new AbstractOpenCapaRepository.Filter(site, DepartmentScope.parse(departmentScope), respDeptSlice,
+                PeriodCombiner.parseSelection(recordStatus), PeriodCombiner.parseSelection(level),
+                minAgingDays, maxAgingDays, grain, from, to);
+    }
+
     /**
-     * minAgingDays/maxAgingDays: numeric range on avg_aging_days (either bound optional), matching
-     * Power BI's "Aging (Days)" slicer. CAVEAT: agg_tw_capa_aging_status is already pre-aggregated
-     * per (period, level, record_status) - there's no individual-CAPA-record aging value to filter
-     * on, so this range applies to the combined GROUP's average, not each underlying record.
+     * One row per level (a separate axis, never summed away). The catalogue's "% overdue beyond 60
+     * days" doesn't map cleanly onto these levels, so raw per-level counts are returned without a
+     * synthesized status.
      */
-    /** departmentScope: QC | ALL (default ALL) - slice pattern on resp_dept_slice, see backend/README.md's "Department scope" section. */
     public List<KpiCardResponse> getCapaAgingStatus(String site, String departmentScope, String recordStatus, String level,
             Double minAgingDays, Double maxAgingDays, String grain, LocalDate from, LocalDate to) {
-        DepartmentScope scope = DepartmentScope.parse(departmentScope);
-        Set<String> selectedStatuses = PeriodCombiner.parseSelection(recordStatus);
-        Set<String> selectedLevels = PeriodCombiner.parseSelection(level);
-        return capaAgingStatusRepository.findByLevel(site, scope, selectedStatuses, selectedLevels, minAgingDays, maxAgingDays, grain, from, to)
+        var filter = openCapaFilter(site, departmentScope, null, recordStatus, level, minAgingDays, maxAgingDays, grain, from, to);
+        LocalDate asOf = to != null ? to : LocalDate.now();
+        return capaAgingStatusRepository.findByLevel(filter)
                 .stream()
                 .map(nc -> new KpiCardResponse(
                         "capa-aging-status", nc.name(), BigDecimal.valueOf(nc.count()), "count",
-                        null, grain, to, null))
+                        null, grain, asOf, null))
                 .toList();
     }
 
-    /**
-     * departmentScope: QC | ALL (default ALL) - slice pattern on resp_dept_slice, see
-     * backend/README.md's "Department scope" section. Matches Power BI's "Open CAPA by Date
-     * Opened" trend - period_start is the CAPA's date-opened month.
-     */
-    public List<KpiCardResponse> getCapaOpenByDateOpened(String site, String departmentScope, String recordStatus,
-            String level, String grain, LocalDate from, LocalDate to) {
-        Set<String> selectedStatuses = PeriodCombiner.parseSelection(recordStatus);
-        Set<String> selectedLevels = PeriodCombiner.parseSelection(level);
-        var totals = capaAgingStatusRepository.findByDateOpened(site, DepartmentScope.parse(departmentScope),
-                selectedStatuses, selectedLevels, grain, from, to);
-        return PeriodCombiner.fromSums(totals, "capa-open-by-date-opened", "Open CAPA by Date Opened", "count");
+    /** period_start is the CAPA's date-opened period. */
+    public List<KpiCardResponse> getCapaOpenByDateOpened(String site, String departmentScope, String recordStatus, String level,
+            Double minAgingDays, Double maxAgingDays, String grain, LocalDate from, LocalDate to) {
+        var filter = openCapaFilter(site, departmentScope, null, recordStatus, level, minAgingDays, maxAgingDays, grain, from, to);
+        return PeriodCombiner.fromSums(capaAgingStatusRepository.findByDateOpened(filter),
+                "capa-open-by-date-opened", "Open CAPA by Date Opened", "count");
     }
 
     /**
-     * Shared by both capa-aging-status and capa-open-by-date-opened - same underlying
-     * table/columns. departmentScope/minAgingDays/maxAgingDays aren't part of the option set
-     * below (departmentScope isn't a DB-driven column filter; the aging-days bounds are a numeric
-     * range, not a categorical dropdown).
+     * Power BI's CAPA Status/Aging column charts merged into one: open CAPAs per period of
+     * dateBasis (Date Opened by default, or Due Date), one row per (period, level) - `name` is the level.
+     * No aging-days range here (business request, 2026-09-29).
      */
+    public List<KpiCardResponse> getCapaAging(String site, String dateBasis, String departmentScope, String respDeptSlice,
+            String recordStatus, String level, String grain, LocalDate from, LocalDate to) {
+        var filter = openCapaFilter(site, departmentScope, respDeptSlice, recordStatus, level, null, null, grain, from, to);
+        return openCapaRepository(dateBasis).findPeriodLevelTotals(filter).stream()
+                .map(t -> new KpiCardResponse("capa-aging", t.tier(), BigDecimal.valueOf(t.total()), "count",
+                        null, t.grain(), t.periodStart(), null))
+                .toList();
+    }
+
+    private AbstractOpenCapaRepository openCapaRepository(String dateBasis) {
+        return CapaDateBasis.parse(dateBasis) == CapaDateBasis.DUE ? capaOpenByDueDateRepository : capaAgingStatusRepository;
+    }
+
+    /** Shared by capa-aging-status and capa-open-by-date-opened (same table). */
     public Map<String, List<String>> getCapaAgingStatusFilterOptions(String site, String recordStatus, String level,
             String grain, LocalDate from, LocalDate to) {
-        return capaAgingStatusRepository.filterOptions(site, grain, from, to,
+        return capaAgingStatusRepository.filterOptions(site, grain, from, to, null,
                 PeriodCombiner.parseSelection(recordStatus), PeriodCombiner.parseSelection(level));
+    }
+
+    /** dateBasis' own fixed options, plus respDeptSlice/recordStatus/level from whichever table dateBasis picks. */
+    public Map<String, List<String>> getCapaAgingFilterOptions(String site, String dateBasis, String respDeptSlice, String recordStatus,
+            String level, String grain, LocalDate from, LocalDate to) {
+        Map<String, List<String>> options = new LinkedHashMap<>();
+        options.put("dateBasis", CapaDateBasis.FILTER_OPTIONS);
+        options.putAll(openCapaRepository(dateBasis).filterOptions(site, grain, from, to, respDeptSlice,
+                PeriodCombiner.parseSelection(recordStatus), PeriodCombiner.parseSelection(level)));
+        return options;
     }
 
     /**

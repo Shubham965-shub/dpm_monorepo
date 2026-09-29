@@ -7,6 +7,7 @@ import { getGrainDateRange } from '@/lib/kpiDateRange'
 import type { Grain } from '@/lib/kpiSchemas'
 import type { GlobalKpiFilters } from '@/hooks/useKpiData'
 import { KpiRankingBarCard } from './KpiRankingBarCard'
+import { PeriodCountBarCard } from './PeriodCountBarCard'
 import { PriorityComplianceCard } from './PriorityComplianceCard'
 import { RootCauseHeatmapCard } from './RootCauseHeatmapCard'
 import { SECTION_LABELS } from './sectionLabels'
@@ -118,14 +119,17 @@ export const SectionSummaryList = forwardRef<
         // plain KpiRankingBarCard instead.
         const isSpecialCased = (id: string) => STACKED_SHARE_KPI_IDS.has(id) || HEATMAP_KPI_IDS.has(id)
         const isRanking = (kpi: KpiDefinition) => kpi.chartType === 'bar'
-        let trendKpis = domainKpis?.filter((kpi) => !isRanking(kpi) && !isSpecialCased(kpi.id)) ?? []
+        const isColumn = (kpi: KpiDefinition) => kpi.chartType === 'column'
+        let trendKpis = domainKpis?.filter((kpi) => !isRanking(kpi) && !isColumn(kpi) && !isSpecialCased(kpi.id)) ?? []
         let stackedKpis = domainKpis?.filter((kpi) => STACKED_SHARE_KPI_IDS.has(kpi.id)) ?? []
         const heatmapKpis = domainKpis?.filter((kpi) => HEATMAP_KPI_IDS.has(kpi.id)) ?? []
         let rankingKpis = domainKpis?.filter((kpi) => isRanking(kpi) && !isSpecialCased(kpi.id)) ?? []
+        let columnKpis = domainKpis?.filter((kpi) => isColumn(kpi) && !isSpecialCased(kpi.id)) ?? []
         if (isSearching) {
           trendKpis = trendKpis.filter((kpi) => kpi.label.toLowerCase().includes(query))
           stackedKpis = stackedKpis.filter((kpi) => kpi.label.toLowerCase().includes(query))
           rankingKpis = rankingKpis.filter((kpi) => kpi.label.toLowerCase().includes(query))
+          columnKpis = columnKpis.filter((kpi) => kpi.label.toLowerCase().includes(query))
         }
         // Always paired with its host (see HEATMAP_COMPANION_HOST_ID) - not independently
         // searchable/rendered, so it isn't part of the search filter or hasMatch above. A function
@@ -142,7 +146,7 @@ export const SectionSummaryList = forwardRef<
             }
           }
         }
-        const hasMatch = trendKpis.length > 0 || stackedKpis.length > 0 || rankingKpis.length > 0
+        const hasMatch = trendKpis.length > 0 || stackedKpis.length > 0 || rankingKpis.length > 0 || columnKpis.length > 0
         // hasMatch already reflects the lens filter (domainKpis above is restricted to
         // visibleKpiIds) - a role whose KPI Framework column leaves a whole section blank (e.g.
         // Operator sees nothing under Compliance System) shouldn't render that section's header
@@ -181,6 +185,13 @@ export const SectionSummaryList = forwardRef<
                   <div className="flex flex-col gap-3 p-4">
                     {stackedKpis.map((kpi) => (
                       <PriorityComplianceCard key={kpi.id} domain={domain} kpi={kpi} globalFilters={globalFilters} lens={lens} />
+                    ))}
+                  </div>
+                )}
+                {columnKpis.length > 0 && (
+                  <div className="flex flex-col gap-3 p-4">
+                    {columnKpis.map((kpi) => (
+                      <PeriodCountBarCard key={kpi.id} domain={domain} kpi={kpi} globalFilters={globalFilters} lens={lens} />
                     ))}
                   </div>
                 )}

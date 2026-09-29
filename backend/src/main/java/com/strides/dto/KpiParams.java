@@ -213,8 +213,17 @@ public final class KpiParams {
         public String departmentScope;
     }
 
-    /** departmentScope: QC | ALL (default ALL) - slice pattern on resp_dept_slice, see backend/README.md's "Department scope" section. */
+    /**
+     * departmentScope: QC | ALL (default ALL) - slice pattern on resp_dept_slice, see backend/README.md's "Department scope" section.
+     * from/to are optional here (omit both = every open CAPA as of today). dateBasis: capa-aging
+     * only - Date Opened (default) | Due Date.
+     */
     public static class CapaAgingStatus extends DateRange {
+        @QueryParam("dateBasis")
+        public String dateBasis;
+        /** capa-aging only - one department's resp_dept_slice; overrides departmentScope. */
+        @QueryParam("respDeptSlice")
+        public String respDeptSlice;
         @QueryParam("recordStatus")
         public String recordStatus;
         @QueryParam("level")

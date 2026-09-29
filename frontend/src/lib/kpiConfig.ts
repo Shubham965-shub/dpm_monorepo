@@ -37,8 +37,13 @@ export interface KpiDefinition {
    * 'bar' = one horizontal bar per row's `name`, summed across the whole date range rather than
    * per-period (every row shares one periodStart) - matches Power BI's "by product" panels
    * (Human Error by Product, Product-wise Failure), which are category rankings, not trends.
+   * 'column' = one vertical bar per period, stacked by `name` (e.g. CAPA level) - Power BI's
+   * column charts, for plain counts with no threshold (see PeriodCountBarCard).
    */
-  chartType?: 'line' | 'bar'
+  chartType?: 'line' | 'bar' | 'column'
+  /** Open-record snapshot ("as of today"): no from/to is sent, so the backend returns every
+   * currently-open record, regardless of the page's date window (see AbstractOpenCapaRepository). */
+  snapshot?: boolean
 }
 
 export interface KpiDomain {
@@ -50,6 +55,14 @@ export interface KpiDomain {
 }
 
 export const DEFAULT_SITE = 'KRSG'
+
+// Power BI's CAPA Status/Aging slicers, shared by its three visuals. Aging bounds filter each CAPA's own age.
+const CAPA_SNAPSHOT_FILTERS: ExtraFilter[] = [
+  { kind: 'multiSelect', param: 'recordStatus' },
+  { kind: 'multiSelect', param: 'level' },
+  { kind: 'numberInput', param: 'minAgingDays' },
+  { kind: 'numberInput', param: 'maxAgingDays' },
+]
 
 // Blank = every group combined (hours summed, % recomputed - see AggLimsInstrumentUtilizationRepository).
 const INST_GROUP_FILTER: ExtraFilter = { kind: 'multiSelect', param: 'instGroup' }
@@ -104,14 +117,6 @@ export const KPI_DOMAINS: KpiDomain[] = [
       { id: 'pm-adherence', label: 'PM Adherence %', path: 'pm-adherence', extraFilters: [] },
       { id: 'breakdown-frequency', label: 'Breakdown Frequency', path: 'breakdown-frequency', extraFilters: [] },
       { id: 'failure-rate', label: 'Instrument Failure Rate', path: 'failure-rate', extraFilters: [] },
-      {
-        // Confirmed live: GET /api/instrument-health/qualification-cycle-time is real (200);
-        // /api/people-performance/qualification-cycle-time 404s - this KPI's real endpoint sits
-        // under instrument-health's basePath, so it must stay in this domain regardless of which
-        // dashboard section a spec groups it under for display.
-        id: 'qualification-cycle-time', label: 'Qualification Cycle Time', path: 'qualification-cycle-time',
-        extraFilters: [{ kind: 'multiSelect', param: 'designation' }],
-      },
     ],
   },
   {
@@ -159,23 +164,22 @@ export const KPI_DOMAINS: KpiDomain[] = [
       { id: 'root-cause-consolidated', label: 'Root Cause (Consolidated)', path: 'root-cause/consolidated', extraFilters: [{ kind: 'multiSelect', param: 'recordType' }] },
       {
         id: 'capa-aging-status', label: 'CAPA Aging Status', path: 'capa-aging-status',
-        extraFilters: [
-          { kind: 'multiSelect', param: 'recordStatus' },
-          { kind: 'multiSelect', param: 'level' },
-          { kind: 'numberInput', param: 'minAgingDays' },
-          { kind: 'numberInput', param: 'maxAgingDays' },
-        ],
+        extraFilters: CAPA_SNAPSHOT_FILTERS,
         chartType: 'bar',
+        snapshot: true,
       },
       {
-        // period_start is the CAPA's date-opened month (confirmed live) - there is no due-date
-        // column anywhere in this table or any other CAPA table, so "by Due Date" isn't buildable
-        // without a pipeline change.
-        id: 'capa-open-by-date-opened', label: 'Open CAPA by Date Opened', path: 'capa-aging-status/by-date-opened',
+        // Power BI's "Open CAPA by Date Opened" and "by Due Date" in one chart - dateBasis switches between them.
+        id: 'capa-aging', label: 'CAPA Aging', path: 'capa-aging',
+        // respDeptSlice is single-select: each slice (incl. the table's own 'All' row) is pre-summed upstream.
         extraFilters: [
+          { kind: 'select', param: 'dateBasis', required: true, defaultValue: 'Date Opened' },
+          { kind: 'select', param: 'respDeptSlice' },
           { kind: 'multiSelect', param: 'recordStatus' },
           { kind: 'multiSelect', param: 'level' },
         ],
+        chartType: 'column',
+        snapshot: true,
       },
       { id: 'capa-effectiveness', label: 'CAPA Effectiveness', path: 'capa-effectiveness', extraFilters: [{ kind: 'multiSelect', param: 'originatedFrom' }] },
       { id: 'capa-recurrence-rate', label: 'CAPA Recurrence Rate', path: 'capa-recurrence-rate', extraFilters: [] },
@@ -218,6 +222,11 @@ export const KPI_DOMAINS: KpiDomain[] = [
           { kind: 'multiSelect', param: 'department' },
           { kind: 'multiSelect', param: 'trainingType' },
         ],
+      },
+      {
+        // Served by PeoplePerformanceController since faf7c11 - /api/instrument-health/qualification-cycle-time 404s.
+        id: 'qualification-cycle-time', label: 'Qualification Cycle Time', path: 'qualification-cycle-time',
+        extraFilters: [{ kind: 'multiSelect', param: 'designation' }],
       },
     ],
   },

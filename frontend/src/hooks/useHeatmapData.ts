@@ -67,6 +67,11 @@ function primaryValueRow(kpiId: string, rows: KpiCardResponse[]): KpiCardRespons
     .at(-1)
 }
 
+// A snapshot KPI ("every open record as of today") has no month-by-month history to heat-map.
+function heatmapKpis(domain: KpiDomain): KpiDefinition[] {
+  return domain.kpis.filter((kpi) => !kpi.snapshot)
+}
+
 interface HeatmapRequest {
   domain: KpiDomain
   kpi: KpiDefinition
@@ -86,7 +91,7 @@ export function useHeatmapData(site: string, window: HeatmapWindow) {
   // today's date, confirmed live), so each one gets a separate narrow [periodStart, periodEnd]
   // request per period column instead of the one wide-range request every other KPI uses.
   const requests: HeatmapRequest[] = KPI_DOMAINS.flatMap((domain) =>
-    domain.kpis.flatMap((kpi) =>
+    heatmapKpis(domain).flatMap((kpi) =>
       kpi.chartType === 'bar'
         ? periods.map((p) => ({ domain, kpi, from: p.from, to: p.to, periodKey: p.key }))
         : [{ domain, kpi, from, to }],
@@ -125,7 +130,7 @@ export function useHeatmapData(site: string, window: HeatmapWindow) {
   }))
 
   for (const domain of KPI_DOMAINS) {
-    for (const kpi of domain.kpis) {
+    for (const kpi of heatmapKpis(domain)) {
       let cells: HeatmapCell[]
       if (kpi.chartType === 'bar') {
         const byPeriod = rowsByKpiIdAndPeriod.get(kpi.id)

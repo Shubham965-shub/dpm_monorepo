@@ -164,28 +164,42 @@ public class QmsController {
     @Path("/capa-aging-status")
     public List<KpiCardResponse> capaAgingStatus(@BeanParam KpiParams.CapaAgingStatus p) {
         return service.getCapaAgingStatus(p.site, p.departmentScope, p.recordStatus, p.level, p.minAgingDays, p.maxAgingDays,
-                RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
+                RequiredParams.require(p.grain, "grain"), p.from, p.to);
     }
 
     @GET
     @Path("/capa-aging-status/filter-options")
     public Map<String, List<String>> capaAgingStatusFilterOptions(@BeanParam KpiParams.CapaAgingStatus p) {
         return service.getCapaAgingStatusFilterOptions(p.site, p.recordStatus, p.level,
-                RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
+                RequiredParams.require(p.grain, "grain"), p.from, p.to);
     }
 
     @GET
     @Path("/capa-aging-status/by-date-opened")
     public List<KpiCardResponse> capaOpenByDateOpened(@BeanParam KpiParams.CapaAgingStatus p) {
-        return service.getCapaOpenByDateOpened(p.site, p.departmentScope, p.recordStatus, p.level,
-                RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
+        return service.getCapaOpenByDateOpened(p.site, p.departmentScope, p.recordStatus, p.level, p.minAgingDays, p.maxAgingDays,
+                RequiredParams.require(p.grain, "grain"), p.from, p.to);
     }
 
     @GET
     @Path("/capa-aging-status/by-date-opened/filter-options")
     public Map<String, List<String>> capaOpenByDateOpenedFilterOptions(@BeanParam KpiParams.CapaAgingStatus p) {
         return service.getCapaAgingStatusFilterOptions(p.site, p.recordStatus, p.level,
-                RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
+                RequiredParams.require(p.grain, "grain"), p.from, p.to);
+    }
+
+    @GET
+    @Path("/capa-aging")
+    public List<KpiCardResponse> capaAging(@BeanParam KpiParams.CapaAgingStatus p) {
+        return service.getCapaAging(p.site, p.dateBasis, p.departmentScope, p.respDeptSlice, p.recordStatus, p.level,
+                RequiredParams.require(p.grain, "grain"), p.from, p.to);
+    }
+
+    @GET
+    @Path("/capa-aging/filter-options")
+    public Map<String, List<String>> capaAgingFilterOptions(@BeanParam KpiParams.CapaAgingStatus p) {
+        return service.getCapaAgingFilterOptions(p.site, p.dateBasis, p.respDeptSlice, p.recordStatus, p.level,
+                RequiredParams.require(p.grain, "grain"), p.from, p.to);
     }
 
     @GET

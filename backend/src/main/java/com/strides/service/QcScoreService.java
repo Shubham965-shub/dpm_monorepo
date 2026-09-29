@@ -126,7 +126,7 @@ public class QcScoreService {
                 new KpiSource(qmsSection, "investigation-closure-tat", (s, g, f, t) -> qms.getInvestigationClosureTat(s, null, null, null, g, f, t)),
                 new KpiSource(qmsSection, "rci-beyond-timeline", (s, g, f, t) -> qms.getRciBeyondTimeline(s, null, null, g, f, t)),
                 new KpiSource(qmsSection, "repeat-failure-rate", (s, g, f, t) -> qms.getRepeatFailureRate(s, null, null, g, f, t)),
-                new KpiSource(qmsSection, "capa-open-by-date-opened", (s, g, f, t) -> qms.getCapaOpenByDateOpened(s, null, null, null, g, f, t)),
+                new KpiSource(qmsSection, "capa-open-by-date-opened", (s, g, f, t) -> qms.getCapaOpenByDateOpened(s, null, null, null, null, null, g, f, t)),
                 new KpiSource(qmsSection, "capa-effectiveness", (s, g, f, t) -> qms.getCapaEffectiveness(s, null, null, g, f, t)),
                 new KpiSource(qmsSection, "capa-recurrence-rate", (s, g, f, t) -> qms.getCapaRecurrenceRate(s, null, g, f, t)),
                 new KpiSource(qmsSection, "human-error-rate", (s, g, f, t) -> qms.getHumanErrorRate(s, null, g, f, t)),
