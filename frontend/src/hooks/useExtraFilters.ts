@@ -49,7 +49,7 @@ export function useExtraFilters(
   const queryString = buildKpiQueryString(filters, kpi, kpi.extraFilters.flatMap((filter, i) => resolveExtraParams(filter, extraStates[i])))
   const hasDynamicFilters = kpi.extraFilters.some((f) => DYNAMIC_KINDS.has(f.kind))
   // A required select can only resolve its default from the live list, so it has to fetch even while hidden.
-  const needsOptionsForDefault = kpi.extraFilters.some((f) => f.kind === 'select' && f.required)
+  const needsOptionsForDefault = kpi.extraFilters.some((f) => f.kind === 'select' && f.required && !f.defaultValue)
   const optionsQuery = useQuery({
     queryKey: ['kpi-filter-options', domain.key, kpi.id, queryString],
     queryFn: () => getValidated(filterOptionsSchema, `${domain.basePath}/${kpi.path}/filter-options?${queryString}`),

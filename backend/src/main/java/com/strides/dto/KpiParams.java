@@ -175,6 +175,12 @@ public final class KpiParams {
         public String departmentScope;
     }
 
+    /** human-error-severity: one final_classification (Critical/Major/...), or null/blank for every class. */
+    public static class WithFinalClassification extends WithDepartmentScope {
+        @QueryParam("finalClassification")
+        public String finalClassification;
+    }
+
     public static class WithMaterialType extends DateRange {
         @QueryParam("materialType")
         public String materialType;

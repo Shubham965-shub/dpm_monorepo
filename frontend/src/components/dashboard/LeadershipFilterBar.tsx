@@ -1,4 +1,4 @@
-import { FilterSelect } from './FilterBar'
+import { FilterSelect, ResetFiltersButton } from './FilterBar'
 import { DEFAULT_SITE } from '@/lib/kpiConfig'
 
 /** Leadership's reference screenshot shows only a Plant + Timeline pill (no Section filter) - a
@@ -7,6 +7,7 @@ import { DEFAULT_SITE } from '@/lib/kpiConfig'
  * period. */
 export const LEADERSHIP_TRAILING_DAY_OPTIONS = [7, 30, 90, 180] as const
 export type LeadershipTrailingDays = (typeof LEADERSHIP_TRAILING_DAY_OPTIONS)[number]
+export const DEFAULT_LEADERSHIP_TRAILING_DAYS: LeadershipTrailingDays = 30
 
 export function LeadershipFilterBar({
   trailingDays,
@@ -26,9 +27,13 @@ export function LeadershipFilterBar({
       <FilterSelect
         label="Timeline"
         value={String(trailingDays)}
+        defaultValue={String(DEFAULT_LEADERSHIP_TRAILING_DAYS)}
         options={dayOptions}
         onChange={(v) => onChange(Number(v) as LeadershipTrailingDays)}
       />
+      {trailingDays !== DEFAULT_LEADERSHIP_TRAILING_DAYS && (
+        <ResetFiltersButton onClick={() => onChange(DEFAULT_LEADERSHIP_TRAILING_DAYS)} />
+      )}
     </div>
   )
 }
