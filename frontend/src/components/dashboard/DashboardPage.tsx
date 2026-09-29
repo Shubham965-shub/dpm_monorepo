@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { TopNav, SubNav, type SubNavView } from './TopNav'
 import {
@@ -15,7 +15,7 @@ import { QcScoreCard } from './QcScoreCard'
 import { PositiveSignals } from './PositiveSignals'
 import { NeedsAttentionPanel } from './NeedsAttentionPanel'
 import { SearchKpiBar } from './SearchKpiBar'
-import { SectionSummaryList } from './SectionSummaryList'
+import { SectionSummaryList, type SectionSummaryListHandle } from './SectionSummaryList'
 import { SeverityBadgeSummary } from './SeverityBadgeSummary'
 import { TimelineChartControls } from './TimelineChartControls'
 import { TeamWorkloadOverview } from './TeamWorkloadOverview'
@@ -68,6 +68,12 @@ export function DashboardPage() {
   // has no Section filter and labels its Timeline pill "T-30", not a grain name.
   const [leadershipTrailingDays, setLeadershipTrailingDays] = useState<LeadershipTrailingDays>(DEFAULT_LEADERSHIP_TRAILING_DAYS)
   const leadershipDateRange = trailingDayRange(leadershipTrailingDays)
+  // Overall Heatmap cell clicks scroll to (and expand, if collapsed) that KPI's own card below -
+  // see SectionSummaryList's scrollToKpi. Whichever branch's <SectionSummaryList> is currently
+  // mounted holds this ref; only the branches that also render <OverallHeatmapDemo> pass it a
+  // click handler.
+  const sectionSummaryListRef = useRef<SectionSummaryListHandle>(null)
+  const scrollToKpi = (kpiId: string, sectionKey: string) => sectionSummaryListRef.current?.scrollToKpi(kpiId, sectionKey)
 
   // Shares SectionSummaryList's own query cache (same site/month-count key) rather than issuing a
   // second batch of requests - only the totals below are new work.
@@ -134,6 +140,7 @@ export function DashboardPage() {
           <TimelineChartControls />
 
           <SectionSummaryList
+            ref={sectionSummaryListRef}
             site={DEFAULT_SITE}
             section={filters.section}
             grain={filters.grain}
@@ -167,6 +174,7 @@ export function DashboardPage() {
                 section={filters.section}
                 rangeOptions={LEADERSHIP_HEATMAP_RANGES}
                 visibleKpiIds={visibleKpiIds}
+                onKpiClick={scrollToKpi}
               />
               <div className="flex flex-col gap-4">
                 <QcScoreCard site={DEFAULT_SITE} grain="weekly" dateRangeOverride={leadershipDateRange} bestEver={LEADERSHIP_BEST_EVER_SCORE} />
@@ -179,6 +187,7 @@ export function DashboardPage() {
             <SearchKpiBar value={searchQuery} onChange={setSearchQuery} />
 
             <SectionSummaryList
+              ref={sectionSummaryListRef}
               site={DEFAULT_SITE}
               section={filters.section}
               grain="weekly"
@@ -204,7 +213,12 @@ export function DashboardPage() {
             heatmap too much - 2fr:1fr (2:1) is a smaller step down from the original, still giving
             the sidebar more room than the fixed 320px did. */}
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-              <OverallHeatmapDemo site={DEFAULT_SITE} section={filters.section} />
+              <OverallHeatmapDemo
+                site={DEFAULT_SITE}
+                section={filters.section}
+                visibleKpiIds={visibleKpiIds}
+                onKpiClick={scrollToKpi}
+              />
               <div className="flex flex-col gap-4">
                 <QcScoreCard site={DEFAULT_SITE} grain={filters.grain} />
                 <PositiveSignals />
@@ -216,6 +230,7 @@ export function DashboardPage() {
             <SearchKpiBar value={searchQuery} onChange={setSearchQuery} />
 
             <SectionSummaryList
+              ref={sectionSummaryListRef}
               site={DEFAULT_SITE}
               section={filters.section}
               grain={filters.grain}

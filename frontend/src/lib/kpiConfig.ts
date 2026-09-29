@@ -54,7 +54,66 @@ export const DEFAULT_SITE = 'KRSG'
 // Blank = every group combined (hours summed, % recomputed - see AggLimsInstrumentUtilizationRepository).
 const INST_GROUP_FILTER: ExtraFilter = { kind: 'multiSelect', param: 'instGroup' }
 
+// Order matches the dashboard's own default section order (Lab Performance, Instrument Health,
+// QMS, People Performance) - every consumer that lists/iterates domains without its own explicit
+// sort (SectionSummaryList's default accordion order, FilterBar's Section dropdown) follows this
+// array's order, so it's the single place that controls it.
 export const KPI_DOMAINS: KpiDomain[] = [
+  {
+    key: 'lab-performance',
+    label: 'Lab Performance',
+    basePath: '/api/lab-performance',
+    kpis: [
+      {
+        id: 'sample-tat', label: 'Sample TAT', path: 'sample-tat',
+        extraFilters: [
+          { kind: 'multiSelect', param: 'sampleType' },
+          { kind: 'multiSelect', param: 'batchCategory' },
+        ],
+      },
+      { id: 'sla-adherence', label: 'Sample SLA Adherence', path: 'sla-adherence', extraFilters: [{ kind: 'multiSelect', param: 'sampleCategory' }] },
+      { id: 'priority-sample-compliance', label: 'Priority Sample Compliance', path: 'priority-sample-compliance', extraFilters: [{ kind: 'multiSelect', param: 'sampleType' }] },
+      {
+        id: 'tests-per-analyst', label: 'Tests per Analyst per Day', path: 'tests-per-analyst',
+        extraFilters: [
+          { kind: 'multiSelect', param: 'sampleCategory' },
+          { kind: 'multiSelect', param: 'analyst' },
+        ],
+      },
+      {
+        id: 'hplc-sequences-per-analyst', label: 'HPLC Sequences per Analyst', path: 'hplc-sequences-per-analyst',
+        extraFilters: [{ kind: 'multiSelect', param: 'injectionStatus' }],
+      },
+      {
+        id: 'hplc-injections-per-analyst', label: 'HPLC Injections per Analyst', path: 'hplc-injections-per-analyst',
+        extraFilters: [{ kind: 'multiSelect', param: 'injectionStatus' }],
+      },
+    ],
+  },
+  {
+    key: 'instrument-health',
+    label: 'Instrument Health',
+    basePath: '/api/instrument-health',
+    kpis: [
+      { id: 'dissolution-utilization', label: 'Dissolution Utilization %', path: 'utilization', extraFilters: [], fixedParams: [['instGroup', 'Dissolution']] },
+      { id: 'gc-utilization', label: 'GC Utilization %', path: 'utilization', extraFilters: [], fixedParams: [['instGroup', 'GC']] },
+      { id: 'hplc-utilization', label: 'HPLC Utilization %', path: 'utilization', extraFilters: [], fixedParams: [['instGroup', 'HPLC']] },
+      { id: 'availability', label: 'Instrument Availability %', path: 'availability', extraFilters: [INST_GROUP_FILTER] },
+      { id: 'downtime', label: 'Instrument Downtime %', path: 'downtime', extraFilters: [INST_GROUP_FILTER] },
+      { id: 'calibration-compliance', label: 'Calibration Compliance %', path: 'calibration-compliance', extraFilters: [] },
+      { id: 'pm-adherence', label: 'PM Adherence %', path: 'pm-adherence', extraFilters: [] },
+      { id: 'breakdown-frequency', label: 'Breakdown Frequency', path: 'breakdown-frequency', extraFilters: [] },
+      { id: 'failure-rate', label: 'Instrument Failure Rate', path: 'failure-rate', extraFilters: [] },
+      {
+        // Confirmed live: GET /api/instrument-health/qualification-cycle-time is real (200);
+        // /api/people-performance/qualification-cycle-time 404s - this KPI's real endpoint sits
+        // under instrument-health's basePath, so it must stay in this domain regardless of which
+        // dashboard section a spec groups it under for display.
+        id: 'qualification-cycle-time', label: 'Qualification Cycle Time', path: 'qualification-cycle-time',
+        extraFilters: [{ kind: 'multiSelect', param: 'designation' }],
+      },
+    ],
+  },
   {
     key: 'qms',
     label: 'QMS',
@@ -159,57 +218,6 @@ export const KPI_DOMAINS: KpiDomain[] = [
           { kind: 'multiSelect', param: 'department' },
           { kind: 'multiSelect', param: 'trainingType' },
         ],
-      },
-      {
-        id: 'qualification-cycle-time', label: 'Qualification Cycle Time', path: 'qualification-cycle-time',
-        extraFilters: [{ kind: 'multiSelect', param: 'designation' }],
-      },
-    ],
-  },
-  {
-    key: 'instrument-health',
-    label: 'Instrument Health',
-    basePath: '/api/instrument-health',
-    kpis: [
-      { id: 'dissolution-utilization', label: 'Dissolution Utilization %', path: 'utilization', extraFilters: [], fixedParams: [['instGroup', 'Dissolution']] },
-      { id: 'gc-utilization', label: 'GC Utilization %', path: 'utilization', extraFilters: [], fixedParams: [['instGroup', 'GC']] },
-      { id: 'hplc-utilization', label: 'HPLC Utilization %', path: 'utilization', extraFilters: [], fixedParams: [['instGroup', 'HPLC']] },
-      { id: 'availability', label: 'Instrument Availability %', path: 'availability', extraFilters: [INST_GROUP_FILTER] },
-      { id: 'downtime', label: 'Instrument Downtime %', path: 'downtime', extraFilters: [INST_GROUP_FILTER] },
-      { id: 'calibration-compliance', label: 'Calibration Compliance %', path: 'calibration-compliance', extraFilters: [] },
-      { id: 'pm-adherence', label: 'PM Adherence %', path: 'pm-adherence', extraFilters: [] },
-      { id: 'breakdown-frequency', label: 'Breakdown Frequency', path: 'breakdown-frequency', extraFilters: [] },
-      { id: 'failure-rate', label: 'Instrument Failure Rate', path: 'failure-rate', extraFilters: [] },
-    ],
-  },
-  {
-    key: 'lab-performance',
-    label: 'Lab Performance',
-    basePath: '/api/lab-performance',
-    kpis: [
-      {
-        id: 'sample-tat', label: 'Sample TAT', path: 'sample-tat',
-        extraFilters: [
-          { kind: 'multiSelect', param: 'sampleType' },
-          { kind: 'multiSelect', param: 'batchCategory' },
-        ],
-      },
-      { id: 'sla-adherence', label: 'Sample SLA Adherence', path: 'sla-adherence', extraFilters: [{ kind: 'multiSelect', param: 'sampleCategory' }] },
-      { id: 'priority-sample-compliance', label: 'Priority Sample Compliance', path: 'priority-sample-compliance', extraFilters: [{ kind: 'multiSelect', param: 'sampleType' }] },
-      {
-        id: 'tests-per-analyst', label: 'Tests per Analyst per Day', path: 'tests-per-analyst',
-        extraFilters: [
-          { kind: 'multiSelect', param: 'sampleCategory' },
-          { kind: 'multiSelect', param: 'analyst' },
-        ],
-      },
-      {
-        id: 'hplc-sequences-per-analyst', label: 'HPLC Sequences per Analyst', path: 'hplc-sequences-per-analyst',
-        extraFilters: [{ kind: 'multiSelect', param: 'injectionStatus' }],
-      },
-      {
-        id: 'hplc-injections-per-analyst', label: 'HPLC Injections per Analyst', path: 'hplc-injections-per-analyst',
-        extraFilters: [{ kind: 'multiSelect', param: 'injectionStatus' }],
       },
     ],
   },

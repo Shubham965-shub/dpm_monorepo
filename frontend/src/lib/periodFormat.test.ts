@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatRangeEnd, formatRangeStart } from './periodFormat'
+import { evenTickInterval, formatRangeEnd, formatRangeStart } from './periodFormat'
 
 describe('formatRangeStart / formatRangeEnd', () => {
   it('names the exact weekday and date for daily points', () => {
@@ -22,5 +22,23 @@ describe('formatRangeStart / formatRangeEnd', () => {
   it('shows only the year for yearly', () => {
     expect(formatRangeStart('2024-01-01', 'yearly')).toBe('2024')
     expect(formatRangeEnd('2026-01-01', 'yearly')).toBe('2026')
+  })
+})
+
+describe('evenTickInterval', () => {
+  it('shows every tick when there are already fewer than the max', () => {
+    expect(evenTickInterval(1)).toBe(0)
+    expect(evenTickInterval(6)).toBe(0)
+  })
+
+  it('picks a uniform stride, evenly spacing whichever ticks are shown', () => {
+    // 13 points, default max 6 -> stride 2 -> indices 0,3,6,9,12 (5 ticks, evenly 3 apart).
+    expect(evenTickInterval(13)).toBe(2)
+    // 24 points, default max 6 -> stride 3 -> indices 0,4,8,12,16,20 (6 ticks, evenly 4 apart).
+    expect(evenTickInterval(24)).toBe(3)
+  })
+
+  it('respects a custom maxTicks', () => {
+    expect(evenTickInterval(10, 3)).toBe(3)
   })
 })

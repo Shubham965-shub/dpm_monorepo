@@ -68,13 +68,18 @@ function Cell({
 }) {
   const colorHex = cellColorHex(status)
   return (
-    <span className="group relative flex items-center gap-0.5">
+    <button type="button" onClick={onClick} className="group relative flex cursor-pointer items-center gap-0.5 text-left">
       <span className="size-1.5 rounded-full" style={{ backgroundColor: colorHex }} />
       <span className="text-sm font-semibold" style={{ color: colorHex }}>
         {formatCompactScore(value)}
       </span>
+      {/* Bounded width + wrapping, not whitespace-nowrap - a long KPI name centered over a 32px
+      cell (see the "left-1/2 -translate-x-1/2" below) would otherwise render as one unbounded-width
+      line, pushing well past the cell's own edges and off the visible page for cells near the
+      heatmap's left/right edges. Wrapping keeps the tooltip's total width fixed regardless of name
+      length, so it only ever grows taller, never wider. */}
       <span
-        className="pointer-events-none absolute top-full left-1/2 mt-1 hidden -translate-x-1/2 rounded-md border border-border bg-card p-2 text-[11px] whitespace-nowrap text-foreground shadow-md group-hover:block"
+        className="pointer-events-none absolute top-full left-1/2 mt-1 hidden w-40 -translate-x-1/2 rounded-md border border-border bg-card p-2 text-[11px] break-words text-foreground shadow-md group-hover:block"
         style={{ zIndex: TOOLTIP_Z_INDEX }}
       >
         <div className="font-semibold">{kpiName}</div>
@@ -87,7 +92,7 @@ function Cell({
           {periodLabel}: {formatScore(value)}
         </div>
       </span>
-    </span>
+    </button>
   )
 }
 
@@ -128,7 +133,15 @@ function balanceIntoColumns<T extends { rows: unknown[] }>(sections: T[], column
   return columns
 }
 
-function RowChunk({ rows, palette }: { rows: HeatmapRow[]; palette: { bg: string; border: string } }) {
+function RowChunk({
+  rows,
+  palette,
+  onKpiClick,
+}: {
+  rows: HeatmapRow[]
+  palette: { bg: string; border: string }
+  onKpiClick: (kpiId: string) => void
+}) {
   return (
     <div className="w-44 rounded-[6px] border p-1" style={{ backgroundColor: palette.bg, borderColor: palette.border }}>
       <div className="flex items-center justify-between px-1 py-0.5">
@@ -166,7 +179,17 @@ function RowChunk({ rows, palette }: { rows: HeatmapRow[]; palette: { bg: string
   )
 }
 
-function SectionGrid({ sectionKey, title, rows }: { sectionKey: string; title: string; rows: HeatmapRow[] }) {
+function SectionGrid({
+  sectionKey,
+  title,
+  rows,
+  onKpiClick,
+}: {
+  sectionKey: string
+  title: string
+  rows: HeatmapRow[]
+  onKpiClick?: (kpiId: string, sectionKey: string) => void
+}) {
   const chunks = chunk(rows, ROWS_PER_CHUNK)
   const palette = SECTION_PALETTE[sectionKey]
   return (
@@ -177,7 +200,12 @@ function SectionGrid({ sectionKey, title, rows }: { sectionKey: string; title: s
       </div>
       <div className="flex flex-wrap gap-2 rounded-b-[6px] border border-t-0 border-border p-2">
         {chunks.map((rowChunk, i) => (
-          <RowChunk key={rowChunk[0]?.slug ?? i} rows={rowChunk} palette={palette} />
+          <RowChunk
+            key={rowChunk[0]?.slug ?? i}
+            rows={rowChunk}
+            palette={palette}
+            onKpiClick={(kpiId) => onKpiClick?.(kpiId, sectionKey)}
+          />
         ))}
       </div>
     </div>
@@ -193,16 +221,23 @@ export function OverallHeatmapDemo({
   section,
   rangeOptions = DEFAULT_RANGE_OPTIONS,
   visibleKpiIds,
+  onKpiClick,
 }: {
   site: string
   section: SectionFilterValue
   /** CXO/unfiltered's monthly 3M/4M/5M pill by default; Leadership passes its own weekly set (see
    * LEADERSHIP_HEATMAP_RANGES in DashboardPage). */
   rangeOptions?: HeatmapRangeOption[]
-  /** Leadership's own KPI Framework role-visibility list (see lib/kpiVisibility.ts) - restricts
-   * every section's rows the same way SectionSummaryList's KPI cards already are, so the two never
-   * disagree on which KPIs a role sees. Omitted (CXO/unfiltered) shows every KPI. */
+  /** The current lens's KPI Framework role-visibility list (see lib/kpiVisibility.ts) - restricts
+   * every section's rows the same way SectionSummaryList's KPI cards already are, so the two can
+   * never disagree on which KPIs a role sees (a heatmap cell whose KPI has no matching card would
+   * otherwise be a dead end for onKpiClick's scroll-to). DashboardPage passes this for every lens
+   * that renders this component; omitted only shows every KPI, unfiltered. */
   visibleKpiIds?: Set<string>
+  /** Scrolls to (and expands, if collapsed) the clicked KPI's own real card in the section list
+   * below - see DashboardPage's wiring to SectionSummaryList's scrollToKpi. Omitted only if a
+   * caller has no section list to scroll (none do today). */
+  onKpiClick?: (kpiId: string, sectionKey: string) => void
 }) {
   const [onlyReds, setOnlyReds] = useState(false)
   const [selectedRange, setSelectedRange] = useState<HeatmapRangeOption>(rangeOptions[0] ?? DEFAULT_RANGE_OPTIONS[0])
@@ -227,7 +262,11 @@ export function OverallHeatmapDemo({
   const columns = [...balanceIntoColumns(visibleSections, visibleSections.length > 1 ? 2 : 1)].reverse()
 
   return (
-    <Card size="sm">
+    // Card's own base styling clips overflow (for rounded image corners - see card.tsx) - overridden
+    // here (not hand-edited there, per this primitive's own convention) so each cell's absolutely-
+    // positioned hover tooltip can actually escape the card's bounds instead of being invisibly cut
+    // off at its edge, which is what was still happening after merely bounding the tooltip's own width.
+    <Card size="sm" className="overflow-visible">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
           Overall Heatmap
@@ -297,7 +336,7 @@ export function OverallHeatmapDemo({
             {columns.map((col, i) => (
               <div key={i} className="flex flex-1 flex-col">
                 {col.map((s) => (
-                  <SectionGrid key={s.title} sectionKey={s.key} title={s.title} rows={s.rows} />
+                  <SectionGrid key={s.title} sectionKey={s.key} title={s.title} rows={s.rows} onKpiClick={onKpiClick} />
                 ))}
               </div>
             ))}

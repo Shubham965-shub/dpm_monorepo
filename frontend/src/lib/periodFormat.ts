@@ -47,6 +47,17 @@ export function formatPeriodTick(periodStart: string, grain: Grain): string {
   return date.toLocaleDateString('en-US', { year: 'numeric' })
 }
 
+/** A fixed Recharts XAxis `interval` (in place of `"preserveStartEnd"`, which lets Recharts choose
+ * which intermediate ticks to keep adaptively based on available width - the labels it does keep
+ * can end up unevenly spaced). A uniform numeric skip keeps the same number of periods between
+ * every shown label, so the visible ticks are always evenly spaced (matching the category axis's
+ * own uniform per-point spacing, which is untouched by this - only which labels render changes).
+ * Caps at `maxTicks` regardless of how many periods are in the data. */
+export function evenTickInterval(dataLength: number, maxTicks = 6): number {
+  if (dataLength <= maxTicks) return 0
+  return Math.ceil(dataLength / maxTicks) - 1
+}
+
 // A hover tooltip has room a dense axis tick doesn't - the full month name (not just its short
 // tick form) for monthly/quarterly, and weekly's full week range (its point spans exactly that,
 // not the single day the tick alone would suggest). Daily keeps its exact date; yearly its year.
