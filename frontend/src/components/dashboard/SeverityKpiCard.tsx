@@ -59,7 +59,7 @@ export function SeverityKpiCard({
    * otherwise, same as before that table existed. */
   lens: KpiVisibilityLens
 }) {
-  const { grain, setGrain, cardFilters } = useCardGrain(result.kpi.id, lens, globalFilters)
+  const { grain, setGrain, cardFilters, dateRange, setDateRange, clearDateRange } = useCardGrain(result.kpi.id, lens, globalFilters)
   const [viewMode, setViewMode] = useState<ViewMode>('line')
   const [detailOpen, setDetailOpen] = useState(false)
 
@@ -77,7 +77,7 @@ export function SeverityKpiCard({
       entry.filter.kind === 'select' && !!entry.filter.required,
     )
   const isGrainOverridden = grain !== globalFilters.grain
-  const isOverridden = isGrainOverridden || filtersTouched
+  const isOverridden = isGrainOverridden || filtersTouched || dateRange != null
   function handleExtraStateChange(i: number, next: ExtraFilterState) {
     setExtraState(i, next)
     setFiltersTouched(true)
@@ -331,6 +331,9 @@ export function SeverityKpiCard({
           severity={severity}
           grain={grain}
           onGrainChange={setGrain}
+          dateRange={dateRange}
+          onDateRangeChange={setDateRange}
+          onClearDateRange={clearDateRange}
           extraStates={extraStates}
           onExtraStateChange={handleExtraStateChange}
           optionsFor={optionsFor}

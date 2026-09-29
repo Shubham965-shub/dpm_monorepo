@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { cn, pluralize } from '@/lib/utils'
 import { TOOLTIP_Z_INDEX } from '@/lib/chartPalette'
 import { useHeatmapData, type HeatmapWindow } from '@/hooks/useHeatmapData'
+import type { Grain } from '@/lib/kpiSchemas'
 import { severityMeta, formatScore, formatCompactScore, type HeatmapRow, type RagStatus } from './types'
 import type { SectionFilterValue } from './FilterBar'
 
@@ -31,6 +32,45 @@ export const LEADERSHIP_HEATMAP_RANGES: HeatmapRangeOption[] = [
   { label: '5W', window: { unit: 'week', count: 5 } },
   { label: '1M', window: { unit: 'month', count: 1 } },
 ]
+
+// No user-adjustable pill for daily (a single fixed window instead) - a day-by-day heatmap column
+// per period would be far denser than the 3-5 columns every other grain's pill offers.
+const DAILY_HEATMAP_WINDOW_DAYS = 5
+const DAILY_HEATMAP_RANGES: HeatmapRangeOption[] = [{ label: `${DAILY_HEATMAP_WINDOW_DAYS}D`, window: { unit: 'day', count: DAILY_HEATMAP_WINDOW_DAYS } }]
+
+const WEEKLY_HEATMAP_RANGES: HeatmapRangeOption[] = [
+  { label: '3W', window: { unit: 'week', count: 3 } },
+  { label: '4W', window: { unit: 'week', count: 4 } },
+  { label: '5W', window: { unit: 'week', count: 5 } },
+]
+
+const QUARTERLY_HEATMAP_RANGES: HeatmapRangeOption[] = [
+  { label: '3Q', window: { unit: 'quarter', count: 3 } },
+  { label: '4Q', window: { unit: 'quarter', count: 4 } },
+  { label: '5Q', window: { unit: 'quarter', count: 5 } },
+]
+
+const YEARLY_HEATMAP_RANGES: HeatmapRangeOption[] = [
+  { label: '2Y', window: { unit: 'year', count: 2 } },
+  { label: '3Y', window: { unit: 'year', count: 3 } },
+]
+
+const GRAIN_HEATMAP_RANGES: Record<Grain, HeatmapRangeOption[]> = {
+  daily: DAILY_HEATMAP_RANGES,
+  weekly: WEEKLY_HEATMAP_RANGES,
+  monthly: DEFAULT_RANGE_OPTIONS,
+  quarterly: QUARTERLY_HEATMAP_RANGES,
+  yearly: YEARLY_HEATMAP_RANGES,
+}
+
+/** The page's own Timeline grain (see FilterBar's `filters.grain`) drives which range pill the
+ * CXO/unfiltered Overall Heatmap offers, so the two never disagree on what period-type "the data"
+ * currently means - DashboardPage passes this as `rangeOptions`, keyed by grain so a grain change
+ * also resets `selectedRange` back to that grain's own default instead of carrying over a stale
+ * window from the previous grain (see DashboardPage's key={`${lens}-${filters.grain}`}). */
+export function heatmapRangesForGrain(grain: Grain): HeatmapRangeOption[] {
+  return GRAIN_HEATMAP_RANGES[grain]
+}
 
 function cellColorHex(status: RagStatus): string {
   return status === 'no-data' ? 'var(--muted-foreground)' : severityMeta(status).solidHex
@@ -282,16 +322,19 @@ export function OverallHeatmapDemo({
           >
             Only reds
           </Button>
-          {rangeOptions.map((r) => (
-            <Button
-              key={r.label}
-              size="sm"
-              variant={r.label === selectedRange.label ? 'default' : 'outline'}
-              onClick={() => setSelectedRange(r)}
-            >
-              {r.label}
-            </Button>
-          ))}
+          {/* A single "option" isn't a real choice (daily's fixed window - see
+          heatmapRangesForGrain) - no pill to click, just the fixed window it already defaults to. */}
+          {rangeOptions.length > 1 &&
+            rangeOptions.map((r) => (
+              <Button
+                key={r.label}
+                size="sm"
+                variant={r.label === selectedRange.label ? 'default' : 'outline'}
+                onClick={() => setSelectedRange(r)}
+              >
+                {r.label}
+              </Button>
+            ))}
         </CardAction>
       </CardHeader>
       <CardContent>

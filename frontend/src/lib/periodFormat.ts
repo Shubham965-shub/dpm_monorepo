@@ -16,7 +16,7 @@ function formatEdgeDate(date: Date, grain: Grain): string {
 
 /** "Dec '25" - the short year appended only when `date` isn't in `today`'s year, so the common
  * current-year case stays compact. */
-function withYearIfNotCurrent(label: string, date: Date, today: Date): string {
+export function withYearIfNotCurrent(label: string, date: Date, today: Date): string {
   return date.getFullYear() === today.getFullYear() ? label : `${label} '${String(date.getFullYear()).slice(-2)}`
 }
 

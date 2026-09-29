@@ -21,6 +21,7 @@ import { FilterPills } from '@/components/kpi/FilterPills'
 import { KpiLineTooltip } from '@/components/kpi/KpiLineTooltip'
 import { KpiInfoDropdown } from '@/components/kpi/KpiInfoDropdown'
 import { GrainToggle } from '@/components/kpi/GrainToggle'
+import { PeriodRangePicker, type DateRange } from '@/components/kpi/PeriodRangePicker'
 import { SEVERITY_META, boundaryHex, boundaryLines, boundaryZones, severityMeta, type Severity } from './types'
 import { renderBoundaryOverlay } from './boundaryOverlay'
 
@@ -48,6 +49,9 @@ export function KpiDetailModal({
   severity,
   grain,
   onGrainChange,
+  dateRange,
+  onDateRangeChange,
+  onClearDateRange,
   extraStates,
   onExtraStateChange,
   optionsFor,
@@ -62,6 +66,12 @@ export function KpiDetailModal({
   severity: Severity | null
   grain: Grain
   onGrainChange: (g: Grain) => void
+  /** A manually-picked period range (see PeriodRangePicker) - shares the compact card's own pick
+   * (see useCardGrain), same as grain/filters, so it survives this modal closing. null = following
+   * the grain's own default trailing window. */
+  dateRange: DateRange | null
+  onDateRangeChange: (range: DateRange) => void
+  onClearDateRange: () => void
   /** Shares the compact card's extraStates/setter (see SeverityKpiCard) so a filter change here
    * shows up on the card once this closes, instead of the modal keeping its own separate copy. */
   extraStates: ExtraFilterState[]
@@ -139,6 +149,14 @@ export function KpiDetailModal({
 
           <div className="flex shrink-0 flex-col items-end gap-3">
             <GrainToggle grain={grain} onChange={onGrainChange} activeHex={meta.solidHex} size="modal" />
+            <PeriodRangePicker
+              key={grain}
+              grain={grain}
+              value={dateRange}
+              onChange={onDateRangeChange}
+              onClear={onClearDateRange}
+              activeHex={meta.solidHex}
+            />
             <FilterPills
               kpi={kpi}
               extraStates={extraStates}
