@@ -3,10 +3,9 @@ import { Maximize2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { TOOLTIP_Z_INDEX, readableTextColor, sequentialGreen } from '@/lib/chartPalette'
 import { formatPeriodTick } from '@/lib/periodFormat'
-import { extractRootCauseDimension } from '@/lib/rootCauseDimensions'
 import type { KpiDomain, KpiDefinition } from '@/lib/kpiConfig'
 import type { Grain } from '@/lib/kpiSchemas'
-import type { KpiCardResponse } from '@/lib/kpiSchemas'
+import { buildHeatmap, type HeatmapDimensionRow } from '@/lib/rootCauseHeatmap'
 import { useKpiData, type GlobalKpiFilters } from '@/hooks/useKpiData'
 import { useExtraFilters } from '@/hooks/useExtraFilters'
 import { useCardGrain } from '@/hooks/useCardGrain'
@@ -28,36 +27,6 @@ const TABLE_HEIGHT_PX = 160
 // dimension labels ("Medical Product") no longer need to truncate there.
 const EXPANDED_ROW_LABEL_WIDTH_PX = 140
 const EXPANDED_TABLE_HEIGHT_PX = 480
-
-export interface HeatmapDimensionRow {
-  kpiId: string
-  label: string
-  valuesByPeriod: Map<string, number>
-}
-
-export function buildHeatmap(rows: KpiCardResponse[]) {
-  const byKpiId = new Map<string, HeatmapDimensionRow>()
-  const periods = new Set<string>()
-  let max = 0
-
-  for (const row of rows) {
-    periods.add(row.periodStart)
-    const value = row.value ?? 0
-    if (value > max) max = value
-    let entry = byKpiId.get(row.kpiId)
-    if (!entry) {
-      entry = { kpiId: row.kpiId, label: extractRootCauseDimension(row.name), valuesByPeriod: new Map() }
-      byKpiId.set(row.kpiId, entry)
-    }
-    entry.valuesByPeriod.set(row.periodStart, value)
-  }
-
-  return {
-    dimensionRows: Array.from(byKpiId.values()).sort((a, b) => a.label.localeCompare(b.label)),
-    periods: Array.from(periods).sort(),
-    max,
-  }
-}
 
 /** The dimension x period table + scale legend, shared between the compact card and its expanded
  * modal (RootCauseHeatmapDetailModal) - `dense` swaps the sizing constants only, the rendering and

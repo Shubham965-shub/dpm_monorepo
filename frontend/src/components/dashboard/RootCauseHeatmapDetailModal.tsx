@@ -6,7 +6,8 @@ import { FilterPills } from '@/components/kpi/FilterPills'
 import { KpiInfoDropdown } from '@/components/kpi/KpiInfoDropdown'
 import { GrainToggle } from '@/components/kpi/GrainToggle'
 import { SEVERITY_META, type Severity } from './types'
-import { RootCauseHeatmapGrid, type HeatmapDimensionRow } from './RootCauseHeatmapCard'
+import { RootCauseHeatmapGrid } from './RootCauseHeatmapCard'
+import type { HeatmapDimensionRow } from '@/lib/rootCauseHeatmap'
 
 /** Same modal shell as KpiDetailModal (backdrop, top accent bar, Back/X header) - the expanded
  * view every other trend card gets, applied here to the heatmap: a bigger RootCauseHeatmapGrid
