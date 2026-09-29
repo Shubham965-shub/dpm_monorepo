@@ -10,7 +10,7 @@ import {
 } from '@/lib/roleAccess'
 import { DEFAULT_DASHBOARD_FILTERS, FilterBar, type DashboardFilters } from './FilterBar'
 import { DEFAULT_LEADERSHIP_TRAILING_DAYS, LeadershipFilterBar, type LeadershipTrailingDays } from './LeadershipFilterBar'
-import { OverallHeatmapDemo, LEADERSHIP_HEATMAP_RANGES } from './OverallHeatmapDemo'
+import { OverallHeatmapDemo, LEADERSHIP_HEATMAP_RANGES, heatmapRangesForGrain } from './OverallHeatmapDemo'
 import { QcScoreCard } from './QcScoreCard'
 import { PositiveSignals } from './PositiveSignals'
 import { NeedsAttentionPanel } from './NeedsAttentionPanel'
@@ -90,8 +90,6 @@ export function DashboardPage() {
     },
     { critical: 0, warning: 0, onTrack: 0 },
   )
-  const totalKpis = KPI_DOMAINS.reduce((sum, d) => sum + d.kpis.length, 0)
-
   if (!user) return null
 
   return (
@@ -164,12 +162,13 @@ export function DashboardPage() {
             <div>
               <h1 className="text-xl font-semibold">KRSG Operations</h1>
               <p className="text-sm text-muted-foreground">
-                Composite plant performance · {pluralize(totalKpis, 'KPI')} across {KPI_DOMAINS.length} sections
+                Composite plant performance · {pluralize(visibleKpiIds.size, 'KPI')} across {KPI_DOMAINS.length} sections
               </p>
             </div>
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
               <OverallHeatmapDemo
+                key={lens}
                 site={DEFAULT_SITE}
                 section={filters.section}
                 rangeOptions={LEADERSHIP_HEATMAP_RANGES}
@@ -205,7 +204,7 @@ export function DashboardPage() {
             <div>
               <h1 className="text-xl font-semibold">{LENS_TITLE[lens]}</h1>
               <p className="text-sm text-muted-foreground">
-                Composite plant performance · {pluralize(totalKpis, 'KPI')} across {KPI_DOMAINS.length} sections
+                Composite plant performance · {pluralize(visibleKpiIds.size, 'KPI')} across {KPI_DOMAINS.length} sections
               </p>
             </div>
 
@@ -214,8 +213,10 @@ export function DashboardPage() {
             the sidebar more room than the fixed 320px did. */}
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
               <OverallHeatmapDemo
+                key={`${lens}-${filters.grain}`}
                 site={DEFAULT_SITE}
                 section={filters.section}
+                rangeOptions={heatmapRangesForGrain(filters.grain)}
                 visibleKpiIds={visibleKpiIds}
                 onKpiClick={scrollToKpi}
               />

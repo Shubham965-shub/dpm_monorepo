@@ -2,7 +2,13 @@ import { useQueries } from '@tanstack/react-query'
 import { getValidated } from '@/lib/apiClient'
 import { kpiCardListSchema, type Grain, type KpiCardResponse } from '@/lib/kpiSchemas'
 import { KPI_DOMAINS, type KpiDefinition, type KpiDomain } from '@/lib/kpiConfig'
-import { getTrailingMonthRange, getTrailingWeekRange } from '@/lib/kpiDateRange'
+import {
+  getTrailingDayRange,
+  getTrailingMonthRange,
+  getTrailingQuarterRange,
+  getTrailingWeekRange,
+  getTrailingYearRange,
+} from '@/lib/kpiDateRange'
 import { seriesKeyFor } from '@/lib/kpiRowName'
 import { severityFromStatus, type HeatmapCell, type HeatmapRow } from '@/components/dashboard/types'
 import type { SectionKey } from '@/components/dashboard/mockData'
@@ -17,10 +23,16 @@ export interface HeatmapSectionData {
   rows: HeatmapRow[]
 }
 
-/** month = the existing calendar-month window (CXO/unfiltered's Overall Heatmap, and
- * SectionSummaryList's fixed sidebar window); week = the Leadership Overall Heatmap's ISO-week
- * window (see OverallHeatmapDemo's rangeOptions). */
-export type HeatmapWindow = { unit: 'month'; count: number } | { unit: 'week'; count: number }
+/** month = the existing calendar-month window (CXO/unfiltered's Overall Heatmap default, and
+ * SectionSummaryList's fixed sidebar window); week/quarter/year = the same page's other Timeline
+ * grains' own range pill; day = the fixed (no pill) daily window - see OverallHeatmapDemo's
+ * heatmapRangesForGrain. */
+export type HeatmapWindow =
+  | { unit: 'day'; count: number }
+  | { unit: 'week'; count: number }
+  | { unit: 'month'; count: number }
+  | { unit: 'quarter'; count: number }
+  | { unit: 'year'; count: number }
 
 interface PeriodColumn {
   key: string
@@ -40,9 +52,30 @@ function resolveWindow(window: HeatmapWindow): {
   grain: Grain
   bucketKeyFor: (periodStart: string) => string
 } {
+  if (window.unit === 'day') {
+    const { days, from, to } = getTrailingDayRange(window.count)
+    return { periods: days, from, to, grain: 'daily', bucketKeyFor: (periodStart) => periodStart }
+  }
   if (window.unit === 'week') {
     const { weeks, from, to } = getTrailingWeekRange(window.count)
     return { periods: weeks, from, to, grain: 'weekly', bucketKeyFor: (periodStart) => periodStart }
+  }
+  if (window.unit === 'quarter') {
+    const { quarters, from, to } = getTrailingQuarterRange(window.count)
+    return {
+      periods: quarters,
+      from,
+      to,
+      grain: 'quarterly',
+      bucketKeyFor: (periodStart) => {
+        const d = new Date(`${periodStart}T00:00:00`)
+        return `${d.getFullYear()}-Q${Math.floor(d.getMonth() / 3) + 1}`
+      },
+    }
+  }
+  if (window.unit === 'year') {
+    const { years, from, to } = getTrailingYearRange(window.count)
+    return { periods: years, from, to, grain: 'yearly', bucketKeyFor: (periodStart) => periodStart.slice(0, 4) }
   }
   const { months, from, to } = getTrailingMonthRange(window.count)
   return { periods: months, from, to, grain: 'monthly', bucketKeyFor: (periodStart) => periodStart.slice(0, 7) }

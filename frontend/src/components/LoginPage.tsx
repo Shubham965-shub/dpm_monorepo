@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import heliosLogo from '@/assets/helios-logo.svg'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -49,10 +50,7 @@ export function LoginPage() {
     <div className="dpm-login">
       <div className="dpm-login__head">
         <div className="dpm-login__mark">
-          <svg width="26" height="26" viewBox="0 0 34 34" aria-hidden="true">
-            <circle cx="17" cy="17" r="15" className="ls" />
-            <path d="M11 20.6l4-5.4 3.6 3 4.4-6.4" className="acc" />
-          </svg>
+          <img src={heliosLogo} alt="Helios" className="h-9 w-auto" />
           <div className="dpm-login__mark-bar" />
           <div>
             <strong>Helios</strong>
