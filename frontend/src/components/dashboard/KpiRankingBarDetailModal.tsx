@@ -7,6 +7,7 @@ import type { ExtraFilterState } from '@/components/kpi/ExtraFilterControl'
 import { FilterPills } from '@/components/kpi/FilterPills'
 import { KpiInfoDropdown } from '@/components/kpi/KpiInfoDropdown'
 import { GrainToggle } from '@/components/kpi/GrainToggle'
+import { useBackdropClose } from '@/hooks/useBackdropClose'
 import type { Grain } from '@/lib/kpiSchemas'
 import { SEVERITY_META, rankingValueDomain } from './types'
 import {
@@ -54,8 +55,8 @@ export function KpiRankingBarDetailModal({
   onClose: () => void
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-6" onClick={onClose}>
-      <div className="w-full max-w-4xl rounded-xl bg-card shadow-xl" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-6" {...useBackdropClose(onClose)}>
+      <div className="w-full max-w-4xl rounded-xl bg-card shadow-xl">
         <div className="h-1.5 w-full rounded-t-xl" style={{ backgroundColor: GREEN.solidHex }} />
 
         <div className="flex items-center justify-between border-b border-border px-6 py-3">

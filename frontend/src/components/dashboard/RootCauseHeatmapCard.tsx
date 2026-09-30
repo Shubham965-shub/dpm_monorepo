@@ -54,8 +54,14 @@ export function RootCauseHeatmapGrid({
     // (the table's whitespace-nowrap period columns), which forces the grid track wider than the
     // shared KPI_CARD_GRID_CLASS's 400px cap regardless - overflow-auto below then handles any
     // periods that still don't fit at 400px with an internal scrollbar instead of blowing out.
-    <div className="flex min-w-0 flex-col gap-2">
-      <div className="overflow-auto" style={{ height: tableHeight }}>
+    // flex-1: grows to fill whatever extra height the card's stretched grid row hands it (see
+    // RootCauseHeatmapCard's own doc comment) - inert in the detail modal, which isn't grid-stretched.
+    <div className="flex min-w-0 flex-1 flex-col gap-2">
+      {/* flex-1 + minHeight (not a fixed height): grows to fill the gap down to the mt-auto legend
+      below when the card is stretched taller than this table's natural content, instead of leaving
+      blank space between them - never shorter than tableHeight, and still scrolls internally past
+      whatever height it ends up with if the real content is taller than that. */}
+      <div className="flex-1 overflow-auto" style={{ minHeight: tableHeight }}>
         <table className={cn('w-full border-separate border-spacing-0.5', textSize)}>
           <thead>
             <tr>
@@ -98,7 +104,9 @@ export function RootCauseHeatmapGrid({
         </table>
       </div>
 
-      <div className="flex flex-col gap-1">
+      {/* mt-auto: in a stretched grid row, the extra height goes above this legend, not inside the
+      table - same convention as SeverityKpiCard's own footer row. */}
+      <div className="mt-auto flex flex-col gap-1">
         <div
           className="h-2 w-full rounded-sm"
           style={{ background: `linear-gradient(to right, ${sequentialGreen(0)}, ${sequentialGreen(1)})` }}
@@ -140,7 +148,7 @@ export function RootCauseHeatmapCard({
   lens: KpiVisibilityLens
 }) {
   const [detailOpen, setDetailOpen] = useState(false)
-  const { grain, setGrain, cardFilters } = useCardGrain(kpi.id, lens, globalFilters)
+  const { grain, setGrain, cardFilters, dateRange, setDateRange, clearDateRange } = useCardGrain(kpi.id, lens, globalFilters)
   const filters = useExtraFilters(domain, kpi, cardFilters, detailOpen)
   const { extraStates, setExtraState, extraParams, requiredSelectMissing, optionsFor, filterOptionsLoading } = filters
 
@@ -156,7 +164,7 @@ export function RootCauseHeatmapCard({
       style={{ backgroundColor: meta.cardBg, borderColor: meta.solidHex, borderLeftWidth: 3, borderLeftColor: meta.solidHex }}
     >
       <div className="flex items-start justify-between gap-2">
-        <h3 className="line-clamp-2 text-xl font-semibold text-gray-700">{kpi.label}</h3>
+        <h3 className="line-clamp-2 min-h-[2lh] text-xl font-semibold text-gray-700">{kpi.label}</h3>
         <div className="flex shrink-0 items-center gap-1">
           <GrainToggle grain={grain} onChange={setGrain} activeHex={meta.solidHex} borderHex={meta.paleHex} />
           <FiltersPopoverButton kpi={kpi} filters={filters} />
@@ -167,7 +175,7 @@ export function RootCauseHeatmapCard({
       </div>
 
       {emptyState ? (
-        <div className="h-24">{emptyState}</div>
+        <div className="h-24 flex-1">{emptyState}</div>
       ) : (
         <RootCauseHeatmapGrid dimensionRows={dimensionRows} periods={periods} max={max} grain={grain} dense />
       )}
@@ -182,6 +190,9 @@ export function RootCauseHeatmapCard({
           max={max}
           grain={grain}
           onGrainChange={setGrain}
+          dateRange={dateRange}
+          onDateRangeChange={setDateRange}
+          onClearDateRange={clearDateRange}
           extraStates={extraStates}
           onExtraStateChange={setExtraState}
           optionsFor={optionsFor}

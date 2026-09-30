@@ -54,11 +54,13 @@ export function countActiveFilters(filters: ExtraFilter[], states: ExtraFilterSt
 }
 
 /** "Final classification: Critical" for each way a KPI's untouched view is narrowed below All -
- * a filter's defaultValue, or the card's own defaultNarrowing - i.e. what its heatmap cells and
- * section grouping actually describe. */
+ * a filter's defaultValue (select or multiSelect), or the card's own defaultNarrowing - i.e. what
+ * its heatmap cells and section grouping actually describe. */
 export function defaultFilterSummaries(kpi: KpiDefinition): string[] {
   const fromFilters = kpi.extraFilters.flatMap((filter) =>
-    filter.kind === 'select' && filter.defaultValue ? [`${filterLabel(filter.param)}: ${filter.defaultValue}`] : [],
+    (filter.kind === 'select' || filter.kind === 'multiSelect') && filter.defaultValue
+      ? [`${filterLabel(filter.param)}: ${filter.defaultValue}`]
+      : [],
   )
   return kpi.defaultNarrowing ? [...fromFilters, kpi.defaultNarrowing] : fromFilters
 }

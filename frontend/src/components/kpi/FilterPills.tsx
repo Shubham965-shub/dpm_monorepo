@@ -33,7 +33,8 @@ function FilterPill({
           <ChevronDown className="size-3.5 shrink-0 opacity-60" />
         </button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-64 p-2">
+      {/* z-[60]: same tie-breaker as FiltersPopoverButton's own PopoverContent - see its comment. */}
+      <PopoverContent align="end" className="z-[60] w-64 p-2">
         <ExtraFilterControl
           filter={filter}
           state={state}

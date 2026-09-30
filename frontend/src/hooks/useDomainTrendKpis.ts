@@ -1,9 +1,12 @@
 import { useQueries } from '@tanstack/react-query'
 import { getValidated } from '@/lib/apiClient'
-import { kpiCardListSchema, type KpiCardResponse, type KpiThresholds } from '@/lib/kpiSchemas'
+import { kpiCardListSchema, type Grain, type KpiCardResponse, type KpiThresholds } from '@/lib/kpiSchemas'
 import type { KpiDomain, KpiDefinition } from '@/lib/kpiConfig'
+import { defaultGrainFor } from '@/lib/kpiDefaultGrain'
+import { getGrainDateRange } from '@/lib/kpiDateRange'
 import { seriesKeyFor } from '@/lib/kpiRowName'
 import { filterRootCauseRowsToDimension, pickMaximalRootCauseDimension } from '@/lib/rootCauseDimensions'
+import type { KpiVisibilityLens } from '@/lib/roleAccess'
 import { severityFromStatus, type Severity } from '@/components/dashboard/types'
 import { toChartData } from '@/components/kpi/KpiChartCard'
 import { buildKpiQueryString, type GlobalKpiFilters } from './useKpiData'
@@ -101,6 +104,19 @@ export interface DomainTrendKpiResult extends KpiMetrics {
   isError: boolean
 }
 
+/** Each KPI's own D/W/M/Q/Y default grain (see kpiDefaultGrain.ts), falling back to the page's
+ * shared Timeline grain when the framework doc has no cell for this KPI/lens - exactly
+ * useCardGrain's own resolution, so the board fetches (and tiers severity by) the identical
+ * grain/date-range SeverityKpiCard will independently resolve and display. Sharing that
+ * resolution (rather than the whole batch always fetching at globalFilters.grain) is what makes
+ * the two agree - before this, a KPI whose own default grain differs from the page's (e.g.
+ * Calibration Compliance's CXO default of quarterly vs the page's monthly) could be tiered by its
+ * monthly-grain severity while its own card displayed (and colored itself by) quarterly's. */
+function resolvedKpiFilters(kpi: KpiDefinition, lens: KpiVisibilityLens, globalFilters: GlobalKpiFilters): GlobalKpiFilters {
+  const grain = defaultGrainFor(kpi.id, lens) ?? (globalFilters.grain as Grain)
+  return grain === globalFilters.grain ? globalFilters : { ...globalFilters, grain, ...getGrainDateRange(grain) }
+}
+
 /** Fetches real data for every given KPI in a domain (via useQueries, so the hook-count stays
  * fixed regardless of how many KPIs a domain has); each one's severity is the backend's own
  * status (computed from its KPI threshold config), not decided here. Every extra filter starts at
@@ -109,10 +125,11 @@ export function useDomainTrendKpis(
   domain: KpiDomain,
   kpis: KpiDefinition[],
   globalFilters: GlobalKpiFilters,
+  lens: KpiVisibilityLens,
 ): DomainTrendKpiResult[] {
   const results = useQueries({
     queries: kpis.map((kpi) => {
-      const queryString = buildKpiQueryString(globalFilters, kpi)
+      const queryString = buildKpiQueryString(resolvedKpiFilters(kpi, lens, globalFilters), kpi)
       return {
         queryKey: ['kpi', domain.key, kpi.id, queryString] as const,
         queryFn: () => getValidated(kpiCardListSchema, `${domain.basePath}/${kpi.path}?${queryString}`),

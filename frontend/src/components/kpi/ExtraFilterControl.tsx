@@ -21,7 +21,9 @@ export function initialExtraFilterState(filter: ExtraFilter): ExtraFilterState {
     case 'select':
       return { kind: 'select', value: filter.defaultValue ?? '' }
     case 'multiSelect':
-      return { kind: 'multiSelect', value: [], allChecked: true }
+      return filter.defaultValue
+        ? { kind: 'multiSelect', value: [filter.defaultValue], allChecked: false }
+        : { kind: 'multiSelect', value: [], allChecked: true }
     case 'numberInput':
       return { kind: 'numberInput', value: '' }
   }

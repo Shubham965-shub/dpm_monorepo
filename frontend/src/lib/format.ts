@@ -11,3 +11,12 @@ export function formatAxisTick(value: number, domain: [number, number]) {
   const decimals = Math.max(0, AXIS_TICK_PRECISION_DIGITS - Math.floor(Math.log10(span)))
   return new Intl.NumberFormat('en-US', { maximumFractionDigits: decimals }).format(value)
 }
+
+/** (current - previous) / |previous| * 100 - null when there's no meaningful baseline to divide by
+ * (previous is 0), since a percentage change from zero is undefined rather than a huge/misleading
+ * number. Dividing by the absolute value keeps the result's sign matching (current - previous)'s
+ * own sign even when previous is negative. */
+export function percentChange(current: number, previous: number): number | null {
+  if (previous === 0) return null
+  return ((current - previous) / Math.abs(previous)) * 100
+}

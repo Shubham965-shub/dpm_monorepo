@@ -13,7 +13,7 @@ import {
 import { CATEGORICAL_PALETTE, MAX_SERIES, TOOLTIP_Z_INDEX } from '@/lib/chartPalette'
 import type { Grain } from '@/lib/kpiSchemas'
 import { evenTickInterval, formatPeriodTick } from '@/lib/periodFormat'
-import { formatAxisTick } from '@/lib/format'
+import { formatAxisTick, percentChange } from '@/lib/format'
 import type { ExtraFilter, KpiDefinition } from '@/lib/kpiConfig'
 import { computeValueDomain, type KpiMetrics } from '@/hooks/useDomainTrendKpis'
 import type { ExtraFilterState } from '@/components/kpi/ExtraFilterControl'
@@ -22,6 +22,7 @@ import { KpiLineTooltip } from '@/components/kpi/KpiLineTooltip'
 import { KpiInfoDropdown } from '@/components/kpi/KpiInfoDropdown'
 import { GrainToggle } from '@/components/kpi/GrainToggle'
 import { PeriodRangePicker, type DateRange } from '@/components/kpi/PeriodRangePicker'
+import { useBackdropClose } from '@/hooks/useBackdropClose'
 import { SEVERITY_META, boundaryHex, boundaryLines, boundaryZones, severityMeta, type Severity } from './types'
 import { renderBoundaryOverlay } from './boundaryOverlay'
 
@@ -85,7 +86,7 @@ export function KpiDetailModal({
 }) {
   const { chartData, shownSeries, latestValue, previousValue, unit, thresholds } = metrics
   const meta = severityMeta(severity)
-  const delta = previousValue != null && latestValue != null ? latestValue - previousValue : null
+  const deltaPct = previousValue != null && latestValue != null ? percentChange(latestValue, previousValue) : null
   const lines = boundaryLines(thresholds)
   const valueDomain = computeValueDomain(chartData, shownSeries, lines.map((line) => line.y))
   const zones = boundaryZones(thresholds, valueDomain)
@@ -99,12 +100,9 @@ export function KpiDetailModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-6"
-      onClick={onClose}
+      {...useBackdropClose(onClose)}
     >
-      <div
-        className="w-full max-w-4xl rounded-xl bg-card shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="w-full max-w-4xl rounded-xl bg-card shadow-xl">
         <div className="h-1.5 w-full rounded-t-xl" style={{ backgroundColor: meta.solidHex }} />
 
         <div className="flex items-center justify-between border-b border-border px-6 py-3">
@@ -127,9 +125,9 @@ export function KpiDetailModal({
                 {latestValue != null ? latestValue.toFixed(1) : '—'}
               </span>
               <span className="text-muted-foreground text-sm">{unit}</span>
-              {delta != null && (
+              {deltaPct != null && (
                 <span className="text-sm font-semibold" style={{ color: meta.solidHex }}>
-                  {delta >= 0 ? '↑' : '↓'} {Math.abs(delta).toFixed(1)} {unit} vs prev period
+                  {deltaPct >= 0 ? '↑' : '↓'} {Math.abs(deltaPct).toFixed(1)}% vs prev period
                 </span>
               )}
               <span className="rounded-full px-3 py-1 text-xs font-bold text-white" style={{ backgroundColor: meta.solidHex }}>

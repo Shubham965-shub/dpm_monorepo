@@ -5,6 +5,8 @@ import type { ExtraFilterState } from '@/components/kpi/ExtraFilterControl'
 import { FilterPills } from '@/components/kpi/FilterPills'
 import { KpiInfoDropdown } from '@/components/kpi/KpiInfoDropdown'
 import { GrainToggle } from '@/components/kpi/GrainToggle'
+import { PeriodRangePicker, type DateRange } from '@/components/kpi/PeriodRangePicker'
+import { useBackdropClose } from '@/hooks/useBackdropClose'
 import { SEVERITY_META, type Severity } from './types'
 import { RootCauseHeatmapGrid } from './RootCauseHeatmapCard'
 import type { HeatmapDimensionRow } from '@/lib/rootCauseHeatmap'
@@ -21,11 +23,14 @@ export function RootCauseHeatmapDetailModal({
   periods,
   max,
   grain,
+  onGrainChange,
+  dateRange,
+  onDateRangeChange,
+  onClearDateRange,
   extraStates,
   onExtraStateChange,
   optionsFor,
   filterOptionsLoading,
-  onGrainChange,
   onClose,
 }: {
   domainLabel: string
@@ -35,19 +40,24 @@ export function RootCauseHeatmapDetailModal({
   periods: string[]
   max: number
   grain: Grain
+  /** Shares the compact card's grain (see useCardGrain), same as its filters. */
+  onGrainChange: (grain: Grain) => void
+  /** Shares the compact card's own date-range pick (see useCardGrain) - same as grain/filters, so it
+   * survives this modal closing. null = following the grain's own default trailing window. */
+  dateRange: DateRange | null
+  onDateRangeChange: (range: DateRange) => void
+  onClearDateRange: () => void
   extraStates: ExtraFilterState[]
   onExtraStateChange: (i: number, next: ExtraFilterState) => void
   optionsFor: (filter: ExtraFilter) => string[]
   filterOptionsLoading: boolean
-  /** Shares the compact card's grain (see useCardGrain), same as its filters. */
-  onGrainChange: (grain: Grain) => void
   onClose: () => void
 }) {
   const meta = SEVERITY_META[severity ?? 'in-control']
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-6" onClick={onClose}>
-      <div className="w-full max-w-4xl rounded-xl bg-card shadow-xl" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-6" {...useBackdropClose(onClose)}>
+      <div className="w-full max-w-4xl rounded-xl bg-card shadow-xl">
         <div className="h-1.5 w-full rounded-t-xl" style={{ backgroundColor: meta.solidHex }} />
 
         <div className="flex items-center justify-between border-b border-border px-6 py-3">
@@ -71,6 +81,14 @@ export function RootCauseHeatmapDetailModal({
           </div>
           <div className="flex flex-col items-end gap-3">
             <GrainToggle grain={grain} onChange={onGrainChange} activeHex={meta.solidHex} size="modal" />
+            <PeriodRangePicker
+              key={grain}
+              grain={grain}
+              value={dateRange}
+              onChange={onDateRangeChange}
+              onClear={onClearDateRange}
+              activeHex={meta.solidHex}
+            />
             <FilterPills
               kpi={kpi}
               extraStates={extraStates}
@@ -79,6 +97,17 @@ export function RootCauseHeatmapDetailModal({
               filterOptionsLoading={filterOptionsLoading}
             />
           </div>
+        </div>
+
+        <div className="flex items-center justify-between px-6 pt-5">
+          <h3 className="text-base font-semibold">Root Cause Heatmap</h3>
+          <button
+            disabled
+            title="Not yet built"
+            className="cursor-not-allowed rounded-md bg-rose-100 px-3 py-1.5 text-sm font-semibold text-rose-700 opacity-70"
+          >
+            Raise Concern
+          </button>
         </div>
 
         <div className="p-6">

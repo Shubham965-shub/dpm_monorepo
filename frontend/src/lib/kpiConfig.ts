@@ -16,8 +16,9 @@ export type ExtraFilter =
   | { kind: 'select'; param: string; required?: boolean; defaultValue?: string }
   /** repeated: true sends selections as repeated params (?param=A&param=B) instead of comma-joined -
    * required when an option value can itself contain a comma (e.g. a department name), see
-   * backend/README.md's "Filter syntax" note. */
-  | { kind: 'multiSelect'; param: string; repeated?: boolean }
+   * backend/README.md's "Filter syntax" note. defaultValue: preselected instead of blank/"All" -
+   * same convention as select's, but seeds a single-value selection rather than a locked choice. */
+  | { kind: 'multiSelect'; param: string; repeated?: boolean; defaultValue?: string }
   | { kind: 'numberInput'; param: string }
 
 export interface KpiDefinition {
@@ -133,7 +134,10 @@ export const KPI_DOMAINS: KpiDomain[] = [
         id: 'deviations', label: 'Deviations', path: 'deviations',
         extraFilters: [
           { kind: 'multiSelect', param: 'rootCauseBucket' },
-          { kind: 'multiSelect', param: 'respDept', repeated: true },
+          // business request: Responsible Department defaults to Quality Control Department (the
+          // real resp_dept literal - see backend/README.md's "Department scope" vocabulary table),
+          // not locked - still a plain multiSelect the user can widen back to All.
+          { kind: 'multiSelect', param: 'respDept', repeated: true, defaultValue: 'Quality Control Department' },
           { kind: 'multiSelect', param: 'level' },
           { kind: 'multiSelect', param: 'initialClassification' },
           { kind: 'multiSelect', param: 'finalClassification' },
@@ -145,14 +149,16 @@ export const KPI_DOMAINS: KpiDomain[] = [
         extraFilters: [
           // repeated: true - 'Manufacturing, Science & Technology' contains a comma, which would
           // break comma-joined parsing (confirmed live: it silently splits into two garbage values).
-          { kind: 'multiSelect', param: 'respDept', repeated: true },
+          // defaultValue: business request, Responsible Department defaults to Quality Control
+          // Department, not locked (see deviations' own note on this same default).
+          { kind: 'multiSelect', param: 'respDept', repeated: true, defaultValue: 'Quality Control Department' },
           { kind: 'multiSelect', param: 'initiatedThrough' },
         ],
       },
       {
         id: 'rci-beyond-timeline', label: 'RCIs Beyond Timeline', path: 'rci-beyond-timeline',
         extraFilters: [
-          { kind: 'multiSelect', param: 'respDept', repeated: true },
+          { kind: 'multiSelect', param: 'respDept', repeated: true, defaultValue: 'Quality Control Department' },
           { kind: 'multiSelect', param: 'initiatedThrough' },
         ],
       },
@@ -174,7 +180,8 @@ export const KPI_DOMAINS: KpiDomain[] = [
         // respDeptSlice is single-select: each slice (incl. the table's own 'All' row) is pre-summed upstream.
         extraFilters: [
           { kind: 'select', param: 'dateBasis', required: true, defaultValue: 'Date Opened' },
-          { kind: 'select', param: 'respDeptSlice' },
+          // business request: Responsible Department defaults to Quality Control Department, not locked.
+          { kind: 'select', param: 'respDeptSlice', defaultValue: 'Quality Control Department' },
           { kind: 'multiSelect', param: 'recordStatus' },
           { kind: 'multiSelect', param: 'level' },
         ],

@@ -127,7 +127,7 @@ export function PriorityComplianceCard({
   lens: KpiVisibilityLens
 }) {
   const [detailOpen, setDetailOpen] = useState(false)
-  const { grain, setGrain, cardFilters } = useCardGrain(kpi.id, lens, globalFilters)
+  const { grain, setGrain, cardFilters, dateRange, setDateRange, clearDateRange } = useCardGrain(kpi.id, lens, globalFilters)
   const filters = useExtraFilters(domain, kpi, cardFilters, detailOpen)
   const { extraStates, setExtraState, extraParams, optionsFor, filterOptionsLoading } = filters
 
@@ -182,6 +182,7 @@ export function PriorityComplianceCard({
               />
               <YAxis
                 domain={[0, 100]}
+                ticks={[0, 20, 40, 60, 80, 100]}
                 tickFormatter={(v: number) => `${v}%`}
                 tick={{ fontSize: 10 }}
                 stroke="var(--muted-foreground)"
@@ -214,6 +215,9 @@ export function PriorityComplianceCard({
           points={points}
           colors={colors}
           grain={grain}
+          dateRange={dateRange}
+          onDateRangeChange={setDateRange}
+          onClearDateRange={clearDateRange}
           extraStates={extraStates}
           onExtraStateChange={setExtraState}
           optionsFor={optionsFor}
