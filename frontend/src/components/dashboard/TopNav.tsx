@@ -6,7 +6,7 @@ import stridesLogo from '@/assets/strides-logo.svg'
 import { useTheme } from '@/hooks/useTheme'
 import { cn, initials } from '@/lib/utils'
 import type { UserPublic } from '@/lib/authSchemas'
-import type { RoleTab, OperatorSupervisorView } from '@/lib/roleAccess'
+import type { RoleTab, AnalystSupervisorView } from '@/lib/roleAccess'
 
 /** A real vertical bar, not a text "|" glyph - matches InvestigationAI's header divider. */
 function NavDivider({ className }: { className?: string }) {
@@ -18,7 +18,7 @@ function NavDivider({ className }: { className?: string }) {
 // shell, filtered by that tab's own KPI Framework-derived lens (see SectionSummaryList's
 // KPI_VISIBILITY). Which tab a user lands on, and whether they can switch, is derived from their
 // real roles (see lib/roleAccess.ts) - only ADMIN gets the switchable nav shown here (and can
-// preview any of the 4 lens variants: CXO, Leadership, Operator, Supervisor); everyone else is
+// preview any of the 4 lens variants: CXO, Leadership, Analyst, Supervisor); everyone else is
 // locked to one tab with no nav to the others (see `locked` below).
 const ROLE_TABS: RoleTab[] = ['CXO', 'Leadership', 'Operations']
 
@@ -87,24 +87,24 @@ export function TopNav({
 
 export type SubNavView = 'dashboard' | 'performance'
 
-const OPERATIONS_LENS_OPTIONS: { value: OperatorSupervisorView; label: string }[] = [
-  { value: 'operator', label: 'Operator' },
+const OPERATIONS_LENS_OPTIONS: { value: AnalystSupervisorView; label: string }[] = [
+  { value: 'analyst', label: 'Analyst' },
   { value: 'supervisor', label: 'Supervisor' },
 ]
 
-/** Only rendered inside the Operations role tab (see DashboardPage) - Operator/Supervisor each
+/** Only rendered inside the Operations role tab (see DashboardPage) - Analyst/Supervisor each
  * gate the KPI catalogue down to a different role-visibility list from the KPI Framework spec
- * (see SectionSummaryList's OPERATOR_VISIBLE_KPI_IDS/SUPERVISOR_VISIBLE_KPI_IDS), not a "some
+ * (see SectionSummaryList's ANALYST_VISIBLE_KPI_IDS/SUPERVISOR_VISIBLE_KPI_IDS), not a "some
  * filter vs no filter" toggle - both are real, separately-scoped lists. `locked` (true for
- * SUPERVISOR/ANALYST - see resolveOperatorSupervisorView) renders the current value as plain text
+ * SUPERVISOR/ANALYST - see resolveAnalystSupervisorView) renders the current value as plain text
  * instead of a switchable control, since those roles have no other list to switch to. */
-function OperatorSupervisorToggle({
+function AnalystSupervisorToggle({
   value,
   onChange,
   locked,
 }: {
-  value: OperatorSupervisorView
-  onChange: (value: OperatorSupervisorView) => void
+  value: AnalystSupervisorView
+  onChange: (value: AnalystSupervisorView) => void
   locked: boolean
 }) {
   if (locked) {
@@ -132,16 +132,16 @@ function OperatorSupervisorToggle({
 export function SubNav({
   view,
   onViewChange,
-  operatorSupervisorView,
-  onOperatorSupervisorViewChange,
-  operatorSupervisorLocked,
+  analystSupervisorView,
+  onAnalystSupervisorViewChange,
+  analystSupervisorLocked,
 }: {
   view: SubNavView
   onViewChange: (view: SubNavView) => void
   /** undefined = not in the Operations role tab - hides the toggle entirely rather than showing a meaningless default. */
-  operatorSupervisorView?: OperatorSupervisorView
-  onOperatorSupervisorViewChange?: (value: OperatorSupervisorView) => void
-  operatorSupervisorLocked?: boolean
+  analystSupervisorView?: AnalystSupervisorView
+  onAnalystSupervisorViewChange?: (value: AnalystSupervisorView) => void
+  analystSupervisorLocked?: boolean
 }) {
   return (
     <div className="flex items-center justify-between border-b border-border px-6 py-2 md:px-10 lg:px-20">
@@ -161,11 +161,11 @@ export function SubNav({
         </button>
       </div>
       <div className="flex items-center gap-4">
-        {operatorSupervisorView && onOperatorSupervisorViewChange && (
-          <OperatorSupervisorToggle
-            value={operatorSupervisorView}
-            onChange={onOperatorSupervisorViewChange}
-            locked={operatorSupervisorLocked ?? false}
+        {analystSupervisorView && onAnalystSupervisorViewChange && (
+          <AnalystSupervisorToggle
+            value={analystSupervisorView}
+            onChange={onAnalystSupervisorViewChange}
+            locked={analystSupervisorLocked ?? false}
           />
         )}
         <Button size="sm" className="gap-1.5 bg-brand hover:bg-brand/90" variant="default">

@@ -30,20 +30,20 @@ export interface TeamWorkloadMember {
 // No team-roster/workload endpoint (or KPI/task reassignment) exists server-side yet -
 // placeholder until that feature is built.
 export const TEAM_WORKLOAD_MOCK: TeamWorkloadMember[] = [
-  { name: 'Ravi Shankar', title: 'Operator', status: 'busy', kpiCount: 3, criticalCount: 1, taskCount: 4 },
+  { name: 'Ravi Shankar', title: 'Analyst', status: 'busy', kpiCount: 3, criticalCount: 1, taskCount: 4 },
   { name: 'Arjun Mehta', title: 'Engineer', status: 'overloaded', kpiCount: 2, criticalCount: 1, taskCount: 3 },
   { name: 'Divya Rao', title: 'Safety Officer', status: 'busy', kpiCount: 1, criticalCount: 1, taskCount: 2 },
   { name: 'Imran Sheikh', title: 'Inventory Manager', status: 'available', kpiCount: 1, criticalCount: 0, taskCount: 2 },
   { name: 'Mahesh Gowda', title: 'Dispatch Lead', status: 'available', kpiCount: 1, criticalCount: 0, taskCount: 2 },
-  { name: 'Anand Pillai', title: 'Operator', status: 'available', kpiCount: 0, criticalCount: 0, taskCount: 1 },
-  { name: 'Lakshmi Reddy', title: 'Operator', status: 'busy', kpiCount: 2, criticalCount: 0, taskCount: 3 },
+  { name: 'Anand Pillai', title: 'Analyst', status: 'available', kpiCount: 0, criticalCount: 0, taskCount: 1 },
+  { name: 'Lakshmi Reddy', title: 'Analyst', status: 'busy', kpiCount: 2, criticalCount: 0, taskCount: 3 },
   { name: 'Priya Nair', title: 'HR Lead', status: 'available', kpiCount: 1, criticalCount: 0, taskCount: 1 },
 ]
 
-/** Same 5 incidents read three ways - the Operator/Supervisor/Leadership reference screenshots each
+/** Same 5 incidents read three ways - the Analyst/Supervisor/Leadership reference screenshots each
  * frame the SAME underlying pending action differently (who raised/escalated it, and at what
  * severity), since that framing is relative to the viewer's place in the hierarchy (e.g. an item
- * an Operator sees as "Assigned by HOD" reads as "Raised by CXO" one level up at Supervisor, and as
+ * an Analyst sees as "Assigned by HOD" reads as "Raised by CXO" one level up at Supervisor, and as
  * "Concern Raised by CXO" one level up again at Leadership). */
 interface PendingActionSource {
   label: string
@@ -59,10 +59,10 @@ export interface NeedsAttentionItem {
   detail: string
   assignee: string
   action: 'nudge' | 'act-now'
-  /** Only 'operator', 'supervisor', and 'leadership' have a reference screenshot (see
+  /** Only 'analyst', 'supervisor', and 'leadership' have a reference screenshot (see
    * NeedsAttentionPanel's persona "Pending Actions" view) - CXO falls back to the status/action
    * fields above. */
-  pendingActionSource: Record<'operator' | 'supervisor' | 'leadership', PendingActionSource>
+  pendingActionSource: Record<'analyst' | 'supervisor' | 'leadership', PendingActionSource>
 }
 
 // Same caveat as Positive Signals - there's no "agenda" or nudge/escalation endpoint
@@ -79,7 +79,7 @@ export const NEEDS_ATTENTION_MOCK: NeedsAttentionItem[] = [
     assignee: 'Ravi',
     action: 'act-now',
     pendingActionSource: {
-      operator: { label: 'Assigned by HOD (CXO Concern)', severity: 'critical' },
+      analyst: { label: 'Assigned by HOD (CXO Concern)', severity: 'critical' },
       supervisor: { label: 'Raised by CXO', severity: 'critical' },
       leadership: { label: 'Concern Raised by CXO', severity: 'critical' },
     },
@@ -94,7 +94,7 @@ export const NEEDS_ATTENTION_MOCK: NeedsAttentionItem[] = [
     assignee: 'Ravi',
     action: 'act-now',
     pendingActionSource: {
-      operator: { label: 'Assigned by HOD (CXO Concern)', severity: 'critical' },
+      analyst: { label: 'Assigned by HOD (CXO Concern)', severity: 'critical' },
       supervisor: { label: 'Raised by CXO', severity: 'critical' },
       leadership: { label: 'Concern Raised by CXO', severity: 'critical' },
     },
@@ -109,7 +109,7 @@ export const NEEDS_ATTENTION_MOCK: NeedsAttentionItem[] = [
     assignee: 'Ravi',
     action: 'nudge',
     pendingActionSource: {
-      operator: { label: 'Escalated by Group Leader', severity: 'warning' },
+      analyst: { label: 'Escalated by Group Leader', severity: 'warning' },
       supervisor: { label: 'Escalated by HOD', severity: 'warning' },
       leadership: { label: 'Escalated by Group Leader', severity: 'warning' },
     },
@@ -124,7 +124,7 @@ export const NEEDS_ATTENTION_MOCK: NeedsAttentionItem[] = [
     assignee: 'Ravi',
     action: 'nudge',
     pendingActionSource: {
-      operator: { label: 'Raised by HOD', severity: 'warning' },
+      analyst: { label: 'Raised by HOD', severity: 'warning' },
       supervisor: { label: 'Escalated by HOD', severity: 'warning' },
       leadership: { label: 'No Action Taken', severity: 'warning' },
     },
@@ -139,7 +139,7 @@ export const NEEDS_ATTENTION_MOCK: NeedsAttentionItem[] = [
     assignee: 'Ravi',
     action: 'nudge',
     pendingActionSource: {
-      operator: { label: 'Raised by HOD', severity: 'warning' },
+      analyst: { label: 'Raised by HOD', severity: 'warning' },
       supervisor: { label: 'Escalated by HOD', severity: 'warning' },
       leadership: { label: 'No Action Taken', severity: 'warning' },
     },

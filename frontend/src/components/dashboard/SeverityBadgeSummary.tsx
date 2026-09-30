@@ -13,7 +13,7 @@ function SeverityCountBadge({ severity, count, label }: { severity: Severity; co
   )
 }
 
-/** Page-level "N CRITICAL / N WARNING / N ON TRACK" summary in the persona lens views (Operator/
+/** Page-level "N CRITICAL / N WARNING / N ON TRACK" summary in the persona lens views (Analyst/
  * Supervisor - see the reference screenshots) - reuses SEVERITY_META's Figma-sourced palette so it
  * never invents its own colours, and the same countSeverityTiers totals SectionSummaryList's own
  * per-section chips use, so the two can never disagree. */

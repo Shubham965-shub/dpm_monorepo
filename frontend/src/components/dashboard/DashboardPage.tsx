@@ -3,9 +3,9 @@ import { useAuth } from '@/hooks/useAuth'
 import { TopNav, SubNav, type SubNavView } from './TopNav'
 import {
   resolveRoleTab,
-  resolveOperatorSupervisorView,
+  resolveAnalystSupervisorView,
   type RoleTab,
-  type OperatorSupervisorView,
+  type AnalystSupervisorView,
   type KpiVisibilityLens,
 } from '@/lib/roleAccess'
 import { DEFAULT_DASHBOARD_FILTERS, FilterBar, type DashboardFilters } from './FilterBar'
@@ -27,13 +27,13 @@ import { pluralize } from '@/lib/utils'
 import { useHeatmapData } from '@/hooks/useHeatmapData'
 import { countSeverityTiers } from './types'
 
-// Per-lens page title, matching the reference designs exactly (operator/supervisor/cxo) - driven
+// Per-lens page title, matching the reference designs exactly (analyst/supervisor/cxo) - driven
 // by the same `lens` value that gates the KPI list and TeamWorkloadOverview, so ADMIN previewing a
 // lens sees the identical title a real locked-in user of that role would. Leadership isn't here -
 // its own reference screenshot gives it a fixed "KRSG Operations" title instead (see the Leadership
 // branch below), not one derived from the lens name.
 const LENS_TITLE: Record<Exclude<KpiVisibilityLens, 'leadership'>, string> = {
-  operator: 'QC Operational View',
+  analyst: 'QC Operational View',
   supervisor: 'QC Supervisor View',
   cxo: 'CXO View',
 }
@@ -47,20 +47,20 @@ export function DashboardPage() {
   const [view, setView] = useState<SubNavView>('dashboard')
   // Only ADMIN (roleTabAccess.locked === false) can actually change these - everyone else is
   // confined to their resolved tab/view (see lib/roleAccess.ts). ADMIN can preview all 4 lens
-  // variants (CXO, Leadership, Operator, Supervisor) via this free-toggle local state.
+  // variants (CXO, Leadership, Analyst, Supervisor) via this free-toggle local state.
   const [adminActiveRole, setAdminActiveRole] = useState<RoleTab>('Operations')
-  const [adminOperationsLens, setAdminOperationsLens] = useState<OperatorSupervisorView>('supervisor')
+  const [adminOperationsLens, setAdminOperationsLens] = useState<AnalystSupervisorView>('supervisor')
   const roleTabAccess = resolveRoleTab(user?.roles ?? [])
-  const operatorSupervisorAccess = resolveOperatorSupervisorView(user?.roles ?? [])
+  const analystSupervisorAccess = resolveAnalystSupervisorView(user?.roles ?? [])
   const activeRole = roleTabAccess.locked ? roleTabAccess.tab : adminActiveRole
-  const operationsLensChoice: OperatorSupervisorView = operatorSupervisorAccess.locked ? operatorSupervisorAccess.view : adminOperationsLens
+  const operationsLensChoice: AnalystSupervisorView = analystSupervisorAccess.locked ? analystSupervisorAccess.view : adminOperationsLens
   // Every tab (including CXO/Leadership, whether reached by a locked role or ADMIN previewing it)
   // maps onto its own KPI Framework-derived list (see SectionSummaryList's KPI_VISIBILITY) -
   // Leadership covers both HOD and MANAGER, which the spec never distinguishes. Only Operations
-  // has a further Operator/Supervisor choice.
+  // has a further Analyst/Supervisor choice.
   const lens: KpiVisibilityLens =
     activeRole === 'CXO' ? 'cxo' : activeRole === 'Leadership' ? 'leadership' : operationsLensChoice
-  const showOperatorSupervisorToggle = activeRole === 'Operations'
+  const showAnalystSupervisorToggle = activeRole === 'Operations'
   const [filters, setFilters] = useState<DashboardFilters>(DEFAULT_DASHBOARD_FILTERS)
   const [searchQuery, setSearchQuery] = useState('')
   // Leadership's own Timeline filter (see LeadershipFilterBar) - a trailing day-count window
@@ -104,9 +104,9 @@ export function DashboardPage() {
       <SubNav
         view={view}
         onViewChange={setView}
-        operatorSupervisorView={showOperatorSupervisorToggle ? operationsLensChoice : undefined}
-        onOperatorSupervisorViewChange={showOperatorSupervisorToggle ? setAdminOperationsLens : undefined}
-        operatorSupervisorLocked={operatorSupervisorAccess.locked}
+        analystSupervisorView={showAnalystSupervisorToggle ? operationsLensChoice : undefined}
+        onAnalystSupervisorViewChange={showAnalystSupervisorToggle ? setAdminOperationsLens : undefined}
+        analystSupervisorLocked={analystSupervisorAccess.locked}
       />
 
       {view === 'performance' ? (
@@ -115,7 +115,7 @@ export function DashboardPage() {
       exact layout - no FilterBar/Heatmap/QcScore/PositiveSignals, a Pending Actions panel instead
       of Needs Attention, and the Timeline/Chart control row. Leadership/CXO/unfiltered keep the
       pre-existing generic dashboard layout, since no screenshot dictates one for them. */
-      lens === 'operator' || lens === 'supervisor' ? (
+      lens === 'analyst' || lens === 'supervisor' ? (
         <main className="flex flex-col gap-4 px-6 py-4 md:px-10 lg:px-20">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
@@ -127,7 +127,7 @@ export function DashboardPage() {
             <SeverityBadgeSummary critical={severityTotals.critical} warning={severityTotals.warning} onTrack={severityTotals.onTrack} />
           </div>
 
-          {/* A supervisor manages a team's assignments; an operator/analyst only manages their own
+          {/* A supervisor manages a team's assignments; an analyst/analyst only manages their own
           work - see TeamWorkloadOverview. */}
           {lens === 'supervisor' && <TeamWorkloadOverview />}
 

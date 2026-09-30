@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { resolveRoleTab, resolveOperatorSupervisorView } from './roleAccess'
+import { resolveRoleTab, resolveAnalystSupervisorView } from './roleAccess'
 
 describe('resolveRoleTab', () => {
   it('locks CXO to the CXO tab', () => {
@@ -25,16 +25,16 @@ describe('resolveRoleTab', () => {
   })
 })
 
-describe('resolveOperatorSupervisorView', () => {
-  it('locks ANALYST to operator', () => {
-    expect(resolveOperatorSupervisorView(['ANALYST'])).toEqual({ view: 'operator', locked: true })
+describe('resolveAnalystSupervisorView', () => {
+  it('locks ANALYST to analyst', () => {
+    expect(resolveAnalystSupervisorView(['ANALYST'])).toEqual({ view: 'analyst', locked: true })
   })
 
   it('locks SUPERVISOR to supervisor', () => {
-    expect(resolveOperatorSupervisorView(['SUPERVISOR'])).toEqual({ view: 'supervisor', locked: true })
+    expect(resolveAnalystSupervisorView(['SUPERVISOR'])).toEqual({ view: 'supervisor', locked: true })
   })
 
   it('gives ADMIN the free toggle, defaulting to supervisor', () => {
-    expect(resolveOperatorSupervisorView(['ADMIN'])).toEqual({ view: 'supervisor', locked: false })
+    expect(resolveAnalystSupervisorView(['ADMIN'])).toEqual({ view: 'supervisor', locked: false })
   })
 })

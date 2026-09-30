@@ -3,7 +3,7 @@ import { Construction } from 'lucide-react'
 /** The Performance tab (KpiValidationDashboard) is real and functional, but hidden behind this
  * placeholder for now per a deliberate staged-rollout request - see git history for the toggle.
  * Also reused for the CXO/Leadership role tabs (see TopNav's ROLE_TABS), which aren't routed to
- * a real view yet - only Operations (Operator/Supervisor) is built out so far. */
+ * a real view yet - only Operations (Analyst/Supervisor) is built out so far. */
 export function PerformanceWorkInProgress({ title = 'Performance' }: { title?: string }) {
   return (
     <div className="flex min-h-[60svh] flex-col items-center justify-center gap-3 px-6 text-center">

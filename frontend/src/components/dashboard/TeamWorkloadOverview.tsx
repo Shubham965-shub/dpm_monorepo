@@ -11,7 +11,7 @@ const STATUS_META: Record<TeamWorkloadMember['status'], { label: string; badgeCl
 
 // The bar's colour follows severity (any critical KPI reads red regardless of workload label,
 // since that's the more urgent signal) rather than literally mirroring the status badge - a
-// "Busy" operator with a critical KPI and a "Busy" operator without one shouldn't look the same.
+// "Busy" analyst with a critical KPI and a "Busy" analyst without one shouldn't look the same.
 function barColorClass(member: TeamWorkloadMember): string {
   if (member.criticalCount > 0 || member.status === 'overloaded') return 'bg-red-500'
   if (member.status === 'busy') return 'bg-amber-500'
@@ -24,8 +24,8 @@ function barFillPercent(member: TeamWorkloadMember): number {
   return Math.min(100, member.kpiCount * 15 + member.criticalCount * 20 + member.taskCount * 10)
 }
 
-/** Per-operator KPI/task assignment and workload - only shown in the Supervisor lens (see
- * DashboardPage), since an operator/analyst manages their own work, not a team's. No real
+/** Per-analyst KPI/task assignment and workload - only shown in the Supervisor lens (see
+ * DashboardPage), since an analyst/analyst manages their own work, not a team's. No real
  * roster/assignment endpoint exists yet (see DemoDataBadge) - "reassign KPIs" isn't wired up. */
 export function TeamWorkloadOverview() {
   return (
@@ -35,10 +35,10 @@ export function TeamWorkloadOverview() {
           <Users className="size-4 text-foreground" />
           <h2 className="text-base font-semibold">Team workload overview</h2>
           <DemoDataBadge />
-          <span className="text-xs text-muted-foreground">— click any operator to reassign KPIs</span>
+          <span className="text-xs text-muted-foreground">— click any analyst to reassign KPIs</span>
         </div>
         <span className="shrink-0 text-xs font-semibold text-foreground">
-          {pluralize(TEAM_WORKLOAD_MOCK.length, 'operator')} on this shift
+          {pluralize(TEAM_WORKLOAD_MOCK.length, 'analyst')} on this shift
         </span>
       </div>
 

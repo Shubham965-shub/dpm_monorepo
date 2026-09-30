@@ -20,7 +20,7 @@ import type { KpiVisibilityLens } from './roleAccess'
  * `capa-aging-status`, which it replaces on the dashboard (its bars are stacked by level, so it
  * shows the level breakdown too).
  */
-const OPERATOR_VISIBLE_KPI_IDS = new Set([
+const ANALYST_VISIBLE_KPI_IDS = new Set([
   'sample-tat',
   'priority-sample-compliance',
   'tests-per-analyst',
@@ -163,7 +163,7 @@ const CXO_VISIBLE_KPI_IDS = new Set([
 /** Shared by SectionSummaryList's per-section KPI filtering/chips and DashboardPage's page-level
  * severity badge summary, so neither can drift from the other. */
 export const KPI_VISIBILITY: Record<KpiVisibilityLens, Set<string>> = {
-  operator: OPERATOR_VISIBLE_KPI_IDS,
+  analyst: ANALYST_VISIBLE_KPI_IDS,
   supervisor: SUPERVISOR_VISIBLE_KPI_IDS,
   leadership: LEADERSHIP_VISIBLE_KPI_IDS,
   cxo: CXO_VISIBLE_KPI_IDS,
