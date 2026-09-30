@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
 import { Maximize2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { TOOLTIP_Z_INDEX, readableTextColor, sequentialGreen } from '@/lib/chartPalette'
+import { readableTextColor, sequentialGreen } from '@/lib/chartPalette'
 import { formatPeriodTick } from '@/lib/periodFormat'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import type { KpiDomain, KpiDefinition } from '@/lib/kpiConfig'
 import type { Grain } from '@/lib/kpiSchemas'
 import { buildHeatmap, type HeatmapDimensionRow } from '@/lib/rootCauseHeatmap'
@@ -82,20 +83,24 @@ export function RootCauseHeatmapGrid({
                 {periods.map((period) => {
                   const value = row.valuesByPeriod.get(period) ?? 0
                   const bg = sequentialGreen(max > 0 ? value / max : 0)
+                  // Radix's own collision detection (avoidCollisions, on by default) keeps this
+                  // on-screen near a viewport edge - the plain absolutely-positioned div this
+                  // replaced had no such awareness and could render off-screen at the grid's edges.
                   return (
-                    <td key={period} className="group relative rounded-sm p-0" style={{ backgroundColor: bg }}>
-                      <div className={cn('text-center font-medium', cellPadding)} style={{ color: readableTextColor(bg) }}>
-                        {value}
-                      </div>
-                      <div
-                        className="pointer-events-none absolute top-full left-1/2 mt-1 hidden -translate-x-1/2 rounded-md border border-border bg-card p-2 text-[11px] whitespace-nowrap text-foreground shadow-md group-hover:block"
-                        style={{ zIndex: TOOLTIP_Z_INDEX }}
-                      >
+                    <Tooltip key={period}>
+                      <TooltipTrigger asChild>
+                        <td className="rounded-sm p-0" style={{ backgroundColor: bg }}>
+                          <div className={cn('text-center font-medium', cellPadding)} style={{ color: readableTextColor(bg) }}>
+                            {value}
+                          </div>
+                        </td>
+                      </TooltipTrigger>
+                      <TooltipContent>
                         <div>Category: {formatPeriodTick(period, grain)}</div>
                         <div>Y: By {row.label}</div>
                         <div>Value: {value}</div>
-                      </div>
-                    </td>
+                      </TooltipContent>
+                    </Tooltip>
                   )
                 })}
               </tr>

@@ -133,6 +133,20 @@ public final class KpiParams {
     }
 
     /**
+     * respDept: repeated params (?respDept=A&respDept=B), not comma-joined - same comma-in-names
+     * reason as WithInitiatedThroughAndDepartmentScope; options sourced live from the DB. Several
+     * selected departments are summed (see AggTwCapaRecurrenceRateRepository.find) - takes priority
+     * over departmentScope when given. departmentScope: QC | ALL (default ALL), used only when
+     * respDept is blank - see backend/README.md's "Department scope" section. capa-recurrence-rate only.
+     */
+    public static class WithRespDeptAndDepartmentScope extends DateRange {
+        @QueryParam("respDept")
+        public List<String> respDept;
+        @QueryParam("departmentScope")
+        public String departmentScope;
+    }
+
+    /**
      * All five extra dimensions on agg_tw_deviations, each a comma-separated combine filter, or
      * null/blank for ALL - except respDept, which is repeated params (same comma-in-names reason as
      * WithInitiatedThroughAndDepartmentScope). departmentScope: QC | ALL (default ALL) - additive pattern, see
@@ -169,7 +183,7 @@ public final class KpiParams {
         public String departmentScope;
     }
 
-    /** departmentScope: QC | ALL (default ALL) - capa-recurrence-rate, human-error-rate, repeat-human-error-rate, human-error-severity. */
+    /** departmentScope: QC | ALL (default ALL) - human-error-rate, repeat-human-error-rate, human-error-severity. */
     public static class WithDepartmentScope extends DateRange {
         @QueryParam("departmentScope")
         public String departmentScope;

@@ -2,7 +2,7 @@ import { forwardRef, useImperativeHandle, useState, type CSSProperties, type Rea
 import { cn } from '@/lib/utils'
 import { useHeatmapData } from '@/hooks/useHeatmapData'
 import { useFavoriteSections } from '@/hooks/useFavoriteSections'
-import { KPI_DOMAINS, type KpiDefinition } from '@/lib/kpiConfig'
+import { KPI_DOMAINS, type KpiDefinition, type KpiDomain } from '@/lib/kpiConfig'
 import { getGrainDateRange } from '@/lib/kpiDateRange'
 import type { Grain } from '@/lib/kpiSchemas'
 import type { GlobalKpiFilters } from '@/hooks/useKpiData'
@@ -32,6 +32,114 @@ const STACKED_SHARE_KPI_IDS = new Set(['priority-sample-compliance'])
 // sit beside that host wherever the host's live severity currently places it.
 const HEATMAP_KPI_IDS = new Set(['root-cause-consolidated'])
 const HEATMAP_COMPANION_HOST_ID: Record<string, string> = { 'root-cause-consolidated': 'root-cause' }
+
+/** One section's header bar + its expanded card grid - a real component (not a plain function
+ * called from a .map()) so its own tierCounts state is a genuine hook, not one called
+ * conditionally. tierCounts starts from the section's separate, fixed-monthly-grain heatmap
+ * reading (useHeatmapData, via SectionSummaryList's own countSeverityTiers) as a reasonable first
+ * paint, then self-corrects from DomainSeverityBoard's own per-KPI-grain-correct counts once it
+ * reports them (see its onTierCounts) - those two readings can disagree for any KPI whose own
+ * default grain isn't monthly, which is exactly what the badge must not show independently of the
+ * real Critical/Warning/On Track bands underneath it. */
+function SectionBlock({
+  sectionKey,
+  category,
+  title,
+  score,
+  deltaPts,
+  starred,
+  onToggleStar,
+  expanded,
+  onToggle,
+  domain,
+  trendKpis,
+  stackedKpis,
+  columnKpis,
+  rankingKpis,
+  companions,
+  globalFilters,
+  lens,
+  initialTierCounts,
+}: {
+  sectionKey: string
+  category: string
+  title: string
+  score: number | null
+  deltaPts: number | null
+  starred: boolean
+  onToggleStar: () => void
+  expanded: boolean
+  onToggle: () => void
+  domain: KpiDomain | undefined
+  trendKpis: KpiDefinition[]
+  stackedKpis: KpiDefinition[]
+  columnKpis: KpiDefinition[]
+  rankingKpis: KpiDefinition[]
+  companions: Map<string, (severity: Severity | null) => ReactNode>
+  globalFilters: GlobalKpiFilters
+  lens: KpiVisibilityLens
+  initialTierCounts: { critical: number; warning: number; onTrack: number }
+}) {
+  const [tierCounts, setTierCounts] = useState(initialTierCounts)
+  return (
+    // A per-section view-transition-name (see useFavoriteSections.ts's toggleFavorite) lets the
+    // browser morph this card smoothly to its new position when a favorite toggle reorders the
+    // list, instead of it just jumping there.
+    <div style={{ viewTransitionName: `section-${sectionKey}` } as CSSProperties}>
+      <SectionSummaryBar
+        category={category}
+        title={title}
+        critical={tierCounts.critical}
+        warning={tierCounts.warning}
+        onTrack={tierCounts.onTrack}
+        score={score}
+        deltaPts={deltaPts}
+        starred={starred}
+        onToggleStar={onToggleStar}
+        expanded={expanded}
+        onToggle={onToggle}
+      />
+      {expanded && domain && (
+        <div className="rounded-b-lg border border-t-0 border-border bg-card">
+          {trendKpis.length > 0 && (
+            <DomainSeverityBoard
+              domain={domain}
+              kpis={trendKpis}
+              globalFilters={globalFilters}
+              lens={lens}
+              companions={companions}
+              onTierCounts={setTierCounts}
+            />
+          )}
+          {stackedKpis.length > 0 && (
+            <div className="flex flex-col gap-3 p-4">
+              {stackedKpis.map((kpi) => (
+                <PriorityComplianceCard key={kpi.id} domain={domain} kpi={kpi} globalFilters={globalFilters} lens={lens} />
+              ))}
+            </div>
+          )}
+          {columnKpis.length > 0 && (
+            <div className="flex flex-col gap-3 p-4">
+              {columnKpis.map((kpi) => (
+                <PeriodCountBarCard key={kpi.id} domain={domain} kpi={kpi} globalFilters={globalFilters} lens={lens} />
+              ))}
+            </div>
+          )}
+          {rankingKpis.length > 0 && (
+            // items-start: a grid row otherwise stretches every card to match its tallest
+            // sibling (e.g. an 11-row ranking bar next to a 4-row one), leaving the shorter
+            // chart floating with dead space below it instead of sizing to its own content.
+            <div className={cn(KPI_CARD_GRID_CLASS, 'p-4')}>
+              {rankingKpis.map((kpi) => (
+                <KpiRankingBarCard key={kpi.id} domain={domain} kpi={kpi} globalFilters={globalFilters} lens={lens} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export interface SectionSummaryListHandle {
   /** Expands `sectionKey`'s accordion band (if it isn't already) and scrolls to `kpiId`'s own card
@@ -155,59 +263,31 @@ export const SectionSummaryList = forwardRef<
         const expanded = isSearching ? true : effectiveExpandedKey === sec.key
 
         return (
-          // A per-section view-transition-name (see useFavoriteSections.ts's toggleFavorite) lets
-          // the browser morph this card smoothly to its new position when a favorite toggle
-          // reorders the list, instead of it just jumping there.
-          <div key={sec.key} style={{ viewTransitionName: `section-${sec.key}` } as CSSProperties}>
-            <SectionSummaryBar
-              category={labels.category}
-              title={sec.title}
-              critical={critical}
-              warning={warning}
-              onTrack={onTrack}
-              score={sectionScore?.score ?? null}
-              deltaPts={
-                sectionScore?.score != null && sectionScore.previousScore != null
-                  ? sectionScore.score - sectionScore.previousScore
-                  : null
-              }
-              starred={favorites.has(sec.key)}
-              onToggleStar={() => toggleFavorite(sec.key)}
-              expanded={expanded}
-              onToggle={() => setExpandedKey((k) => (k === sec.key ? null : sec.key))}
-            />
-            {expanded && domain && (
-              <div className="rounded-b-lg border border-t-0 border-border bg-card">
-                {trendKpis.length > 0 && (
-                  <DomainSeverityBoard domain={domain} kpis={trendKpis} globalFilters={globalFilters} lens={lens} companions={companions} />
-                )}
-                {stackedKpis.length > 0 && (
-                  <div className="flex flex-col gap-3 p-4">
-                    {stackedKpis.map((kpi) => (
-                      <PriorityComplianceCard key={kpi.id} domain={domain} kpi={kpi} globalFilters={globalFilters} lens={lens} />
-                    ))}
-                  </div>
-                )}
-                {columnKpis.length > 0 && (
-                  <div className="flex flex-col gap-3 p-4">
-                    {columnKpis.map((kpi) => (
-                      <PeriodCountBarCard key={kpi.id} domain={domain} kpi={kpi} globalFilters={globalFilters} lens={lens} />
-                    ))}
-                  </div>
-                )}
-                {rankingKpis.length > 0 && (
-                  // items-start: a grid row otherwise stretches every card to match its tallest
-                  // sibling (e.g. an 11-row ranking bar next to a 4-row one), leaving the shorter
-                  // chart floating with dead space below it instead of sizing to its own content.
-                  <div className={cn(KPI_CARD_GRID_CLASS, 'p-4')}>
-                    {rankingKpis.map((kpi) => (
-                      <KpiRankingBarCard key={kpi.id} domain={domain} kpi={kpi} globalFilters={globalFilters} lens={lens} />
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+          <SectionBlock
+            key={sec.key}
+            sectionKey={sec.key}
+            category={labels.category}
+            title={sec.title}
+            score={sectionScore?.score ?? null}
+            deltaPts={
+              sectionScore?.score != null && sectionScore.previousScore != null
+                ? sectionScore.score - sectionScore.previousScore
+                : null
+            }
+            starred={favorites.has(sec.key)}
+            onToggleStar={() => toggleFavorite(sec.key)}
+            expanded={expanded}
+            onToggle={() => setExpandedKey((k) => (k === sec.key ? null : sec.key))}
+            domain={domain}
+            trendKpis={trendKpis}
+            stackedKpis={stackedKpis}
+            columnKpis={columnKpis}
+            rankingKpis={rankingKpis}
+            companions={companions}
+            globalFilters={globalFilters}
+            lens={lens}
+            initialTierCounts={{ critical, warning, onTrack }}
+          />
         )
       })
 

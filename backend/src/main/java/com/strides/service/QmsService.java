@@ -437,14 +437,26 @@ public class QmsService {
         return capaEffectivenessRepository.filterOptions(site, grain, from, to);
     }
 
-    /** departmentScope: QC | ALL (default ALL) - slice pattern on resp_dept_slice, see backend/README.md's "Department scope" section. */
-    public List<KpiCardResponse> getCapaRecurrenceRate(String site, String departmentScope, String grain, LocalDate from, LocalDate to) {
-        return capaRecurrenceRateRepository.find(site, DepartmentScope.parse(departmentScope), grain, from, to).stream()
+    /**
+     * departmentScope: QC | ALL (default ALL), used only when respDept is blank - slice pattern on
+     * resp_dept_slice, see backend/README.md's "Department scope" section. respDept: repeated params,
+     * takes priority over departmentScope when given - selected departments are summed (see
+     * AggTwCapaRecurrenceRateRepository.find).
+     */
+    public List<KpiCardResponse> getCapaRecurrenceRate(String site, String departmentScope, List<String> respDept,
+            String grain, LocalDate from, LocalDate to) {
+        Set<String> selectedDepts = PeriodCombiner.parseSelection(respDept);
+        return capaRecurrenceRateRepository.find(site, DepartmentScope.parse(departmentScope), selectedDepts, grain, from, to).stream()
                 .map(row -> new KpiCardResponse(
                         "capa-recurrence-rate", "CAPA Recurrence Rate", row.recurrencePct(), "%",
                         null, row.grain(), row.periodStart(), null,
                         BigDecimal.valueOf(row.recurringCount()), BigDecimal.valueOf(row.capaCount())))
                 .toList();
+    }
+
+    /** respDept's live option list - see AbstractAggRepository.distinctValues. */
+    public Map<String, List<String>> getCapaRecurrenceRateFilterOptions(String site, String grain, LocalDate from, LocalDate to) {
+        return capaRecurrenceRateRepository.filterOptions(site, grain, from, to);
     }
 
     /**

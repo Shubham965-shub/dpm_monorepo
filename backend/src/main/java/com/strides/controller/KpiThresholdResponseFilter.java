@@ -25,6 +25,11 @@ public class KpiThresholdResponseFilter implements ContainerResponseFilter {
     /** Snapshot filter names are DB columns; the KPI endpoints take their camelCase form, except these. */
     private static final Map<String, String> PARAM_FOR_FILTER = Map.of("site_name", "site");
     private static final Map<String, String> PARAM_DEFAULTS = Map.of("site", KpiParams.DEFAULT_SITE);
+    /** A KPI data endpoint's own distinct-values list can offer "Unknown" for a blank department -
+     * kpi_threshold_snapshot has no such row (it stores blanks as "(blank)"), so a single "Unknown"
+     * pick must fall back to the "All" limits the same way an empty selection does, rather than
+     * missing a threshold match entirely. */
+    private static final String UNKNOWN_DEPARTMENT = "Unknown";
 
     @Inject
     KpiThresholdService thresholds;
@@ -71,6 +76,10 @@ public class KpiThresholdResponseFilter implements ContainerResponseFilter {
             String fallback = PARAM_DEFAULTS.get(param);
             return fallback == null ? List.of() : List.of(fallback);
         }
-        return List.copyOf(raw.size() == 1 ? PeriodCombiner.parseSelection(raw.get(0)) : PeriodCombiner.parseSelection(raw));
+        List<String> values = List.copyOf(raw.size() == 1 ? PeriodCombiner.parseSelection(raw.get(0)) : PeriodCombiner.parseSelection(raw));
+        if ("respDept".equals(param) && values.equals(List.of(UNKNOWN_DEPARTMENT))) {
+            return List.of();
+        }
+        return values;
     }
 }

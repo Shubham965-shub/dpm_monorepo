@@ -218,8 +218,15 @@ public class QmsController {
 
     @GET
     @Path("/capa-recurrence-rate")
-    public List<KpiCardResponse> capaRecurrenceRate(@BeanParam KpiParams.WithDepartmentScope p) {
-        return service.getCapaRecurrenceRate(p.site, p.departmentScope,
+    public List<KpiCardResponse> capaRecurrenceRate(@BeanParam KpiParams.WithRespDeptAndDepartmentScope p) {
+        return service.getCapaRecurrenceRate(p.site, p.departmentScope, p.respDept,
+                RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
+    }
+
+    @GET
+    @Path("/capa-recurrence-rate/filter-options")
+    public Map<String, List<String>> capaRecurrenceRateFilterOptions(@BeanParam KpiParams.WithRespDeptAndDepartmentScope p) {
+        return service.getCapaRecurrenceRateFilterOptions(p.site,
                 RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
     }
 

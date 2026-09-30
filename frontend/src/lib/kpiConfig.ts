@@ -189,7 +189,13 @@ export const KPI_DOMAINS: KpiDomain[] = [
         snapshot: true,
       },
       { id: 'capa-effectiveness', label: 'CAPA Effectiveness', path: 'capa-effectiveness', extraFilters: [{ kind: 'multiSelect', param: 'originatedFrom' }] },
-      { id: 'capa-recurrence-rate', label: 'CAPA Recurrence Rate', path: 'capa-recurrence-rate', extraFilters: [] },
+      {
+        id: 'capa-recurrence-rate', label: 'CAPA Recurrence Rate', path: 'capa-recurrence-rate',
+        // repeated: true - a department name can contain a comma (e.g. 'Manufacturing, Science &
+        // Technology'), same reason as investigation-closure-tat's own respDept filter. Selected
+        // departments are summed server-side (see backend AggTwCapaRecurrenceRateRepository.find).
+        extraFilters: [{ kind: 'multiSelect', param: 'respDept', repeated: true }],
+      },
       { id: 'human-error-rate', label: 'Human Error Rate', path: 'human-error-rate', extraFilters: [] },
       { id: 'repeat-human-error-rate', label: 'Repeat Human Error Rate', path: 'repeat-human-error-rate', extraFilters: [] },
       {
@@ -226,7 +232,10 @@ export const KPI_DOMAINS: KpiDomain[] = [
       {
         id: 'training-completion-rate', label: 'Training Completion Rate', path: 'training-completion-rate',
         extraFilters: [
-          { kind: 'multiSelect', param: 'department' },
+          // business request: Department defaults to Quality Control (ComplianceWire's own
+          // vocabulary - not "Quality Control Department", which is the separate TrackWise
+          // wording other KPIs' Responsible Department filter uses), not locked.
+          { kind: 'multiSelect', param: 'department', defaultValue: 'Quality Control' },
           { kind: 'multiSelect', param: 'trainingType' },
         ],
       },

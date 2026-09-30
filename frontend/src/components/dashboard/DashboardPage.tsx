@@ -17,7 +17,6 @@ import { NeedsAttentionPanel } from './NeedsAttentionPanel'
 import { SearchKpiBar } from './SearchKpiBar'
 import { SectionSummaryList, type SectionSummaryListHandle } from './SectionSummaryList'
 import { SeverityBadgeSummary } from './SeverityBadgeSummary'
-import { TimelineChartControls } from './TimelineChartControls'
 import { TeamWorkloadOverview } from './TeamWorkloadOverview'
 import { PerformanceWorkInProgress } from './PerformanceWorkInProgress'
 import { KPI_DOMAINS, DEFAULT_SITE } from '@/lib/kpiConfig'
@@ -49,7 +48,7 @@ export function DashboardPage() {
   // Only ADMIN (roleTabAccess.locked === false) can actually change these - everyone else is
   // confined to their resolved tab/view (see lib/roleAccess.ts). ADMIN can preview all 4 lens
   // variants (CXO, Leadership, Analyst, Supervisor) via this free-toggle local state.
-  const [adminActiveRole, setAdminActiveRole] = useState<RoleTab>('Operations')
+  const [adminActiveRole, setAdminActiveRole] = useState<RoleTab>('CXO')
   const [adminOperationsLens, setAdminOperationsLens] = useState<AnalystSupervisorView>('supervisor')
   const roleTabAccess = resolveRoleTab(user?.roles ?? [])
   const analystSupervisorAccess = resolveAnalystSupervisorView(user?.roles ?? [])
@@ -128,15 +127,13 @@ export function DashboardPage() {
             <SeverityBadgeSummary critical={severityTotals.critical} warning={severityTotals.warning} onTrack={severityTotals.onTrack} />
           </div>
 
-          {/* A supervisor manages a team's assignments; an analyst/analyst only manages their own
-          work - see TeamWorkloadOverview. */}
+          {/* A supervisor manages a team's assignments; an analyst only manages their own work -
+          see TeamWorkloadOverview. */}
           {lens === 'supervisor' && <TeamWorkloadOverview />}
 
           <NeedsAttentionPanel section={filters.section} lens={lens} />
 
           <SearchKpiBar value={searchQuery} onChange={setSearchQuery} />
-
-          <TimelineChartControls />
 
           <SectionSummaryList
             ref={sectionSummaryListRef}

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ArrowDown, ArrowUp, Maximize2 } from 'lucide-react'
 import { Bar, BarChart, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { cn } from '@/lib/utils'
@@ -12,8 +12,9 @@ import {
   filterRootCauseRowsToDimension,
   listRootCauseDimensions,
   pickMaximalRootCauseDimension,
+  rootCauseColumnKey,
 } from '@/lib/rootCauseDimensions'
-import { useKpiData, type GlobalKpiFilters } from '@/hooks/useKpiData'
+import { useKpiData, type ExtraParams, type GlobalKpiFilters } from '@/hooks/useKpiData'
 import { useExtraFilters } from '@/hooks/useExtraFilters'
 import { useCardGrain } from '@/hooks/useCardGrain'
 import { computeValueDomain, deriveKpiMetrics, type DomainTrendKpiResult } from '@/hooks/useDomainTrendKpis'
@@ -21,7 +22,7 @@ import type { ExtraFilterState } from '@/components/kpi/ExtraFilterControl'
 import { FiltersPopoverButton } from '@/components/kpi/FiltersPopoverButton'
 import { GrainToggle } from '@/components/kpi/GrainToggle'
 import { KpiLineTooltip } from '@/components/kpi/KpiLineTooltip'
-import { boundaryHex, boundaryLines, boundaryZones, kpiAnchorId, severityMeta } from './types'
+import { boundaryHex, boundaryLines, boundaryZones, kpiAnchorId, severityMeta, type Severity } from './types'
 import { renderBoundaryOverlay } from './boundaryOverlay'
 import { KpiDetailModal } from './KpiDetailModal'
 import { LegendEntry } from './LegendEntry'
@@ -51,6 +52,7 @@ export function SeverityKpiCard({
   globalFilters,
   result,
   lens,
+  onLiveSeverityChange,
 }: {
   domain: KpiDomain
   globalFilters: GlobalKpiFilters
@@ -59,6 +61,13 @@ export function SeverityKpiCard({
    * kpiDefaultGrain.ts) when one exists for this KPI - falls back to the page's Timeline filter
    * otherwise, same as before that table existed. */
   lens: KpiVisibilityLens
+  /** DomainSeverityBoard's own hook for a KPI whose companion (see its own `companions` prop) must
+   * track this card's LIVE severity, not just the board-level default - Root Cause Breakdown is the
+   * only user today: its own dimension pick/auto-pick and per-dimension threshold (see
+   * rootCauseColumnKey) can each change what's actually shown here away from the board-level fetch's
+   * "All root causes" reading, and Root Cause (Consolidated)'s heatmap must always match whichever
+   * severity is actually on screen, not that stale default. */
+  onLiveSeverityChange?: (severity: Severity | null) => void
 }) {
   const { grain, setGrain, cardFilters, dateRange, setDateRange, clearDateRange } = useCardGrain(result.kpi.id, lens, globalFilters)
   const [viewMode, setViewMode] = useState<ViewMode>('line')
@@ -131,6 +140,25 @@ export function SeverityKpiCard({
   const rootCauseEffectiveKpiId = isRootCause
     ? (rootCauseDimension ?? pickMaximalRootCauseDimension(overrideQuery.data ?? []))
     : null
+  // Stage 2: overrideQuery's single request can't carry a different root-cause threshold per
+  // dimension (see backend KpiThresholdResponseFilter - one request-level `rootCause` slot applies
+  // to every row it returns), so every dimension there shares one ("All root causes") threshold
+  // until the displayed dimension is known - either the user's own pick, or (once overrideQuery's
+  // data is in hand) the auto-pick. This second, narrower request re-fetches with that dimension's
+  // own rootCause param so its rows get their real limits, falling back to overrideQuery's rows
+  // (correct data, wrong threshold) while it's in flight rather than showing nothing.
+  const rootCauseColumnParam = rootCauseEffectiveKpiId ? rootCauseColumnKey(rootCauseEffectiveKpiId) : null
+  const rootCauseThresholdParams: ExtraParams = rootCauseColumnParam
+    ? [...extraParams, ['rootCause', rootCauseColumnParam]]
+    : extraParams
+  const rootCauseThresholdQuery = useKpiData(
+    domain,
+    kpi,
+    cardFilters,
+    rootCauseThresholdParams,
+    { enabled: isRootCause && rootCauseColumnParam != null },
+  )
+  const rootCauseRows = rootCauseThresholdQuery.data ?? overrideQuery.data
   // A failed card-level fetch (the user's own filter/grain pick, or Root Cause's own data) keeps the
   // card and its controls on screen - swapping it for "Request failed." would leave nothing to undo
   // the pick with. It shows as empty data instead, with the error in the chart area.
@@ -140,16 +168,26 @@ export function SeverityKpiCard({
     : isRootCause
     ? deriveKpiMetrics(
         rootCauseEffectiveKpiId ?? kpi.id,
-        rootCauseEffectiveKpiId ? filterRootCauseRowsToDimension(overrideQuery.data ?? [], rootCauseEffectiveKpiId) : [],
+        rootCauseEffectiveKpiId ? filterRootCauseRowsToDimension(rootCauseRows ?? [], rootCauseEffectiveKpiId) : [],
       )
     : isOverridden && overrideQuery.data
       ? deriveKpiMetrics(kpi.id, overrideQuery.data)
       : result
   const { chartData, shownSeries, hiddenCount, latestValue, previousValue, severity, unit, thresholds } = metrics
+  // Tells DomainSeverityBoard this card's actual on-screen severity, for a companion that must
+  // track it (see the prop's own doc comment) - a plain prop can't do this since it's this card's
+  // own render, not its parent's, that first knows severity once overrideFailed/isRootCause/etc.
+  // resolve it; genuine cross-component sync, not derivable during the parent's own render.
+  useEffect(() => {
+    onLiveSeverityChange?.(severity)
+  }, [onLiveSeverityChange, severity])
   // isFetching (not isLoading) so this still dims during a later switch too - keepPreviousData
   // (see useKpiData.ts) means isLoading goes false as soon as the prior selection's data is held
-  // over, but a background refetch for the new selection is still in flight.
-  const showingStaleOverride = (isOverridden || isRootCause) && overrideQuery.isFetching
+  // over, but a background refetch for the new selection is still in flight. Root Cause also dims
+  // during stage 2 (rootCauseThresholdQuery) - the visible severity/colour is about to change once
+  // it resolves, same as any other background refetch.
+  const showingStaleOverride =
+    (isOverridden || isRootCause) && (overrideQuery.isFetching || rootCauseThresholdQuery.isFetching)
   const effectiveIsLoading = isRootCause ? overrideQuery.isLoading : isLoading
   const effectiveIsError = !isRootCause && !isOverridden && isError
 
