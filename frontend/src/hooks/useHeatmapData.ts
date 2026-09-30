@@ -105,6 +105,21 @@ function heatmapKpis(domain: KpiDomain): KpiDefinition[] {
   return domain.kpis.filter((kpi) => !kpi.snapshot)
 }
 
+// human-error-severity: a period with zero incidents of the selected classification comes back with
+// no row at all (confirmed live against the real API - missing periods are simply absent from the
+// array, never returned with an explicit value:0 or value:null row). Left as-is, that reads as the
+// same grey "no data" as a period this KPI genuinely couldn't be evaluated for, when it should read
+// as "zero, which is good". Scoped to this hook only (the heatmap) - the KPI's own card
+// (SeverityKpiCard) is unaffected and keeps showing it as no data.
+const ZERO_INCIDENTS_AS_GREEN_KPI_IDS = new Set(['human-error-severity'])
+
+function heatmapCellFor(periodLabel: string, kpiId: string, row: KpiCardResponse | undefined): HeatmapCell {
+  if ((row == null || row.value == null) && ZERO_INCIDENTS_AS_GREEN_KPI_IDS.has(kpiId)) {
+    return { periodLabel, status: 'in-control', value: 0 }
+  }
+  return { periodLabel, status: severityFromStatus(row?.status) ?? 'no-data', value: row?.value ?? null }
+}
+
 interface HeatmapRequest {
   domain: KpiDomain
   kpi: KpiDefinition
@@ -169,17 +184,14 @@ export function useHeatmapData(site: string, window: HeatmapWindow) {
         const byPeriod = rowsByKpiIdAndPeriod.get(kpi.id)
         cells = periods.map((p) => {
           const row = primaryValueRow(kpi.id, byPeriod?.get(p.key) ?? [])
-          return { periodLabel: p.label, status: severityFromStatus(row?.status) ?? 'no-data', value: row?.value ?? null }
+          return heatmapCellFor(p.label, kpi.id, row)
         })
       } else {
         const rowByPeriod = new Map<string, KpiCardResponse>()
         for (const row of primarySeriesRows(kpi.id, rowsByKpiId.get(kpi.id) ?? [])) {
           rowByPeriod.set(bucketKeyFor(row.periodStart), row)
         }
-        cells = periods.map((p) => {
-          const row = rowByPeriod.get(p.key)
-          return { periodLabel: p.label, status: severityFromStatus(row?.status) ?? 'no-data', value: row?.value ?? null }
-        })
+        cells = periods.map((p) => heatmapCellFor(p.label, kpi.id, rowByPeriod.get(p.key)))
       }
 
       sections

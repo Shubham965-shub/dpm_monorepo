@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import {
   CartesianGrid,
@@ -97,9 +98,16 @@ export function KpiDetailModal({
         : thresholds?.direction === 'band' ? 'Within band' : 'No threshold configured'
   const seriesColor = (i: number) => (shownSeries.length <= 1 ? meta.solidHex : CATEGORICAL_PALETTE[i % MAX_SERIES])
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-6"
+      // Portaled straight to document.body: nested inside a card whose ancestor SectionBlock sets
+      // an inline `viewTransitionName` (see SectionSummaryList.tsx), which makes that ancestor a
+      // containing block for `position: fixed` descendants - a plain z-[100] on this div isn't
+      // enough because it'd only ever cover that section's own box, not the full viewport. Portaling
+      // out from under it sidesteps that entirely (same reason Radix Popover/Tooltip already portal).
+      // z-[100]: above the page's own cards and their z-50 chart tooltips/z-60 Filters popovers, so
+      // an open modal can never z-fight with whatever's still rendered behind it on the page.
+      className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto bg-black/40 p-6"
       {...useBackdropClose(onClose)}
     >
       <div className="w-full max-w-4xl rounded-xl bg-card shadow-xl">
@@ -222,6 +230,7 @@ export function KpiDetailModal({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

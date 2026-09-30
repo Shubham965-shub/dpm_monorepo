@@ -277,7 +277,9 @@ export function PeriodRangePicker({
           )}
         </button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-auto p-0">
+      {/* z-[110]: this picker is only ever rendered inside a detail modal (z-[100]) - must clear
+      that, same reason as FilterPills' own z-[110]. */}
+      <PopoverContent align="end" className="z-[110] w-auto p-0">
         {renderGrid()}
         <p className="border-t border-border px-3 py-2 text-[10px] text-muted-foreground">
           {pendingStart ? 'Pick the other end of the range.' : 'Click a period, or click two to span a range.'}
