@@ -109,10 +109,11 @@ export function QcScoreCard({
               Best ever: <span className="font-semibold text-foreground">{bestEver.score}</span> · {bestEver.period}
               <DemoDataBadge />
             </span>
-            <a href="#" className="flex shrink-0 items-center gap-0.5 font-semibold text-brand hover:underline">
+            {/* Not yet built (see TopNav's "Alerts & Activities" for the same disabled-but-visible convention). */}
+            <span className="flex shrink-0 cursor-not-allowed items-center gap-0.5 font-semibold text-muted-foreground" title="Not yet built">
               View breakdown
               <ChevronRight className="size-3" />
-            </a>
+            </span>
           </div>
         )}
       </CardContent>

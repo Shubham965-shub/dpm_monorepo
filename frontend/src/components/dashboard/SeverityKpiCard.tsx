@@ -6,6 +6,7 @@ import { CATEGORICAL_PALETTE, MAX_SERIES, TOOLTIP_Z_INDEX } from '@/lib/chartPal
 import type { ExtraFilter, KpiDomain } from '@/lib/kpiConfig'
 import type { KpiVisibilityLens } from '@/lib/roleAccess'
 import { formatRangeEnd, formatRangeStart } from '@/lib/periodFormat'
+import { percentChange } from '@/lib/format'
 import { ACTIVE_FILTER_CLASS, FILTER_PILL_CLASS, filterLabel } from '@/lib/filterLabels'
 import {
   filterRootCauseRowsToDimension,
@@ -167,8 +168,8 @@ export function SeverityKpiCard({
   // Never borrow the board-level `result` severity: once overridden (grain/filter), that describes
   // different data - a null here means neutral styling, not "use the default view's colour".
   const meta = severityMeta(severity)
-  const delta = latestValue != null && previousValue != null ? latestValue - previousValue : null
-  const isUp = delta != null && delta >= 0
+  const deltaPct = latestValue != null && previousValue != null ? percentChange(latestValue, previousValue) : null
+  const isUp = deltaPct != null && deltaPct >= 0
   const seriesColor = (i: number) => (shownSeries.length <= 1 ? meta.solidHex : CATEGORICAL_PALETTE[i % MAX_SERIES])
   // Bar charts conventionally start at 0 (a zoomed baseline misrepresents bar height/proportion),
   // so the value-range auto-zoom below only applies to the line view. The boundary lines are passed
@@ -307,12 +308,12 @@ export function SeverityKpiCard({
           </span>
           <span className="text-muted-foreground ml-1 text-[10px] font-semibold">{unit}</span>
         </div>
-        {delta != null && (
+        {deltaPct != null && (
           <div className="text-right">
             <div className="flex items-center justify-end gap-0.5 text-base font-semibold" style={{ color: meta.solidHex }}>
               {isUp ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />}
               {isUp ? '+' : ''}
-              {delta.toFixed(1)}
+              {deltaPct.toFixed(1)}%
             </div>
             <div className="text-muted-foreground text-sm font-medium">vs prev</div>
           </div>

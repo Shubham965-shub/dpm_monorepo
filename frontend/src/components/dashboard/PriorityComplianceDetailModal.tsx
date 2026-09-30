@@ -8,6 +8,8 @@ import type { ExtraFilterState } from '@/components/kpi/ExtraFilterControl'
 import { FilterPills } from '@/components/kpi/FilterPills'
 import { KpiInfoDropdown } from '@/components/kpi/KpiInfoDropdown'
 import { GrainToggle } from '@/components/kpi/GrainToggle'
+import { PeriodRangePicker, type DateRange } from '@/components/kpi/PeriodRangePicker'
+import { useBackdropClose } from '@/hooks/useBackdropClose'
 import { SEVERITY_META } from './types'
 import { ComplianceTooltip, type PeriodPoint } from './PriorityComplianceCard'
 
@@ -26,11 +28,14 @@ export function PriorityComplianceDetailModal({
   points,
   colors,
   grain,
+  onGrainChange,
+  dateRange,
+  onDateRangeChange,
+  onClearDateRange,
   extraStates,
   onExtraStateChange,
   optionsFor,
   filterOptionsLoading,
-  onGrainChange,
   onClose,
 }: {
   domainLabel: string
@@ -39,17 +44,22 @@ export function PriorityComplianceDetailModal({
   points: PeriodPoint[]
   colors: string[]
   grain: Grain
+  /** Shares the compact card's grain (see useCardGrain), same as its filters. */
+  onGrainChange: (grain: Grain) => void
+  /** Shares the compact card's own date-range pick (see useCardGrain) - same as grain/filters, so it
+   * survives this modal closing. null = following the grain's own default trailing window. */
+  dateRange: DateRange | null
+  onDateRangeChange: (range: DateRange) => void
+  onClearDateRange: () => void
   extraStates: ExtraFilterState[]
   onExtraStateChange: (i: number, next: ExtraFilterState) => void
   optionsFor: (filter: ExtraFilter) => string[]
   filterOptionsLoading: boolean
-  /** Shares the compact card's grain (see useCardGrain), same as its filters. */
-  onGrainChange: (grain: Grain) => void
   onClose: () => void
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-6" onClick={onClose}>
-      <div className="w-full max-w-4xl rounded-xl bg-card shadow-xl" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-6" {...useBackdropClose(onClose)}>
+      <div className="w-full max-w-4xl rounded-xl bg-card shadow-xl">
         <div className="h-1.5 w-full rounded-t-xl" style={{ backgroundColor: GREEN.solidHex }} />
 
         <div className="flex items-center justify-between border-b border-border px-6 py-3">
@@ -73,6 +83,14 @@ export function PriorityComplianceDetailModal({
           </div>
           <div className="flex flex-col items-end gap-3">
             <GrainToggle grain={grain} onChange={onGrainChange} activeHex={GREEN.solidHex} size="modal" />
+            <PeriodRangePicker
+              key={grain}
+              grain={grain}
+              value={dateRange}
+              onChange={onDateRangeChange}
+              onClear={onClearDateRange}
+              activeHex={GREEN.solidHex}
+            />
             <FilterPills
               kpi={kpi}
               extraStates={extraStates}
@@ -100,6 +118,7 @@ export function PriorityComplianceDetailModal({
                   />
                   <YAxis
                     domain={[0, 100]}
+                    ticks={[0, 20, 40, 60, 80, 100]}
                     tickFormatter={(v: number) => `${v}%`}
                     tick={{ fontSize: 11 }}
                     stroke="var(--muted-foreground)"

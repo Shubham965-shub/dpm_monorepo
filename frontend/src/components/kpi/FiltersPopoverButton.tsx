@@ -55,7 +55,10 @@ export function FiltersPopoverButton({
           <ChevronDown className={cn('size-3 transition-transform', open && 'rotate-180')} />
         </button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-auto min-w-56 max-w-80 flex-col gap-3">
+      {/* z-[60]: PopoverContent's own z-50 default ties with TOOLTIP_Z_INDEX (chartPalette.ts) used
+      by every card's own chart hover tooltip - explicit here so the Filters panel always wins that
+      tie instead of leaving it to DOM-order chance. */}
+      <PopoverContent align="end" className="z-[60] w-auto min-w-56 max-w-80 flex-col gap-3">
         {kpi.extraFilters.map((filter, i) => (
           <ExtraFilterControl
             key={filter.param}

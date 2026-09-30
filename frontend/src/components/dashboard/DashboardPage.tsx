@@ -38,9 +38,10 @@ const LENS_TITLE: Record<Exclude<KpiVisibilityLens, 'leadership'>, string> = {
   cxo: 'CXO View',
 }
 
-// Leadership's QC Score "Best ever" stat has no real historical-best endpoint behind it yet (see
-// QcScoreCard's bestEver prop) - a fixed placeholder, flagged there via DemoDataBadge.
-const LEADERSHIP_BEST_EVER_SCORE = { score: 91, period: 'February 2026' }
+// QC Score's "Best ever" stat (Leadership and CXO both show it) has no real historical-best
+// endpoint behind it yet (see QcScoreCard's bestEver prop) - a fixed placeholder, flagged there via
+// DemoDataBadge.
+const BEST_EVER_SCORE = { score: 91, period: 'February 2026' }
 
 export function DashboardPage() {
   const { user, logout } = useAuth()
@@ -176,7 +177,7 @@ export function DashboardPage() {
                 onKpiClick={scrollToKpi}
               />
               <div className="flex flex-col gap-4">
-                <QcScoreCard site={DEFAULT_SITE} grain="weekly" dateRangeOverride={leadershipDateRange} bestEver={LEADERSHIP_BEST_EVER_SCORE} />
+                <QcScoreCard site={DEFAULT_SITE} grain="weekly" dateRangeOverride={leadershipDateRange} bestEver={BEST_EVER_SCORE} />
                 <PositiveSignals />
               </div>
             </div>
@@ -221,7 +222,7 @@ export function DashboardPage() {
                 onKpiClick={scrollToKpi}
               />
               <div className="flex flex-col gap-4">
-                <QcScoreCard site={DEFAULT_SITE} grain={filters.grain} />
+                <QcScoreCard site={DEFAULT_SITE} grain={filters.grain} bestEver={BEST_EVER_SCORE} />
                 <PositiveSignals />
               </div>
             </div>

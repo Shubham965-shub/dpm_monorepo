@@ -39,7 +39,7 @@ export function DomainSeverityBoard({
   lens: KpiVisibilityLens
   companions?: Map<string, (severity: Severity | null) => ReactNode>
 }) {
-  const results = useDomainTrendKpis(domain, kpis, globalFilters)
+  const results = useDomainTrendKpis(domain, kpis, globalFilters, lens)
   const pending = results.filter((r) => r.severity == null)
 
   function renderResult(r: DomainTrendKpiResult) {

@@ -168,10 +168,11 @@ export function SubNav({
             locked={analystSupervisorLocked ?? false}
           />
         )}
-        <Button size="sm" className="gap-1.5 bg-brand hover:bg-brand/90" variant="default">
+        {/* Not yet built (see KpiDetailModal's "Raise Concern" for the same disabled-but-visible convention). */}
+        <Button size="sm" className="gap-1.5" variant="secondary" disabled title="Not yet built">
           <Bell className="size-3.5" />
           Alerts &amp; Activities
-          <Badge variant="secondary" className="bg-white/20 text-white">
+          <Badge variant="secondary" className="bg-foreground/10 text-muted-foreground">
             3
           </Badge>
         </Button>
