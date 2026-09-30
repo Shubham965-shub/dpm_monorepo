@@ -33,8 +33,9 @@ function FilterPill({
           <ChevronDown className="size-3.5 shrink-0 opacity-60" />
         </button>
       </PopoverTrigger>
-      {/* z-[60]: same tie-breaker as FiltersPopoverButton's own PopoverContent - see its comment. */}
-      <PopoverContent align="end" className="z-[60] w-64 p-2">
+      {/* z-[110]: FilterPills is only ever rendered inside a detail modal (z-[100]) - this must
+      clear that, not just the page-level tooltip/popover tie FiltersPopoverButton's own z-[60] guards against. */}
+      <PopoverContent align="end" className="z-[110] w-64 p-2">
         <ExtraFilterControl
           filter={filter}
           state={state}
