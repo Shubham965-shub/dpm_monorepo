@@ -3,8 +3,8 @@ import { ChevronDown } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardAction } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { cn, pluralize } from '@/lib/utils'
-import { TOOLTIP_Z_INDEX } from '@/lib/chartPalette'
 import { useHeatmapData, type HeatmapWindow } from '@/hooks/useHeatmapData'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import type { Grain } from '@/lib/kpiSchemas'
 import { severityMeta, formatScore, formatCompactScore, type HeatmapRow, type RagStatus } from './types'
 import type { SectionFilterValue } from './FilterBar'
@@ -110,31 +110,31 @@ function Cell({
 }) {
   const colorHex = cellColorHex(status)
   return (
-    <button type="button" onClick={onClick} className="group relative flex cursor-pointer items-center gap-0.5 text-left">
-      <span className="size-1.5 rounded-full" style={{ backgroundColor: colorHex }} />
-      <span className="text-sm font-semibold" style={{ color: colorHex }}>
-        {formatCompactScore(value)}
-      </span>
-      {/* Bounded width + wrapping, not whitespace-nowrap - a long KPI name centered over a 32px
-      cell (see the "left-1/2 -translate-x-1/2" below) would otherwise render as one unbounded-width
-      line, pushing well past the cell's own edges and off the visible page for cells near the
-      heatmap's left/right edges. Wrapping keeps the tooltip's total width fixed regardless of name
-      length, so it only ever grows taller, never wider. */}
-      <span
-        className="pointer-events-none absolute top-full left-1/2 mt-1 hidden w-40 -translate-x-1/2 rounded-md border border-border bg-card p-2 text-[11px] break-words text-foreground shadow-md group-hover:block"
-        style={{ zIndex: TOOLTIP_Z_INDEX }}
-      >
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button type="button" onClick={onClick} className="flex cursor-pointer items-center gap-0.5 text-left">
+          <span className="size-1.5 rounded-full" style={{ backgroundColor: colorHex }} />
+          <span className="text-sm font-semibold" style={{ color: colorHex }}>
+            {formatCompactScore(value)}
+          </span>
+        </button>
+      </TooltipTrigger>
+      {/* Radix's own collision detection (avoidCollisions, on by default) flips/shifts this to stay
+      on-screen near a viewport edge - the plain absolutely-positioned span this replaced had no such
+      awareness and could render partly or fully off-screen for cells near the heatmap's left/right
+      edges. w-40 still bounds a long KPI name to wrapping instead of an unbounded-width line. */}
+      <TooltipContent className="w-40 break-words text-left">
         <div className="font-semibold">{kpiName}</div>
         {defaultFilters.map((f) => (
-          <div key={f} className="text-muted-foreground">
+          <div key={f} className="opacity-80">
             {f}
           </div>
         ))}
         <div>
           {periodLabel}: {formatScore(value)}
         </div>
-      </span>
-    </button>
+      </TooltipContent>
+    </Tooltip>
   )
 }
 

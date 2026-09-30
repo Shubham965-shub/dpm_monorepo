@@ -43,3 +43,19 @@ export function pickMaximalRootCauseDimension(rows: KpiCardResponse[]): string |
 export function filterRootCauseRowsToDimension(rows: KpiCardResponse[], kpiId: string): KpiCardResponse[] {
   return rows.filter((row) => row.kpiId === kpiId)
 }
+
+const ROOT_CAUSE_KPI_ID_PREFIXES = ['root-cause-by-', 'root-cause-consolidated-by-']
+
+/** The backend's own root_cause threshold-slot value (e.g. "by_bmr_bpr") for a dimension's derived
+ * kpiId (e.g. "root-cause-by-bmr-bpr") - the hyphenated suffix QmsService.rootCauseShares derives
+ * a dimension's name into is the same string as its underlying agg_tw_root_cause_distribution
+ * column, just with underscores instead of hyphens (confirmed: "BMR/BPR" -> "bmr-bpr" in the kpiId,
+ * "by_bmr_bpr" as the real column/threshold-slot key). Sent as the `rootCause` query param so the
+ * generic threshold filter (KpiThresholdResponseFilter) resolves that one dimension's own limits
+ * instead of the KPI's "All root causes" default. Null if kpiId isn't a root-cause dimension id. */
+export function rootCauseColumnKey(kpiId: string): string | null {
+  for (const prefix of ROOT_CAUSE_KPI_ID_PREFIXES) {
+    if (kpiId.startsWith(prefix)) return `by_${kpiId.slice(prefix.length).replace(/-/g, '_')}`
+  }
+  return null
+}

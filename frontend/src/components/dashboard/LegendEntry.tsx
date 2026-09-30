@@ -1,5 +1,5 @@
-/** A short dashed swatch + label, e.g. "Alert limit" / "Action limit" - shared by SeverityKpiCard's
- * chart legend and TimelineChartControls' page-level legend, so the two never drift apart. */
+/** A short dashed swatch + label, e.g. "Alert limit" / "Action limit" - SeverityKpiCard's own chart
+ * legend. */
 export function LegendEntry({ colorHex, label }: { colorHex: string; label: string }) {
   return (
     <span className="flex items-center gap-1">

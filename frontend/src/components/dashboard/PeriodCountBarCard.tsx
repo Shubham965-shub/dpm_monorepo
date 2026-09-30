@@ -57,11 +57,23 @@ function CountTooltip({ active, payload, periodLabel }: { active?: boolean; payl
   )
 }
 
+// A snapshot KPI has no trailing window to pick (buildKpiQueryString never sends from/to for one -
+// every open record comes back regardless of grain), but its own D/W/M/Q/Y toggle still controls
+// something real: which grain the backend buckets those same records' dates into (day/week/month/
+// quarter/year), same as the grain param means for every other KPI's period column - just never a
+// window-narrowing one here.
+//
+// formatPeriodTick's daily/monthly ticks drop the year when it matches `today`'s, to keep the
+// common current-year case compact - but this KPI's own periods (every open record, unfiltered by
+// date) routinely span a year boundary with real bars on both sides, where that's exactly the
+// inconsistency it becomes ("Sep '25" beside a bare "Jan"). A `today` no real record's year could
+// ever match makes every tick take the "not current year" branch, always showing its year.
+const NEVER_CURRENT_YEAR = new Date(0)
+
 /**
  * One vertical bar per period of a plain-count KPI (chartType 'column', e.g. CAPA Aging) - Power
  * BI's column charts, rather than SeverityKpiCard's thresholded trend line. Several series (e.g.
- * one per CAPA level) stack into one bar, with each series' total in the legend. A snapshot KPI
- * has no D/W/M/Q/Y toggle - its periods are the records' own dates, not a time range to pick.
+ * one per CAPA level) stack into one bar, with each series' total in the legend.
  */
 export function PeriodCountBarCard({
   domain,
@@ -107,7 +119,7 @@ export function PeriodCountBarCard({
           {viewLabel && <p className="text-muted-foreground text-[11px]">By {viewLabel}</p>}
         </div>
         <div className="flex shrink-0 items-center gap-1">
-          {!kpi.snapshot && <GrainToggle grain={grain} onChange={setGrain} activeHex={GREEN.solidHex} borderHex={GREEN.paleHex} />}
+          <GrainToggle grain={grain} onChange={setGrain} activeHex={GREEN.solidHex} borderHex={GREEN.paleHex} />
           <FiltersPopoverButton kpi={kpi} filters={filters} />
         </div>
       </div>
@@ -132,7 +144,7 @@ export function PeriodCountBarCard({
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
               <XAxis
                 dataKey="periodStart"
-                tickFormatter={(p: string) => formatPeriodTick(p, grain)}
+                tickFormatter={(p: string) => formatPeriodTick(p, grain, NEVER_CURRENT_YEAR)}
                 interval={evenTickInterval(chartData.length, MAX_X_TICKS)}
                 tick={{ fontSize: 9 }}
                 stroke="var(--muted-foreground)"
