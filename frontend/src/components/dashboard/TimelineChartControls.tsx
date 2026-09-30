@@ -23,7 +23,7 @@ function Pill<T extends string>({ options, value, onChange }: { options: readonl
   )
 }
 
-/** Matches the persona lens views' reference screenshots exactly (Operator/Supervisor), but neither
+/** Matches the persona lens views' reference screenshots exactly (Analyst/Supervisor), but neither
  * pill is wired to any real query - unlike SeverityKpiCard's own D/W/M/Q/Y grain and Line/Bar
  * toggles (which do drive that card's chart), this page-level row has no matching real
  * granularity/chart-type concept below it to control, so DemoDataBadge flags it as display-only. */

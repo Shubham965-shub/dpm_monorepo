@@ -149,7 +149,7 @@ export const SectionSummaryList = forwardRef<
         const hasMatch = trendKpis.length > 0 || stackedKpis.length > 0 || rankingKpis.length > 0 || columnKpis.length > 0
         // hasMatch already reflects the lens filter (domainKpis above is restricted to
         // visibleKpiIds) - a role whose KPI Framework column leaves a whole section blank (e.g.
-        // Operator sees nothing under Compliance System) shouldn't render that section's header
+        // Analyst sees nothing under Compliance System) shouldn't render that section's header
         // and an empty body, regardless of whether a search is also active.
         if (!hasMatch) return null
         const expanded = isSearching ? true : effectiveExpandedKey === sec.key

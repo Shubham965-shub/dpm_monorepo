@@ -6,10 +6,10 @@ export type RoleTab = 'CXO' | 'Leadership' | 'Operations'
  * KPI_VISIBILITY) - 'leadership' covers both HOD and MANAGER, which the spec never distinguishes
  * (same column for both). Every tab/role resolves to exactly one of these - there is no unfiltered
  * "all KPIs" state. */
-export type KpiVisibilityLens = 'operator' | 'supervisor' | 'leadership' | 'cxo'
+export type KpiVisibilityLens = 'analyst' | 'supervisor' | 'leadership' | 'cxo'
 /** The two lenses a locked SUPERVISOR/ANALYST (and ADMIN, via its own free-toggle Operations
  * choice) switch between within Operations. */
-export type OperatorSupervisorView = Extract<KpiVisibilityLens, 'operator' | 'supervisor'>
+export type AnalystSupervisorView = Extract<KpiVisibilityLens, 'analyst' | 'supervisor'>
 
 /**
  * Maps the backend's fixed Role enum (CXO/HOD/MANAGER/SUPERVISOR/ANALYST/ADMIN - see
@@ -28,15 +28,15 @@ export function resolveRoleTab(roles: string[]): { tab: RoleTab; locked: boolean
 }
 
 /**
- * Within the Operations tab: ANALYST maps to the Operator KPI list, SUPERVISOR to the broader
- * Supervisor list (see SectionSummaryList's OPERATOR_VISIBLE_KPI_IDS/SUPERVISOR_VISIBLE_KPI_IDS) -
+ * Within the Operations tab: ANALYST maps to the Analyst KPI list, SUPERVISOR to the broader
+ * Supervisor list (see SectionSummaryList's ANALYST_VISIBLE_KPI_IDS/SUPERVISOR_VISIBLE_KPI_IDS) -
  * both locked, no toggle to the other. The `view`/`locked: false` returned for ADMIN here is a
  * placeholder DashboardPage never actually reads - ADMIN's real Operations choice lives in its own
  * free-toggle local state instead.
  */
-export function resolveOperatorSupervisorView(roles: string[]): { view: OperatorSupervisorView; locked: boolean } {
+export function resolveAnalystSupervisorView(roles: string[]): { view: AnalystSupervisorView; locked: boolean } {
   const role = roles[0]
   if (role === 'ADMIN') return { view: 'supervisor', locked: false }
-  if (role === 'ANALYST') return { view: 'operator', locked: true }
+  if (role === 'ANALYST') return { view: 'analyst', locked: true }
   return { view: 'supervisor', locked: true }
 }

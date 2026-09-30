@@ -19,19 +19,19 @@ const SOURCE_SEVERITY_STYLE = {
   warning: { dot: 'bg-[#cf7e00]', text: 'text-[#cf7e00]' },
 } as const
 
-type PendingActionsLens = 'operator' | 'supervisor' | 'leadership'
+type PendingActionsLens = 'analyst' | 'supervisor' | 'leadership'
 
-/** Per-lens differences the three reference screenshots show: Operator and Leadership both name
+/** Per-lens differences the three reference screenshots show: Analyst and Leadership both name
  * the assignee (Supervisor's screenshot already names the team in Team Workload Overview above),
- * and only Leadership keeps a single "Act Now" action - Operator/Supervisor both use a flat "Mark
+ * and only Leadership keeps a single "Act Now" action - Analyst/Supervisor both use a flat "Mark
  * as Completed" instead. */
 const PENDING_ACTIONS_VARIANT: Record<PendingActionsLens, { showAssignee: boolean; buttonLabel: string }> = {
-  operator: { showAssignee: true, buttonLabel: 'Mark as Completed' },
+  analyst: { showAssignee: true, buttonLabel: 'Mark as Completed' },
   supervisor: { showAssignee: false, buttonLabel: 'Mark as Completed' },
   leadership: { showAssignee: true, buttonLabel: 'Act Now' },
 }
 
-/** The Operator/Supervisor/Leadership reference screenshots' "Pending Actions" panel - same
+/** The Analyst/Supervisor/Leadership reference screenshots' "Pending Actions" panel - same
  * underlying NEEDS_ATTENTION_MOCK items as the legacy view below, framed per pendingActionSource
  * (see PENDING_ACTIONS_VARIANT for what varies by lens). */
 function PendingActionsView({ items, lens }: { items: NeedsAttentionItem[]; lens: PendingActionsLens }) {
@@ -97,7 +97,7 @@ export function NeedsAttentionPanel({ section, lens }: { section: SectionFilterV
   const sectionLabel = section === 'all' ? null : KPI_DOMAINS.find((d) => d.key === section)?.label
   const items = sectionLabel ? NEEDS_ATTENTION_MOCK.filter((i) => i.category === sectionLabel) : NEEDS_ATTENTION_MOCK
 
-  if (lens === 'operator' || lens === 'supervisor' || lens === 'leadership') {
+  if (lens === 'analyst' || lens === 'supervisor' || lens === 'leadership') {
     return <PendingActionsView items={items} lens={lens} />
   }
 

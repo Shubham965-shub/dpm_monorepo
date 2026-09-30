@@ -42,12 +42,12 @@ describe('kpiDefaultGrain - confirmed exceptions to the naive "one grain step pe
     expect(defaultGrainFor('availability', 'supervisor')).toBe('daily')
   })
 
-  it('Training Completion Rate breaks the usual Operator/Supervisor daily lockstep', () => {
-    // Every other Operator-visible KPI has Operator=daily AND Supervisor=daily together.
-    expect(defaultGrainFor('training-completion-rate', 'operator')).toBe('daily')
+  it('Training Completion Rate breaks the usual Analyst/Supervisor daily lockstep', () => {
+    // Every other Analyst-visible KPI has Analyst=daily AND Supervisor=daily together.
+    expect(defaultGrainFor('training-completion-rate', 'analyst')).toBe('daily')
     expect(defaultGrainFor('training-completion-rate', 'supervisor')).toBe('weekly')
-    // Contrast: a typical Operator-visible KPI keeps Supervisor in lockstep at daily.
-    expect(defaultGrainFor('sample-tat', 'operator')).toBe('daily')
+    // Contrast: a typical Analyst-visible KPI keeps Supervisor in lockstep at daily.
+    expect(defaultGrainFor('sample-tat', 'analyst')).toBe('daily')
     expect(defaultGrainFor('sample-tat', 'supervisor')).toBe('daily')
   })
 

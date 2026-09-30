@@ -19,15 +19,15 @@ import type { KpiVisibilityLens } from './roleAccess'
  * (capa-aging-status/human-error-by-product/product-wise-failure).
  */
 export const KPI_DEFAULT_GRAIN: Partial<Record<string, Partial<Record<KpiVisibilityLens, Grain>>>> = {
-  'sample-tat': { operator: 'daily', supervisor: 'daily', leadership: 'weekly', cxo: 'monthly' },
+  'sample-tat': { analyst: 'daily', supervisor: 'daily', leadership: 'weekly', cxo: 'monthly' },
   'sla-adherence': { supervisor: 'daily', leadership: 'weekly', cxo: 'monthly' },
-  'priority-sample-compliance': { operator: 'daily', supervisor: 'daily', leadership: 'weekly', cxo: 'monthly' },
-  'tests-per-analyst': { operator: 'daily', supervisor: 'daily', leadership: 'weekly', cxo: 'monthly' },
-  'hplc-sequences-per-analyst': { operator: 'daily', supervisor: 'daily', leadership: 'weekly' },
-  'hplc-injections-per-analyst': { operator: 'daily', supervisor: 'daily', leadership: 'weekly' },
-  'hplc-utilization': { operator: 'daily', supervisor: 'daily', leadership: 'weekly', cxo: 'monthly' },
-  'gc-utilization': { operator: 'daily', supervisor: 'daily', leadership: 'weekly' },
-  'dissolution-utilization': { operator: 'daily', supervisor: 'daily', leadership: 'weekly' },
+  'priority-sample-compliance': { analyst: 'daily', supervisor: 'daily', leadership: 'weekly', cxo: 'monthly' },
+  'tests-per-analyst': { analyst: 'daily', supervisor: 'daily', leadership: 'weekly', cxo: 'monthly' },
+  'hplc-sequences-per-analyst': { analyst: 'daily', supervisor: 'daily', leadership: 'weekly' },
+  'hplc-injections-per-analyst': { analyst: 'daily', supervisor: 'daily', leadership: 'weekly' },
+  'hplc-utilization': { analyst: 'daily', supervisor: 'daily', leadership: 'weekly', cxo: 'monthly' },
+  'gc-utilization': { analyst: 'daily', supervisor: 'daily', leadership: 'weekly' },
+  'dissolution-utilization': { analyst: 'daily', supervisor: 'daily', leadership: 'weekly' },
   availability: { supervisor: 'daily', leadership: 'weekly', cxo: 'monthly' },
   downtime: { supervisor: 'daily', leadership: 'weekly', cxo: 'quarterly' },
   'calibration-compliance': { supervisor: 'daily', leadership: 'weekly', cxo: 'quarterly' },
@@ -46,8 +46,8 @@ export const KPI_DEFAULT_GRAIN: Partial<Record<string, Partial<Record<KpiVisibil
   'repeat-human-error-rate': { supervisor: 'weekly', leadership: 'weekly', cxo: 'monthly' },
   'human-error-severity': { supervisor: 'weekly', leadership: 'weekly', cxo: 'monthly' },
   'human-error-by-product': { supervisor: 'weekly', leadership: 'weekly', cxo: 'monthly' },
-  'rft-documentation': { operator: 'daily', supervisor: 'daily', leadership: 'weekly', cxo: 'monthly' },
-  'method-failure-rate': { operator: 'daily', supervisor: 'daily', leadership: 'weekly', cxo: 'monthly' },
+  'rft-documentation': { analyst: 'daily', supervisor: 'daily', leadership: 'weekly', cxo: 'monthly' },
+  'method-failure-rate': { analyst: 'daily', supervisor: 'daily', leadership: 'weekly', cxo: 'monthly' },
   'capa-effectiveness': { supervisor: 'daily', leadership: 'weekly', cxo: 'monthly' },
   'capa-recurrence-rate': { supervisor: 'daily', leadership: 'weekly', cxo: 'monthly' },
   'oos-trend': { supervisor: 'daily', leadership: 'weekly', cxo: 'monthly' },
@@ -58,7 +58,7 @@ export const KPI_DEFAULT_GRAIN: Partial<Record<string, Partial<Record<KpiVisibil
   'capa-aging': { supervisor: 'monthly', leadership: 'monthly', cxo: 'monthly' },
   'product-wise-failure': { supervisor: 'daily', leadership: 'weekly', cxo: 'monthly' },
   'qualification-cycle-time': { supervisor: 'weekly', leadership: 'weekly', cxo: 'monthly' },
-  'training-completion-rate': { operator: 'daily', supervisor: 'weekly', leadership: 'weekly', cxo: 'monthly' },
+  'training-completion-rate': { analyst: 'daily', supervisor: 'weekly', leadership: 'weekly', cxo: 'monthly' },
   'repeat-analysis-rate': { supervisor: 'daily', leadership: 'weekly', cxo: 'monthly' },
 }
 
