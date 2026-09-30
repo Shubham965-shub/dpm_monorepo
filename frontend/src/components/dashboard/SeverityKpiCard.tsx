@@ -70,8 +70,8 @@ export function SeverityKpiCard({
   // Untouched filters match the board-level `result` fetch - only count them as "overridden" once
   // the user actually touches one, so mount doesn't immediately refire an identical fetch.
   const [filtersTouched, setFiltersTouched] = useState(false)
-  // Surfaced next to the title (not just inside the Filters popover) so it's always clear
-  // which required-select value the card's data currently reflects.
+  // Surfaced under the Filters chip (not just inside its popover) so it's always clear which
+  // required-select value the card's data currently reflects.
   const requiredSelects = kpi.extraFilters
     .map((filter, i) => ({ filter, i }))
     .filter((entry): entry is { filter: Extract<ExtraFilter, { kind: 'select' }>; i: number } =>
@@ -189,13 +189,6 @@ export function SeverityKpiCard({
         <div>
           {/* Always two lines tall, so a one-line title's chart starts level with a wrapped one's. */}
           <h3 className="line-clamp-2 min-h-[2lh] text-xl font-semibold text-gray-700">{kpi.label}</h3>
-          {requiredSelects.length > 0 && (
-            <p className="text-muted-foreground text-[9px]">
-              {requiredSelects
-                .map(({ filter, i }) => `${filterLabel(filter.param)}: ${(extraStates[i] as { value: string }).value}`)
-                .join(', ')}
-            </p>
-          )}
           {isRootCause && rootCauseEffectiveKpiId && (
             <p className="text-muted-foreground text-[9px]">
               {rootCauseOptions.find((o) => o.kpiId === rootCauseEffectiveKpiId)?.dimension ?? rootCauseEffectiveKpiId}
@@ -203,7 +196,7 @@ export function SeverityKpiCard({
             </p>
           )}
         </div>
-        <div className="flex shrink-0 items-center gap-1">
+        <div className="flex shrink-0 items-start gap-1">
           <div className="flex overflow-hidden rounded-md border" style={{ borderColor: meta.paleHex }}>
             {(['line', 'bar'] as const).map((mode) => (
               <button
@@ -217,13 +210,22 @@ export function SeverityKpiCard({
             ))}
           </div>
           <GrainToggle grain={grain} onChange={setGrain} activeHex={meta.solidHex} borderHex={meta.paleHex} />
-          <FiltersPopoverButton
-            kpi={kpi}
-            filters={filters}
-            onExtraStateChange={handleExtraStateChange}
-            extra={rootCausePicker}
-            extraActive={isRootCause}
-          />
+          <div className="flex flex-col items-end gap-0.5">
+            <FiltersPopoverButton
+              kpi={kpi}
+              filters={filters}
+              onExtraStateChange={handleExtraStateChange}
+              extra={rootCausePicker}
+              extraActive={isRootCause}
+            />
+            {requiredSelects.length > 0 && (
+              <p className="text-muted-foreground text-[9px]">
+                {requiredSelects
+                  .map(({ filter, i }) => `${filterLabel(filter.param)}: ${(extraStates[i] as { value: string }).value}`)
+                  .join(', ')}
+              </p>
+            )}
+          </div>
           <button className="text-muted-foreground hover:text-foreground" onClick={() => setDetailOpen(true)} title="Expand view">
             <Maximize2 className="size-3.5" />
           </button>
