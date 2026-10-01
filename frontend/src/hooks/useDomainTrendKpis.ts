@@ -1,4 +1,4 @@
-import { useQueries } from '@tanstack/react-query'
+import { keepPreviousData, useQueries } from '@tanstack/react-query'
 import { getValidated } from '@/lib/apiClient'
 import { kpiCardListSchema, type Grain, type KpiCardResponse, type KpiThresholds } from '@/lib/kpiSchemas'
 import type { KpiDomain, KpiDefinition } from '@/lib/kpiConfig'
@@ -133,6 +133,14 @@ export function useDomainTrendKpis(
       return {
         queryKey: ['kpi', domain.key, kpi.id, queryString] as const,
         queryFn: () => getValidated(kpiCardListSchema, `${domain.basePath}/${kpi.path}?${queryString}`),
+        // Without this, a sibling card's own interaction (e.g. another KPI's grain toggle) that
+        // causes DomainSeverityBoard to re-render makes this whole useQueries call momentarily
+        // report every untouched KPI's data as undefined too (confirmed live: no new network
+        // request fires, so this isn't a real refetch, just useQueries' own re-invocation) - severity
+        // flashes to null, moving that KPI into the "pending" tier and remounting it, wiping its own
+        // local state (its GrainToggle pick, filters, ...) right back to default. Same fix useKpiData
+        // already applies to the per-card override fetch, for the same reason.
+        placeholderData: keepPreviousData,
       }
     }),
   })
