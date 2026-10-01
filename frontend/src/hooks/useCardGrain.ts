@@ -38,5 +38,16 @@ export function useCardGrain(kpiId: string, lens: KpiVisibilityLens, globalFilte
   const clearDateRange = () => setRangePick(null)
 
   const cardFilters: GlobalKpiFilters = { ...globalFilters, ...(dateRange ?? getGrainDateRange(grain)), grain }
-  return { grain, setGrain, cardFilters, dateRange, setDateRange, clearDateRange }
+  // Against this card's OWN default, not globalFilters.grain directly - a KPI whose per-role default
+  // differs from the page's shared Timeline grain (e.g. Calibration Compliance's daily vs the page's
+  // monthly) is already "resolved away from the page" before the user touches anything, and picking
+  // the one grain that happens to match the page's own default must still count as a real pick.
+  // Comparing against globalFilters.grain instead let a card whose fetch was keyed off `grain`
+  // silently fall back to a DIFFERENT fetch keyed off this card's default grain the moment the two
+  // happened to collide (confirmed live for Calibration Compliance: picking Monthly, the page's own
+  // default, made `isOverridden` false, so SeverityKpiCard fell back to the board-level fetch -
+  // resolved at this KPI's own daily default - while the chart's axis still formatted ticks for
+  // Monthly, producing a daily dataset mislabeled as six identical months).
+  const isGrainOverridden = grain !== defaultGrain
+  return { grain, setGrain, cardFilters, dateRange, setDateRange, clearDateRange, isGrainOverridden }
 }

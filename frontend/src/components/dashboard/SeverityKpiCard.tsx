@@ -69,7 +69,7 @@ export function SeverityKpiCard({
    * severity is actually on screen, not that stale default. */
   onLiveSeverityChange?: (severity: Severity | null) => void
 }) {
-  const { grain, setGrain, cardFilters, dateRange, setDateRange, clearDateRange } = useCardGrain(result.kpi.id, lens, globalFilters)
+  const { grain, setGrain, cardFilters, dateRange, setDateRange, clearDateRange, isGrainOverridden } = useCardGrain(result.kpi.id, lens, globalFilters)
   const [viewMode, setViewMode] = useState<ViewMode>('line')
   const [detailOpen, setDetailOpen] = useState(false)
 
@@ -86,7 +86,6 @@ export function SeverityKpiCard({
     .filter((entry): entry is { filter: Extract<ExtraFilter, { kind: 'select' }>; i: number } =>
       entry.filter.kind === 'select' && !!entry.filter.required,
     )
-  const isGrainOverridden = grain !== globalFilters.grain
   const isOverridden = isGrainOverridden || filtersTouched || dateRange != null
   function handleExtraStateChange(i: number, next: ExtraFilterState) {
     setExtraState(i, next)
@@ -174,13 +173,22 @@ export function SeverityKpiCard({
       ? deriveKpiMetrics(kpi.id, overrideQuery.data)
       : result
   const { chartData, shownSeries, hiddenCount, latestValue, previousValue, severity, unit, thresholds } = metrics
+  // Root Cause Breakdown's own dimension pick is a user override too (same reason as grain/filters/
+  // date-range below) - "Auto" is its default, unpicked state.
+  const isUserOverridden = isOverridden || (isRootCause && rootCauseDimension != null)
   // Tells DomainSeverityBoard this card's actual on-screen severity, for a companion that must
   // track it (see the prop's own doc comment) - a plain prop can't do this since it's this card's
   // own render, not its parent's, that first knows severity once overrideFailed/isRootCause/etc.
-  // resolve it; genuine cross-component sync, not derivable during the parent's own render.
+  // resolve it; genuine cross-component sync, not derivable during the parent's own render. Gated on
+  // !isUserOverridden: DomainSeverityBoard uses this to decide which tier section the card renders
+  // under, and moving a card to a different tier remounts it (a new parent, not just a reorder) -
+  // wiping its own local state (GrainToggle pick, filters, ...) right back to default. A personal,
+  // temporary deep-dive on one card (grain/filter/date-range/dimension) must never do that; only this
+  // card's true DEFAULT severity (what Root Cause Breakdown's own auto-pick naturally resolves to,
+  // same as every other card's untouched board-level fetch) should ever move it between tiers.
   useEffect(() => {
-    onLiveSeverityChange?.(severity)
-  }, [onLiveSeverityChange, severity])
+    if (!isUserOverridden) onLiveSeverityChange?.(severity)
+  }, [onLiveSeverityChange, severity, isUserOverridden])
   // isFetching (not isLoading) so this still dims during a later switch too - keepPreviousData
   // (see useKpiData.ts) means isLoading goes false as soon as the prior selection's data is held
   // over, but a background refetch for the new selection is still in flight. Root Cause also dims
