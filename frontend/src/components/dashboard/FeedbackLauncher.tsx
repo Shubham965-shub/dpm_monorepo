@@ -3,7 +3,9 @@ import { MessageSquare } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useFeedbackToken } from '@/hooks/useFeedbackToken'
 
-const APP_KEY = import.meta.env.VITE_FEEDBACK_APP_KEY
+// Fixed, not env-driven: sets "Application Name" and the voting catalog on the feedback service's
+// own side (registered there as "helios") - unlike apiBaseUrl, this doesn't vary by environment.
+const APP_KEY = 'helios'
 const API_BASE_URL = import.meta.env.VITE_FEEDBACK_API_BASE_URL
 
 /**
@@ -27,7 +29,7 @@ export function FeedbackLauncher() {
   // An environment without the feedback service configured shows no control at all. The
   // alternative - a button that opens a modal which cannot submit - is worse than the feature
   // being absent.
-  if (!APP_KEY || !API_BASE_URL) return null
+  if (!API_BASE_URL) return null
 
   return (
     <FeedbackButton
@@ -42,9 +44,10 @@ export function FeedbackLauncher() {
       <button
         type="button"
         title="Send feedback"
-        className="flex items-center gap-1.5 opacity-80 hover:opacity-100"
+        className="flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-sm font-medium text-white hover:bg-white/20"
       >
         <MessageSquare className="size-4" />
+        Feedback
       </button>
     </FeedbackButton>
   )
