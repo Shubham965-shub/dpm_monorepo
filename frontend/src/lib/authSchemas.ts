@@ -28,3 +28,17 @@ export const refreshResponseSchema = z.object({
   accessToken: z.string(),
   refreshToken: z.string(),
 })
+
+// Mirrors backend com.strides.dto.AuthDtos.TeamMember - GET /api/auth/me/analysts.
+export const teamMemberSchema = z.object({
+  id: z.string(),
+  fullName: z.string(),
+  title: z.string().nullable(),
+})
+export const teamMemberListSchema = z.array(teamMemberSchema)
+export type TeamMember = z.infer<typeof teamMemberSchema>
+
+// Mirrors backend com.strides.dto.AuthDtos.FeedbackTokenResponse - GET /api/auth/feedback-token.
+export const feedbackTokenResponseSchema = z.object({
+  token: z.string(),
+})

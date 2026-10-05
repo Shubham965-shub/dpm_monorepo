@@ -51,4 +51,10 @@ public final class AuthDtos {
             boolean isActive,
             List<String> roles) {
     }
+
+    /** One row of a supervisor's own "Team workload overview" roster (see TeamService) - just
+     * enough to identify and label a card; no email/employeeCode, unlike UsersDtos.UserAdmin, since
+     * this is served to the supervisor themselves, not an admin. */
+    public record TeamMember(UUID id, String fullName, String title) {
+    }
 }

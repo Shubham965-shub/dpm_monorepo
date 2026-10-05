@@ -23,7 +23,8 @@ public final class UsersDtos {
             String employeeCode,
             boolean isActive,
             OffsetDateTime lastLoginAt,
-            List<String> roles) {
+            List<String> roles,
+            UUID managerId) {
     }
 
     /** No password field - the server generates a one-time temp password and returns it once. */
@@ -34,14 +35,17 @@ public final class UsersDtos {
             @Size(max = 120) String title,
             @Size(max = 120) String department,
             @Size(max = 40) String employeeCode,
-            List<String> roleNames) {
+            List<String> roleNames,
+            UUID managerId) {
     }
 
     /**
      * Partial update: null = leave unchanged, "" on optional text fields = clear to NULL,
      * roleNames null = unchanged / [] = remove all. Email is immutable (no field) - it's the
      * account's identity, not just a profile attribute. Activate/deactivate is just isActive here
-     * rather than dedicated endpoints, to avoid endpoint sprawl for a single boolean flip.
+     * rather than dedicated endpoints, to avoid endpoint sprawl for a single boolean flip. managerId
+     * follows the same "null = leave unchanged" rule as the other optional fields - there's no
+     * sentinel for "clear the manager" yet, since nothing has needed that so far.
      */
     public record UpdateUserRequest(
             @Size(max = 160) String fullName,
@@ -50,7 +54,8 @@ public final class UsersDtos {
             @Size(max = 120) String department,
             @Size(max = 40) String employeeCode,
             Boolean isActive,
-            List<String> roleNames) {
+            List<String> roleNames,
+            UUID managerId) {
     }
 
     public record CreateUserResponse(UserAdmin user, String tempPassword) {

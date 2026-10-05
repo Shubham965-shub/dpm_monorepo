@@ -18,26 +18,28 @@ export const POSITIVE_SIGNALS_MOCK = [
   },
 ]
 
-export interface TeamWorkloadMember {
-  name: string
-  title: string
+export interface WorkloadPattern {
   status: 'available' | 'busy' | 'overloaded'
   kpiCount: number
   criticalCount: number
   taskCount: number
 }
 
-// No team-roster/workload endpoint (or KPI/task reassignment) exists server-side yet -
-// placeholder until that feature is built.
-export const TEAM_WORKLOAD_MOCK: TeamWorkloadMember[] = [
-  { name: 'Ravi Shankar', title: 'Analyst', status: 'busy', kpiCount: 3, criticalCount: 1, taskCount: 4 },
-  { name: 'Arjun Mehta', title: 'Engineer', status: 'overloaded', kpiCount: 2, criticalCount: 1, taskCount: 3 },
-  { name: 'Divya Rao', title: 'Safety Officer', status: 'busy', kpiCount: 1, criticalCount: 1, taskCount: 2 },
-  { name: 'Imran Sheikh', title: 'Inventory Manager', status: 'available', kpiCount: 1, criticalCount: 0, taskCount: 2 },
-  { name: 'Mahesh Gowda', title: 'Dispatch Lead', status: 'available', kpiCount: 1, criticalCount: 0, taskCount: 2 },
-  { name: 'Anand Pillai', title: 'Analyst', status: 'available', kpiCount: 0, criticalCount: 0, taskCount: 1 },
-  { name: 'Lakshmi Reddy', title: 'Analyst', status: 'busy', kpiCount: 2, criticalCount: 0, taskCount: 3 },
-  { name: 'Priya Nair', title: 'HR Lead', status: 'available', kpiCount: 1, criticalCount: 0, taskCount: 1 },
+// The roster (who shows up) is real - GET /api/auth/me/analysts, scoped to the logged-in
+// supervisor's own direct reports (see useMyAnalysts, TeamWorkloadOverview). These per-person
+// workload numbers are still placeholder: no KPI/task-assignment system exists server-side yet to
+// source them from (confirmed against every agg_*/fact_* table - none carry a per-analyst
+// dimension). TeamWorkloadOverview cycles through this array by index to pair each real analyst
+// with one of these patterns, rather than inventing a second ad-hoc placeholder scheme.
+export const WORKLOAD_PATTERN_MOCK: WorkloadPattern[] = [
+  { status: 'busy', kpiCount: 3, criticalCount: 1, taskCount: 4 },
+  { status: 'overloaded', kpiCount: 2, criticalCount: 1, taskCount: 3 },
+  { status: 'busy', kpiCount: 1, criticalCount: 1, taskCount: 2 },
+  { status: 'available', kpiCount: 1, criticalCount: 0, taskCount: 2 },
+  { status: 'available', kpiCount: 1, criticalCount: 0, taskCount: 2 },
+  { status: 'available', kpiCount: 0, criticalCount: 0, taskCount: 1 },
+  { status: 'busy', kpiCount: 2, criticalCount: 0, taskCount: 3 },
+  { status: 'available', kpiCount: 1, criticalCount: 0, taskCount: 1 },
 ]
 
 /** Same 5 incidents read three ways - the Analyst/Supervisor/Leadership reference screenshots each

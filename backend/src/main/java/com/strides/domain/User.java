@@ -41,6 +41,12 @@ public class User {
     @Column(name = "employee_code")
     private String employeeCode;
 
+    // Plain UUID, not a @ManyToOne self-reference - this entity only ever needs the id (to filter
+    // "my direct reports" by it, see UserRepository.findAnalystsManagedBy), never the manager's own
+    // full profile loaded alongside it.
+    @Column(name = "manager_id")
+    private UUID managerId;
+
     @Column(name = "is_active", nullable = false)
     private boolean active = true;
 
@@ -125,6 +131,14 @@ public class User {
 
     public void setEmployeeCode(String employeeCode) {
         this.employeeCode = employeeCode;
+    }
+
+    public UUID getManagerId() {
+        return managerId;
+    }
+
+    public void setManagerId(UUID managerId) {
+        this.managerId = managerId;
     }
 
     public boolean isActive() {

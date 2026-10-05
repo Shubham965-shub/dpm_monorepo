@@ -1,5 +1,6 @@
 package com.strides.repository;
 
+import com.strides.domain.Role;
 import com.strides.domain.User;
 import io.quarkus.hibernate.orm.panache.PanacheRepositoryBase;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -37,5 +38,12 @@ public class UserRepository implements PanacheRepositoryBase<User, UUID> {
 
     public boolean employeeCodeExistsForOther(String employeeCode, UUID excludeId) {
         return count("employeeCode = ?1 and id <> ?2", employeeCode, excludeId) > 0;
+    }
+
+    /** A supervisor's own "Team workload overview" roster (see TeamService) - ANALYST specifically,
+     * not every direct report, since a MANAGER/HOD could in principle also carry managerId without
+     * meaning "show up on someone's analyst roster". */
+    public List<User> findAnalystsManagedBy(UUID managerId) {
+        return find("managerId = ?1 and ?2 member of roles ORDER BY fullName", managerId, Role.ANALYST).list();
     }
 }
