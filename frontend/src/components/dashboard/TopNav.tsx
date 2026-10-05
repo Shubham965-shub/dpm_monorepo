@@ -7,6 +7,7 @@ import { useTheme } from '@/hooks/useTheme'
 import { cn, initials } from '@/lib/utils'
 import type { UserPublic } from '@/lib/authSchemas'
 import type { RoleTab, AnalystSupervisorView } from '@/lib/roleAccess'
+import { FeedbackLauncher } from './FeedbackLauncher'
 
 /** A real vertical bar, not a text "|" glyph - matches InvestigationAI's header divider. */
 function NavDivider({ className }: { className?: string }) {
@@ -48,6 +49,7 @@ export function TopNav({
         <img src={heliosLogo} alt="Helios" className="h-8 w-auto" />
       </div>
       <nav className="flex items-center gap-6 text-sm">
+        <FeedbackLauncher />
         <button
           onClick={toggleTheme}
           title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}

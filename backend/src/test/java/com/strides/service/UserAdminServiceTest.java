@@ -53,7 +53,7 @@ class UserAdminServiceTest {
     @Test
     void createUser_emailAlreadyInUse_throwsConflict() {
         when(users.emailExists("taken@strides.com")).thenReturn(true);
-        var req = new CreateUserRequest("taken@strides.com", "New User", null, null, null, null, null);
+        var req = new CreateUserRequest("taken@strides.com", "New User", null, null, null, null, null, null);
 
         WebApplicationException ex = assertThrows(WebApplicationException.class, () -> service.createUser(req));
 
@@ -65,7 +65,7 @@ class UserAdminServiceTest {
         when(users.emailExists(anyString())).thenReturn(false);
         when(tempPasswords.generate()).thenReturn("Temp9Pass2Word");
         when(hasher.hash("Temp9Pass2Word")).thenReturn("bcrypt-hash");
-        var req = new CreateUserRequest("new@strides.com", "New User", null, null, null, null, null);
+        var req = new CreateUserRequest("new@strides.com", "New User", null, null, null, null, null, null);
 
         var response = service.createUser(req);
 
@@ -74,11 +74,37 @@ class UserAdminServiceTest {
     }
 
     @Test
+    void createUser_managerDoesNotExist_isRejected() {
+        when(users.emailExists(anyString())).thenReturn(false);
+        UUID managerId = UUID.randomUUID();
+        when(users.findByIdWithRoles(managerId)).thenReturn(Optional.empty());
+        var req = new CreateUserRequest("new@strides.com", "New User", null, null, null, null, null, managerId);
+
+        WebApplicationException ex = assertThrows(WebApplicationException.class, () -> service.createUser(req));
+
+        assertEquals(400, ex.getResponse().getStatus());
+    }
+
+    @Test
+    void createUser_withAnExistingManager_setsManagerId() {
+        when(users.emailExists(anyString())).thenReturn(false);
+        when(tempPasswords.generate()).thenReturn("Temp9Pass2Word");
+        when(hasher.hash(anyString())).thenReturn("bcrypt-hash");
+        UUID managerId = UUID.randomUUID();
+        when(users.findByIdWithRoles(managerId)).thenReturn(Optional.of(withRoles(managerId, Role.SUPERVISOR)));
+        var req = new CreateUserRequest("new@strides.com", "New User", null, null, null, null, null, managerId);
+
+        var response = service.createUser(req);
+
+        assertEquals(managerId, response.user().managerId());
+    }
+
+    @Test
     void updateUser_selfDeactivate_isRejected() {
         UUID id = UUID.randomUUID();
         User self = withRoles(id);
         when(users.findByIdWithRoles(id)).thenReturn(Optional.of(self));
-        var req = new UpdateUserRequest(null, null, null, null, null, false, null);
+        var req = new UpdateUserRequest(null, null, null, null, null, false, null, null);
 
         WebApplicationException ex = assertThrows(WebApplicationException.class,
                 () -> service.updateUser(id, req, self));
@@ -91,7 +117,7 @@ class UserAdminServiceTest {
         UUID id = UUID.randomUUID();
         User self = withRoles(id, Role.ADMIN);
         when(users.findByIdWithRoles(id)).thenReturn(Optional.of(self));
-        var req = new UpdateUserRequest(null, null, null, null, null, null, List.of());
+        var req = new UpdateUserRequest(null, null, null, null, null, null, List.of(), null);
 
         WebApplicationException ex = assertThrows(WebApplicationException.class,
                 () -> service.updateUser(id, req, self));
@@ -106,12 +132,41 @@ class UserAdminServiceTest {
         User actor = withRoles(actorId, Role.ADMIN);
         User target = withRoles(targetId);
         when(users.findByIdWithRoles(targetId)).thenReturn(Optional.of(target));
-        var req = new UpdateUserRequest(null, null, null, null, null, false, null);
+        var req = new UpdateUserRequest(null, null, null, null, null, false, null, null);
 
         var updated = service.updateUser(targetId, req, actor);
 
         assertEquals(false, updated.isActive());
         verify(refreshTokens).revokeAllActiveForUser(targetId);
+    }
+
+    @Test
+    void updateUser_setsOwnSelfAsManager_isRejected() {
+        UUID id = UUID.randomUUID();
+        User self = withRoles(id, Role.ADMIN);
+        when(users.findByIdWithRoles(id)).thenReturn(Optional.of(self));
+        var req = new UpdateUserRequest(null, null, null, null, null, null, null, id);
+
+        WebApplicationException ex = assertThrows(WebApplicationException.class,
+                () -> service.updateUser(id, req, self));
+
+        assertEquals(400, ex.getResponse().getStatus());
+    }
+
+    @Test
+    void updateUser_setsAnExistingManager_updatesManagerId() {
+        UUID actorId = UUID.randomUUID();
+        UUID targetId = UUID.randomUUID();
+        UUID managerId = UUID.randomUUID();
+        User actor = withRoles(actorId, Role.ADMIN);
+        User target = withRoles(targetId, Role.ANALYST);
+        when(users.findByIdWithRoles(targetId)).thenReturn(Optional.of(target));
+        when(users.findByIdWithRoles(managerId)).thenReturn(Optional.of(withRoles(managerId, Role.SUPERVISOR)));
+        var req = new UpdateUserRequest(null, null, null, null, null, null, null, managerId);
+
+        var updated = service.updateUser(targetId, req, actor);
+
+        assertEquals(managerId, updated.managerId());
     }
 
     @Test
@@ -134,7 +189,7 @@ class UserAdminServiceTest {
     void createUser_unknownRoleName_isRejected() {
         when(users.emailExists(anyString())).thenReturn(false);
         var req = new CreateUserRequest("new@strides.com", "New User", null, null, null,
-                null, List.of("SUPERVISOR", "NOT_A_REAL_ROLE"));
+                null, List.of("SUPERVISOR", "NOT_A_REAL_ROLE"), null);
 
         WebApplicationException ex = assertThrows(WebApplicationException.class, () -> service.createUser(req));
 
@@ -147,7 +202,7 @@ class UserAdminServiceTest {
         when(tempPasswords.generate()).thenReturn("Temp9Pass2Word");
         when(hasher.hash(anyString())).thenReturn("bcrypt-hash");
         var req = new CreateUserRequest("new@strides.com", "New User", null, null, null,
-                null, List.of("supervisor", "Analyst"));
+                null, List.of("supervisor", "Analyst"), null);
 
         var response = service.createUser(req);
 

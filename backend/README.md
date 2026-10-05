@@ -57,6 +57,9 @@ The app requires a valid access token on every endpoint except `POST /api/auth/l
 ### Roles: a fixed enum, not a database catalogue
 `Role.java` defines exactly six values: `CXO`, `HOD`, `MANAGER`, `SUPERVISOR`, `ANALYST`, `ADMIN`. A user can hold more than one. Only `ADMIN` gates anything today (`@RequiresAdmin` on `UsersController`, enforced by `AuthenticationFilter`, checked as `roles.contains(ADMIN)`) - the other five currently just categorize users; there's no per-role KPI-endpoint restriction yet. New roles are added by editing the enum (and the `user_roles.role` CHECK constraint below) and redeploying - deliberately not DB-driven, unlike a fuller RBAC catalogue.
 
+### Reporting line: `users.manager_id`
+A plain self-referencing FK, settable via `CreateUserRequest`/`UpdateUserRequest.managerId` (admin-only, `POST`/`PATCH /api/users`). No "clear the manager" sentinel yet - `null` on an update means "leave unchanged," matching every other optional field there. `GET /api/auth/me/analysts` (open to any authenticated user, not admin-gated - see `TeamService`) returns the caller's own direct-report `ANALYST`s, for the Supervisor lens's "Team workload overview" roster (`frontend/src/components/dashboard/TeamWorkloadOverview.tsx`) - empty for anyone nobody reports to. Only `ANALYST` reports are returned even if a `MANAGER`/`HOD` happens to carry the same `manager_id` - that roster is specifically "the analysts who report to me," not every direct report.
+
 ### Required schema (created manually - no Flyway/migration tool in this repo)
 `quarkus.hibernate-orm.schema-management.strategy=validate` means Hibernate never creates or alters these tables itself - it only validates the JPA entity mappings against whatever already exists, so a mismatch fails loudly at startup. Create these against the `dpm` database before first run:
 
@@ -70,6 +73,7 @@ CREATE TABLE users (
     title varchar(120),
     department varchar(120),
     employee_code varchar(40) UNIQUE,
+    manager_id uuid REFERENCES users(id),
     is_active boolean NOT NULL DEFAULT true,
     last_login_at timestamptz,
     created_at timestamptz NOT NULL DEFAULT now(),
