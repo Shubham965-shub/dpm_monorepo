@@ -46,4 +46,10 @@ public class UserRepository implements PanacheRepositoryBase<User, UUID> {
     public List<User> findAnalystsManagedBy(UUID managerId) {
         return find("managerId = ?1 and ?2 member of roles ORDER BY fullName", managerId, Role.ANALYST).list();
     }
+
+    /** Every ANALYST regardless of manager_id - an admin's own "Team workload overview" roster (see
+     * TeamService), since an admin has no real reports of their own to scope to. */
+    public List<User> findAllAnalysts() {
+        return find("?1 member of roles ORDER BY fullName", Role.ANALYST).list();
+    }
 }

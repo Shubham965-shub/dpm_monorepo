@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { KPI_DOMAINS } from '@/lib/kpiConfig'
 import { NEEDS_ATTENTION_MOCK, type NeedsAttentionItem } from './mockData'
-import { DemoDataBadge } from './DemoDataBadge'
+import { DemoDataBadge, UPCOMING_FEATURE_CLASS } from './DemoDataBadge'
 import type { SectionFilterValue } from './FilterBar'
 import type { KpiVisibilityLens } from '@/lib/roleAccess'
 
@@ -51,9 +51,9 @@ function PendingActionsView({ items, lens }: { items: NeedsAttentionItem[]; lens
       </div>
 
       {items.length === 0 ? (
-        <p className="px-5 py-6 text-sm text-muted-foreground">No pending actions in this section.</p>
+        <p className={cn('px-5 py-6 text-sm text-muted-foreground', UPCOMING_FEATURE_CLASS)}>No pending actions in this section.</p>
       ) : (
-        <div className="flex flex-col divide-y divide-border md:flex-row md:divide-x md:divide-y-0">
+        <div className={cn('flex flex-col divide-y divide-border md:flex-row md:divide-x md:divide-y-0', UPCOMING_FEATURE_CLASS)}>
           {items.map((item) => {
             const source = item.pendingActionSource[lens]
             const style = SOURCE_SEVERITY_STYLE[source.severity]
@@ -116,9 +116,9 @@ export function NeedsAttentionPanel({ section, lens }: { section: SectionFilterV
       </div>
 
       {items.length === 0 ? (
-        <p className="px-5 py-6 text-sm text-muted-foreground">Nothing needs attention in this section.</p>
+        <p className={cn('px-5 py-6 text-sm text-muted-foreground', UPCOMING_FEATURE_CLASS)}>Nothing needs attention in this section.</p>
       ) : (
-      <div className="flex flex-col divide-y divide-border md:flex-row md:divide-x md:divide-y-0">
+      <div className={cn('flex flex-col divide-y divide-border md:flex-row md:divide-x md:divide-y-0', UPCOMING_FEATURE_CLASS)}>
         {items.map((item) => {
           const status = STATUS_STYLE[item.status]
           return (

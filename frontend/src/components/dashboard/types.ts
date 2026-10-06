@@ -272,16 +272,22 @@ export function rankingValueDomain(rows: BarRow[]): [number, number] {
 export function countSeverityTiers(
   rows: HeatmapRow[],
   visibleKpiIds: Set<string>,
-): { critical: number; warning: number; onTrack: number } {
+): { critical: number; warning: number; onTrack: number; noThreshold: number } {
   let critical = 0
   let warning = 0
   let onTrack = 0
+  let noThreshold = 0
   for (const row of rows) {
     if (!visibleKpiIds.has(row.slug)) continue
     const latest = row.cells.at(-1)?.status
     if (latest === 'action') critical++
     else if (latest === 'alert') warning++
     else if (latest === 'in-control') onTrack++
+    // 'no-data'/undefined - no threshold configured for this KPI yet (see backend/README.md's
+    // "KPI thresholds" section: several KPIs have no kpi_threshold_snapshot rows at all) - counted
+    // separately rather than silently dropped, so it's visible instead of just disappearing from
+    // every tier's total.
+    else noThreshold++
   }
-  return { critical, warning, onTrack }
+  return { critical, warning, onTrack, noThreshold }
 }

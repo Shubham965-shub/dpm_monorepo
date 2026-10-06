@@ -1,6 +1,6 @@
 import { Star, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { SEVERITY_META, formatScore } from './types'
+import { SEVERITY_META, formatScore, severityMeta } from './types'
 
 function Chip({ dotHex, label }: { dotHex: string; label: string }) {
   return (
@@ -17,6 +17,9 @@ export interface SectionSummaryBarProps {
   critical: number
   warning: number
   onTrack: number
+  /** KPIs with no kpi_threshold_snapshot rows yet (see backend/README.md's "KPI thresholds"
+   * section) - shown as its own count rather than silently missing from every other tier's total. */
+  noThreshold: number
   /** 0-100 section QC score (unrounded); null = no data. */
   score: number | null
   /** Score change vs the previous period; null when either period has no score. */
@@ -33,6 +36,7 @@ export function SectionSummaryBar({
   critical,
   warning,
   onTrack,
+  noThreshold,
   score,
   deltaPts,
   starred,
@@ -68,6 +72,7 @@ export function SectionSummaryBar({
         {critical > 0 && <Chip dotHex={SEVERITY_META.action.pillDotHex} label={`${critical} critical`} />}
         {warning > 0 && <Chip dotHex={SEVERITY_META.alert.pillDotHex} label={`${warning} warning`} />}
         {onTrack > 0 && <Chip dotHex={SEVERITY_META['in-control'].pillDotHex} label={`${onTrack} on track`} />}
+        {noThreshold > 0 && <Chip dotHex={severityMeta(null).pillDotHex} label={`${noThreshold} no threshold`} />}
 
         <div className="text-right">
           <div className="text-2xl leading-none font-bold">{formatScore(score)}</div>
