@@ -78,7 +78,7 @@ function SectionBlock({
   companions: Map<string, (severity: Severity | null) => ReactNode>
   globalFilters: GlobalKpiFilters
   lens: KpiVisibilityLens
-  initialTierCounts: { critical: number; warning: number; onTrack: number }
+  initialTierCounts: { critical: number; warning: number; onTrack: number; noThreshold: number }
 }) {
   const [tierCounts, setTierCounts] = useState(initialTierCounts)
   return (
@@ -92,6 +92,7 @@ function SectionBlock({
         critical={tierCounts.critical}
         warning={tierCounts.warning}
         onTrack={tierCounts.onTrack}
+        noThreshold={tierCounts.noThreshold}
         score={score}
         deltaPts={deltaPts}
         starred={starred}
@@ -217,7 +218,7 @@ export const SectionSummaryList = forwardRef<
         // (see useHeatmapData) - not the wireframe's placeholder numbers, which didn't match the
         // real KPI catalogue's per-section counts anyway. Restricted to the role-visible KPIs so
         // the counts match what this role's cards below actually show.
-        const { critical, warning, onTrack } = countSeverityTiers(sec.rows, visibleKpiIds)
+        const { critical, warning, onTrack, noThreshold } = countSeverityTiers(sec.rows, visibleKpiIds)
         const domain = KPI_DOMAINS.find((d) => d.key === sec.key)
         const domainKpis = domain?.kpis.filter((kpi) => visibleKpiIds.has(kpi.id))
         // Per-period trend KPIs get the severity-card treatment (DomainSeverityBoard);
@@ -286,7 +287,7 @@ export const SectionSummaryList = forwardRef<
             companions={companions}
             globalFilters={globalFilters}
             lens={lens}
-            initialTierCounts={{ critical, warning, onTrack }}
+            initialTierCounts={{ critical, warning, onTrack, noThreshold }}
           />
         )
       })

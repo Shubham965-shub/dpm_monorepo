@@ -1,7 +1,8 @@
 import { Check, TrendingUp } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { cn } from '@/lib/utils'
 import { POSITIVE_SIGNALS_MOCK } from './mockData'
-import { DemoDataBadge } from './DemoDataBadge'
+import { DemoDataBadge, UPCOMING_FEATURE_CLASS } from './DemoDataBadge'
 
 // Exact hex/sizing pulled from Figma (file T5oSGlK2eTYF8KvKP5M9lF, node 5024:20119 "Frame 128")
 // via get_design_context - not eyeballed from a screenshot. text-brand/bg-brand match Figma's
@@ -16,7 +17,7 @@ export function PositiveSignals() {
           <DemoDataBadge />
         </CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-col gap-2">
+      <CardContent className={cn('flex flex-col gap-2', UPCOMING_FEATURE_CLASS)}>
         {POSITIVE_SIGNALS_MOCK.map((signal) => (
           <div
             key={signal.title}

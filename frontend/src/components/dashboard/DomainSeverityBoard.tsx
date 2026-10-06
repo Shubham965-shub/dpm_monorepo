@@ -91,7 +91,7 @@ export function DomainSeverityBoard({
    * badge and the real bands below it could disagree (this hook's own per-KPI grain resolution is
    * exactly what can cause that gap). Reporting these tiers' real counts up lets the badge match
    * what's actually on screen instead of that separate reading. */
-  onTierCounts?: (counts: { critical: number; warning: number; onTrack: number }) => void
+  onTierCounts?: (counts: { critical: number; warning: number; onTrack: number; noThreshold: number }) => void
 }) {
   const results = useDomainTrendKpis(domain, kpis, globalFilters, lens)
   // Seeded once from the board-level fetch, then kept current per-KPI by each card's own
@@ -115,6 +115,7 @@ export function DomainSeverityBoard({
     critical: results.filter((r) => effectiveSeverity(r) === 'action').length,
     warning: results.filter((r) => effectiveSeverity(r) === 'alert').length,
     onTrack: results.filter((r) => effectiveSeverity(r) === 'in-control').length,
+    noThreshold: pending.length,
   }
   useEffect(() => {
     onTierCounts?.(tierCounts)
@@ -122,7 +123,7 @@ export function DomainSeverityBoard({
     // render regardless of whether the actual counts changed; its own scalar fields are the real
     // dependency.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onTierCounts, tierCounts.critical, tierCounts.warning, tierCounts.onTrack])
+  }, [onTierCounts, tierCounts.critical, tierCounts.warning, tierCounts.onTrack, tierCounts.noThreshold])
 
   function renderResult(r: DomainTrendKpiResult) {
     return (

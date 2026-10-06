@@ -61,4 +61,19 @@ class TeamServiceTest {
 
         assertTrue(service.myAnalysts(user).isEmpty());
     }
+
+    @Test
+    void myAnalysts_admin_seesEveryAnalystRegardlessOfManager() {
+        UUID adminId = UUID.randomUUID();
+        User admin = new User();
+        admin.setId(adminId);
+        admin.getRoles().add(Role.ADMIN);
+        UUID analystId = UUID.randomUUID();
+        when(users.findAllAnalysts()).thenReturn(List.of(analyst(analystId, "Ravi Shankar", "Analyst")));
+
+        List<TeamMember> result = service.myAnalysts(admin);
+
+        assertEquals(1, result.size());
+        assertEquals(new TeamMember(analystId, "Ravi Shankar", "Analyst"), result.get(0));
+    }
 }

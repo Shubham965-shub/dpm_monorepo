@@ -86,9 +86,10 @@ export function DashboardPage() {
         critical: totals.critical + tiers.critical,
         warning: totals.warning + tiers.warning,
         onTrack: totals.onTrack + tiers.onTrack,
+        noThreshold: totals.noThreshold + tiers.noThreshold,
       }
     },
-    { critical: 0, warning: 0, onTrack: 0 },
+    { critical: 0, warning: 0, onTrack: 0, noThreshold: 0 },
   )
   if (!user) return null
 
@@ -124,7 +125,12 @@ export function DashboardPage() {
                 {DEFAULT_SITE} · All shifts · {pluralize(visibleKpiIds.size, 'assigned KPI')}, critical first, with alerts and assigned activities.
               </p>
             </div>
-            <SeverityBadgeSummary critical={severityTotals.critical} warning={severityTotals.warning} onTrack={severityTotals.onTrack} />
+            <SeverityBadgeSummary
+              critical={severityTotals.critical}
+              warning={severityTotals.warning}
+              onTrack={severityTotals.onTrack}
+              noThreshold={severityTotals.noThreshold}
+            />
           </div>
 
           {/* A supervisor manages a team's assignments; an analyst only manages their own work -

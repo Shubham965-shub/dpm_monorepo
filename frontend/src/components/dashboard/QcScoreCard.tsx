@@ -1,12 +1,13 @@
 import { ChevronRight } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { cn } from '@/lib/utils'
 import type { Grain } from '@/lib/kpiSchemas'
 import { getGrainDateRange } from '@/lib/kpiDateRange'
 import { useQcScore } from '@/hooks/useQcScore'
 import type { SectionKey } from './mockData'
 import { SECTION_LABELS } from './sectionLabels'
 import { bandSeverity, formatScore, scoreBandLabel, scoreBandMeta, SEVERITY_ORDER } from './types'
-import { DemoDataBadge } from './DemoDataBadge'
+import { DemoDataBadge, UPCOMING_FEATURE_CLASS } from './DemoDataBadge'
 
 export interface BestEverScore {
   score: number
@@ -106,7 +107,9 @@ export function QcScoreCard({
         {bestEver && (
           <div className="mt-3 flex items-center justify-between gap-2 border-t border-border pt-3 text-[11px]">
             <span className="flex items-center gap-1.5 text-muted-foreground">
-              Best ever: <span className="font-semibold text-foreground">{bestEver.score}</span> · {bestEver.period}
+              <span className={cn('flex items-center gap-1.5', UPCOMING_FEATURE_CLASS)}>
+                Best ever: <span className="font-semibold text-foreground">{bestEver.score}</span> · {bestEver.period}
+              </span>
               <DemoDataBadge />
             </span>
             {/* Not yet built (see TopNav's "Alerts & Activities" for the same disabled-but-visible convention). */}
