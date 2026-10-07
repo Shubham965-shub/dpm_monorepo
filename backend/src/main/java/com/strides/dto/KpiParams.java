@@ -32,6 +32,136 @@ public final class KpiParams {
         public LocalDate to;
     }
 
+    /**
+     * Shared by every record-level drill-down endpoint (see DrilldownSupport) - sortBy/sortDir/q/
+     * page/pageSize, on top of DateRange's site/grain/from/to. sortBy is validated against each
+     * repository's own whitelist before ever reaching SQL, never interpolated directly.
+     */
+    public static class DrilldownBase extends DateRange {
+        @QueryParam("sortBy")
+        public String sortBy;
+        @QueryParam("sortDir")
+        @DefaultValue("asc")
+        public String sortDir;
+        @QueryParam("q")
+        public String q;
+        @QueryParam("page")
+        @DefaultValue("1")
+        public int page;
+        @QueryParam("pageSize")
+        @DefaultValue("" + DrilldownSupport.DEFAULT_PAGE_SIZE)
+        public int pageSize;
+    }
+
+    /** Sample TAT's own drill-down filters, matching its existing card filters (see WithSampleTypeAndBatchCategory). */
+    public static class SampleTatDrilldown extends DrilldownBase {
+        @QueryParam("sampleType")
+        public String sampleType;
+        @QueryParam("batchCategory")
+        public String batchCategory;
+    }
+
+    // Everything below mirrors one KPI's own existing card filters (see the matching With* class
+    // above), just extending DrilldownBase instead of DateRange - see DrilldownSpecs for how each
+    // field maps to its real SQL column.
+
+    public static class SlaAdherenceDrilldown extends DrilldownBase {
+        @QueryParam("sampleCategory")
+        public String sampleCategory;
+    }
+
+    public static class PrioritySampleComplianceDrilldown extends DrilldownBase {
+        @QueryParam("sampleType")
+        public String sampleType;
+    }
+
+    public static class TestsPerAnalystDrilldown extends DrilldownBase {
+        @QueryParam("sampleCategory")
+        public String sampleCategory;
+        @QueryParam("analyst")
+        public String analyst;
+    }
+
+    public static class InjectionStatusDrilldown extends DrilldownBase {
+        @QueryParam("injectionStatus")
+        public String injectionStatus;
+    }
+
+    public static class InstrumentUtilizationDrilldown extends DrilldownBase {
+        @QueryParam("instGroup")
+        public String instGroup;
+    }
+
+    public static class ValidOosRateDrilldown extends DrilldownBase {
+        @QueryParam("productType")
+        public String productType;
+    }
+
+    public static class InitiatedThroughDrilldown extends DrilldownBase {
+        @QueryParam("initiatedThrough")
+        public String initiatedThrough;
+    }
+
+    public static class RecordTypeDrilldown extends DrilldownBase {
+        @QueryParam("recordType")
+        public String recordType;
+    }
+
+    public static class FinalClassificationDrilldown extends DrilldownBase {
+        @QueryParam("finalClassification")
+        public String finalClassification;
+    }
+
+    public static class MaterialDrilldown extends DrilldownBase {
+        @QueryParam("material")
+        public String material;
+    }
+
+    public static class SampleTypeDrilldown extends DrilldownBase {
+        @QueryParam("sampleType")
+        public String sampleType;
+    }
+
+    public static class OriginatedFromDrilldown extends DrilldownBase {
+        @QueryParam("originatedFrom")
+        public String originatedFrom;
+    }
+
+    public static class LevelDrilldown extends DrilldownBase {
+        @QueryParam("level")
+        public String level;
+    }
+
+    public static class DeviationsDrilldown extends DrilldownBase {
+        @QueryParam("respDept")
+        public String respDept;
+        @QueryParam("level")
+        public String level;
+        @QueryParam("initialClassification")
+        public String initialClassification;
+        @QueryParam("finalClassification")
+        public String finalClassification;
+    }
+
+    public static class ProductWiseFailureDrilldown extends DrilldownBase {
+        @QueryParam("materialType")
+        public String materialType;
+        @QueryParam("disposition")
+        public String disposition;
+    }
+
+    public static class DesignationDrilldown extends DrilldownBase {
+        @QueryParam("designation")
+        public String designation;
+    }
+
+    public static class TrainingCompletionRateDrilldown extends DrilldownBase {
+        @QueryParam("department")
+        public String department;
+        @QueryParam("trainingType")
+        public String trainingType;
+    }
+
     /** instGroup: comma-separated list to combine (HPLC, GC, Dissolution), or null/blank for ALL. */
     public static class WithInstGroup extends DateRange {
         @QueryParam("instGroup")

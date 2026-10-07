@@ -3,9 +3,10 @@ import { X } from 'lucide-react'
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { TOOLTIP_Z_INDEX } from '@/lib/chartPalette'
 import { evenTickInterval, formatPeriodTick } from '@/lib/periodFormat'
-import type { ExtraFilter, KpiDefinition } from '@/lib/kpiConfig'
+import type { ExtraFilter, KpiDefinition, KpiDomain } from '@/lib/kpiConfig'
 import type { Grain } from '@/lib/kpiSchemas'
 import type { ExtraFilterState } from '@/components/kpi/ExtraFilterControl'
+import type { ExtraParams, GlobalKpiFilters } from '@/hooks/useKpiData'
 import { FilterPills } from '@/components/kpi/FilterPills'
 import { KpiInfoDropdown } from '@/components/kpi/KpiInfoDropdown'
 import { GrainToggle } from '@/components/kpi/GrainToggle'
@@ -13,6 +14,7 @@ import { PeriodRangePicker, type DateRange } from '@/components/kpi/PeriodRangeP
 import { useBackdropClose } from '@/hooks/useBackdropClose'
 import { SEVERITY_META } from './types'
 import { ComplianceTooltip, type PeriodPoint } from './PriorityComplianceCard'
+import { KpiDrilldownTable } from './KpiDrilldownTable'
 
 const GREEN = SEVERITY_META['in-control']
 const DETAIL_CHART_HEIGHT_PX = 420
@@ -23,6 +25,7 @@ const DETAIL_CHART_HEIGHT_PX = 420
  * chart rather than a line chart, since this data (always summing to 100% per period) doesn't fit
  * a single-value/threshold model either. */
 export function PriorityComplianceDetailModal({
+  domain,
   domainLabel,
   kpi,
   tiers,
@@ -37,8 +40,11 @@ export function PriorityComplianceDetailModal({
   onExtraStateChange,
   optionsFor,
   filterOptionsLoading,
+  cardFilters,
+  extraParams,
   onClose,
 }: {
+  domain: KpiDomain
   domainLabel: string
   kpi: KpiDefinition
   tiers: string[]
@@ -56,6 +62,10 @@ export function PriorityComplianceDetailModal({
   onExtraStateChange: (i: number, next: ExtraFilterState) => void
   optionsFor: (filter: ExtraFilter) => string[]
   filterOptionsLoading: boolean
+  /** The card's own already-resolved grain/date-range (see useCardGrain) - the drill-down table
+   * (see KpiDrilldownTable) fetches at this same from/to, not a second independent one. */
+  cardFilters: GlobalKpiFilters
+  extraParams: ExtraParams
   onClose: () => void
 }) {
   return createPortal(
@@ -89,7 +99,9 @@ export function PriorityComplianceDetailModal({
               <KpiInfoDropdown kpiId={kpi.id} />
             </div>
           </div>
-          <div className="flex flex-col items-end gap-3">
+          {/* max-w-xs: without a real width to wrap against, FilterPills' own flex-wrap never
+          activates (a flex item with no width constraint just grows to fit one unwrapped row). */}
+          <div className="flex max-w-xs flex-col items-end gap-3">
             <GrainToggle grain={grain} onChange={onGrainChange} activeHex={GREEN.solidHex} size="modal" />
             <PeriodRangePicker
               key={grain}
@@ -148,6 +160,8 @@ export function PriorityComplianceDetailModal({
             </div>
           )}
         </div>
+
+        {kpi.drilldownPath && <KpiDrilldownTable domain={domain} kpi={kpi} globalFilters={cardFilters} extraParams={extraParams} />}
       </div>
     </div>,
     document.body,

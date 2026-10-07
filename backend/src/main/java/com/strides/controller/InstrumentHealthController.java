@@ -1,5 +1,6 @@
 package com.strides.controller;
 
+import com.strides.dto.DrilldownPage;
 import com.strides.dto.KpiCardResponse;
 import com.strides.dto.KpiParams;
 import com.strides.service.InstrumentHealthService;
@@ -69,6 +70,13 @@ public class InstrumentHealthController {
     }
 
     @GET
+    @Path("/calibration-compliance/drilldown")
+    public DrilldownPage<Map<String, Object>> calibrationComplianceDrilldown(@BeanParam KpiParams.DrilldownBase p) {
+        return service.getCalibrationComplianceDrilldown(p.site, RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"),
+                p.q, p.sortBy, p.sortDir, p.page, p.pageSize);
+    }
+
+    @GET
     @Path("/pm-adherence")
     public List<KpiCardResponse> pmAdherence(@BeanParam KpiParams.DateRange p) {
         return service.getPmAdherence(p.site,
@@ -87,5 +95,35 @@ public class InstrumentHealthController {
     public List<KpiCardResponse> failureRate(@BeanParam KpiParams.DateRange p) {
         return service.getInstrumentFailureRate(p.site,
                 RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
+    }
+
+    /** Shared drilldown for dissolution/gc/hplc-utilization, instrument-availability, and
+     * instrument-downtime (see InstrumentHealthService.getInstrumentUtilizationDrilldown). */
+    @GET
+    @Path("/utilization/drilldown")
+    public DrilldownPage<Map<String, Object>> utilizationDrilldown(@BeanParam KpiParams.InstrumentUtilizationDrilldown p) {
+        return service.getInstrumentUtilizationDrilldown(p.site, p.instGroup, RequiredParams.require(p.from, "from"),
+                RequiredParams.require(p.to, "to"), p.q, p.sortBy, p.sortDir, p.page, p.pageSize);
+    }
+
+    @GET
+    @Path("/pm-adherence/drilldown")
+    public DrilldownPage<Map<String, Object>> pmAdherenceDrilldown(@BeanParam KpiParams.DrilldownBase p) {
+        return service.getPmAdherenceDrilldown(p.site, RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"),
+                p.q, p.sortBy, p.sortDir, p.page, p.pageSize);
+    }
+
+    @GET
+    @Path("/breakdown-frequency/drilldown")
+    public DrilldownPage<Map<String, Object>> breakdownFrequencyDrilldown(@BeanParam KpiParams.DrilldownBase p) {
+        return service.getBreakdownFrequencyDrilldown(p.site, RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"),
+                p.q, p.sortBy, p.sortDir, p.page, p.pageSize);
+    }
+
+    @GET
+    @Path("/failure-rate/drilldown")
+    public DrilldownPage<Map<String, Object>> failureRateDrilldown(@BeanParam KpiParams.DrilldownBase p) {
+        return service.getInstrumentFailureRateDrilldown(p.site, RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"),
+                p.q, p.sortBy, p.sortDir, p.page, p.pageSize);
     }
 }

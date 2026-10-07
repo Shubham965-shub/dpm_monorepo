@@ -1,10 +1,12 @@
 package com.strides.service;
 
+import com.strides.dto.DrilldownPage;
 import com.strides.dto.KpiCardResponse;
 import com.strides.repository.AggLimsBreakdownsFrequencyRepository;
 import com.strides.repository.AggLimsCalPmComplianceRepository;
 import com.strides.repository.AggLimsInstrumentFailureRateRepository;
 import com.strides.repository.AggLimsInstrumentUtilizationRepository;
+import com.strides.repository.DrilldownSpecs;
 import com.strides.service.kpi.PeriodCombiner;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -26,6 +28,8 @@ public class InstrumentHealthService {
     AggLimsBreakdownsFrequencyRepository breakdownsFrequencyRepository;
     @Inject
     AggLimsInstrumentFailureRateRepository failureRateRepository;
+    @Inject
+    GenericDrilldownService genericDrilldownService;
 
     /**
      * utilization_pct = sum_capped_usage_hours / sum_available_time (used hours over available hours).
@@ -114,5 +118,33 @@ public class InstrumentHealthService {
     /** instGroup's live option list - shared by utilization/availability/downtime (same underlying table/column). */
     public Map<String, List<String>> getInstGroupFilterOptions(String siteName, String grain, LocalDate from, LocalDate to) {
         return utilizationRepository.filterOptions(siteName, grain, from, to);
+    }
+
+    /** Shared by dissolution/gc/hplc-utilization, instrument-availability, and instrument-downtime -
+     * all 5 cards read the same fact_lims_instrument_utilization rows (see DrilldownSpecs). */
+    public DrilldownPage<Map<String, Object>> getInstrumentUtilizationDrilldown(String site, String instGroup, LocalDate from,
+            LocalDate to, String q, String sortBy, String sortDir, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.INSTRUMENT_UTILIZATION, site, from, to,
+                Map.of("instGroup", PeriodCombiner.parseSelection(instGroup)), q, sortBy, sortDir, page, pageSize);
+    }
+
+    public DrilldownPage<Map<String, Object>> getPmAdherenceDrilldown(String site, LocalDate from, LocalDate to,
+            String q, String sortBy, String sortDir, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.PM_ADHERENCE, site, from, to, Map.of(), q, sortBy, sortDir, page, pageSize);
+    }
+
+    public DrilldownPage<Map<String, Object>> getBreakdownFrequencyDrilldown(String site, LocalDate from, LocalDate to,
+            String q, String sortBy, String sortDir, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.BREAKDOWN_FREQUENCY, site, from, to, Map.of(), q, sortBy, sortDir, page, pageSize);
+    }
+
+    public DrilldownPage<Map<String, Object>> getInstrumentFailureRateDrilldown(String site, LocalDate from, LocalDate to,
+            String q, String sortBy, String sortDir, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.INSTRUMENT_FAILURE_RATE, site, from, to, Map.of(), q, sortBy, sortDir, page, pageSize);
+    }
+
+    public DrilldownPage<Map<String, Object>> getCalibrationComplianceDrilldown(String site, LocalDate from, LocalDate to,
+            String q, String sortBy, String sortDir, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.CALIBRATION_COMPLIANCE, site, from, to, Map.of(), q, sortBy, sortDir, page, pageSize);
     }
 }

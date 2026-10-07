@@ -87,7 +87,9 @@ export function RootCauseHeatmapDetailModal({
               <KpiInfoDropdown kpiId={kpi.id} />
             </div>
           </div>
-          <div className="flex flex-col items-end gap-3">
+          {/* max-w-xs: without a real width to wrap against, FilterPills' own flex-wrap never
+          activates (a flex item with no width constraint just grows to fit one unwrapped row). */}
+          <div className="flex max-w-xs flex-col items-end gap-3">
             <GrainToggle grain={grain} onChange={onGrainChange} activeHex={meta.solidHex} size="modal" />
             <PeriodRangePicker
               key={grain}

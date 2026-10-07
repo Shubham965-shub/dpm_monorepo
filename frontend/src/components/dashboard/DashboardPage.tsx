@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { TopNav, SubNav, type SubNavView } from './TopNav'
 import {
@@ -21,10 +21,11 @@ import { TeamWorkloadOverview } from './TeamWorkloadOverview'
 import { PerformanceWorkInProgress } from './PerformanceWorkInProgress'
 import { KPI_DOMAINS, DEFAULT_SITE } from '@/lib/kpiConfig'
 import { KPI_VISIBILITY } from '@/lib/kpiVisibility'
-import { SIDEBAR_HEATMAP_MONTH_COUNT, trailingDayRange } from '@/lib/kpiDateRange'
+import { getGrainDateRange, trailingDayRange } from '@/lib/kpiDateRange'
 import { pluralize } from '@/lib/utils'
-import { useHeatmapData } from '@/hooks/useHeatmapData'
-import { countSeverityTiers } from './types'
+import { DomainTierCounts } from './DomainTierCounts'
+import { ZERO_TIER_COUNTS, type TierCounts } from './types'
+import type { GlobalKpiFilters } from '@/hooks/useKpiData'
 
 // Per-lens page title, matching the reference designs exactly (analyst/supervisor/cxo) - driven
 // by the same `lens` value that gates the KPI list and TeamWorkloadOverview, so ADMIN previewing a
@@ -75,22 +76,16 @@ export function DashboardPage() {
   const sectionSummaryListRef = useRef<SectionSummaryListHandle>(null)
   const scrollToKpi = (kpiId: string, sectionKey: string) => sectionSummaryListRef.current?.scrollToKpi(kpiId, sectionKey)
 
-  // Shares SectionSummaryList's own query cache (same site/month-count key) rather than issuing a
-  // second batch of requests - only the totals below are new work.
-  const { sections: heatmapSections } = useHeatmapData(DEFAULT_SITE, { unit: 'month', count: SIDEBAR_HEATMAP_MONTH_COUNT })
   const visibleKpiIds = KPI_VISIBILITY[lens]
-  const severityTotals = heatmapSections.reduce(
-    (totals, section) => {
-      const tiers = countSeverityTiers(section.rows, visibleKpiIds)
-      return {
-        critical: totals.critical + tiers.critical,
-        warning: totals.warning + tiers.warning,
-        onTrack: totals.onTrack + tiers.onTrack,
-        noThreshold: totals.noThreshold + tiers.noThreshold,
-      }
-    },
-    { critical: 0, warning: 0, onTrack: 0, noThreshold: 0 },
-  )
+  // Only the analyst/supervisor branch below renders SeverityBadgeSummary - matches exactly what
+  // that branch passes SectionSummaryList (grain={filters.grain}, no dateRangeOverride), so the two
+  // mounted DomainTierCounts instances share one TanStack Query cache key per KPI.
+  const severityBadgeGlobalFilters: GlobalKpiFilters = { site: DEFAULT_SITE, grain: filters.grain, ...getGrainDateRange(filters.grain) }
+  const [severityTotals, setSeverityTotals] = useState<TierCounts>(ZERO_TIER_COUNTS)
+  // A stable identity - DomainTierCounts' own effect depends on this prop, so a fresh closure every
+  // render would refire it (and the setState it causes) every render regardless of whether the
+  // counts actually changed.
+  const handleSeverityTotalsChange = useCallback((counts: { total: TierCounts }) => setSeverityTotals(counts.total), [])
   if (!user) return null
 
   return (
@@ -118,6 +113,12 @@ export function DashboardPage() {
       pre-existing generic dashboard layout, since no screenshot dictates one for them. */
       lens === 'analyst' || lens === 'supervisor' ? (
         <main className="flex flex-col gap-4 px-6 py-4 md:px-10 lg:px-20">
+          <DomainTierCounts
+            lens={lens}
+            globalFilters={severityBadgeGlobalFilters}
+            visibleKpiIds={visibleKpiIds}
+            onChange={handleSeverityTotalsChange}
+          />
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <h1 className="text-xl font-semibold">{LENS_TITLE[lens]}</h1>

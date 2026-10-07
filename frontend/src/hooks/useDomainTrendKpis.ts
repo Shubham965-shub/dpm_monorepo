@@ -7,7 +7,7 @@ import { getGrainDateRange } from '@/lib/kpiDateRange'
 import { seriesKeyFor } from '@/lib/kpiRowName'
 import { filterRootCauseRowsToDimension, pickMaximalRootCauseDimension } from '@/lib/rootCauseDimensions'
 import type { KpiVisibilityLens } from '@/lib/roleAccess'
-import { severityFromStatus, type Severity } from '@/components/dashboard/types'
+import { severityFromStatus, type Severity, type TierCounts } from '@/components/dashboard/types'
 import { toChartData } from '@/components/kpi/KpiChartCard'
 import { buildKpiQueryString, type GlobalKpiFilters } from './useKpiData'
 
@@ -151,4 +151,23 @@ export function useDomainTrendKpis(
 
     return { ...metrics, kpi, isLoading: query.isLoading, isError: query.isError }
   })
+}
+
+/** A domain's tier breakdown straight off its board-level results (`result.severity`) - mirrors
+ * DomainSeverityBoard's own default computation before any card reports a live override
+ * (its `liveSeverities` state starts from this same `severity` field), not the
+ * `liveSeverities`-augmented one - see DomainTierCounts, which uses this for the collapsed-header
+ * seed that DomainSeverityBoard's own live-override layer then keeps correcting once expanded. */
+export function tierCountsFromResults(results: DomainTrendKpiResult[]): TierCounts {
+  let critical = 0
+  let warning = 0
+  let onTrack = 0
+  let noThreshold = 0
+  for (const result of results) {
+    if (result.severity === 'action') critical++
+    else if (result.severity === 'alert') warning++
+    else if (result.severity === 'in-control') onTrack++
+    else noThreshold++
+  }
+  return { critical, warning, onTrack, noThreshold }
 }

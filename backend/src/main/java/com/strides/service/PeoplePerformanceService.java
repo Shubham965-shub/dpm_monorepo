@@ -1,6 +1,7 @@
 package com.strides.service;
 
 import com.strides.dto.DepartmentScope;
+import com.strides.dto.DrilldownPage;
 import com.strides.dto.KpiCardResponse;
 import com.strides.model.AggCwTrainingCompletionRateRow;
 import com.strides.repository.AggCwTrainingCompletionRateRepository;
@@ -9,6 +10,7 @@ import com.strides.repository.AggLimsRepeatAnalysisRateRepository;
 import com.strides.repository.AggLimsReviewerProductivityIndexRepository;
 import com.strides.repository.AggLimsRightFirstTimeRepository;
 import com.strides.repository.DepartmentScopeLiterals;
+import com.strides.repository.DrilldownSpecs;
 import com.strides.service.kpi.PeriodCombiner;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -39,6 +41,8 @@ public class PeoplePerformanceService {
     AggLimsQualificationCycleTimeRepository qualificationCycleTimeRepository;
     @Inject
     DepartmentScopeLiterals deptLiterals;
+    @Inject
+    GenericDrilldownService genericDrilldownService;
 
     /** sampleType: comma-separated list to combine, or null/blank for ALL. */
     public List<KpiCardResponse> getRepeatAnalysisRate(String siteName, String sampleType, String grain, LocalDate from, LocalDate to) {
@@ -129,5 +133,36 @@ public class PeoplePerformanceService {
 
     public Map<String, List<String>> getQualificationCycleTimeFilterOptions(String siteName, String grain, LocalDate from, LocalDate to) {
         return qualificationCycleTimeRepository.filterOptions(siteName, grain, from, to);
+    }
+
+    public DrilldownPage<Map<String, Object>> getRepeatAnalysisRateDrilldown(String site, String sampleType, LocalDate from, LocalDate to,
+            String q, String sortBy, String sortDir, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.REPEAT_TEST_RATE, site, from, to,
+                Map.of("sampleType", PeriodCombiner.parseSelection(sampleType)), q, sortBy, sortDir, page, pageSize);
+    }
+
+    public DrilldownPage<Map<String, Object>> getReviewerProductivityDrilldown(String site, LocalDate from, LocalDate to,
+            String q, String sortBy, String sortDir, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.REVIEWER_PRODUCTIVITY_INDEX, site, from, to, Map.of(), q, sortBy, sortDir, page, pageSize);
+    }
+
+    public DrilldownPage<Map<String, Object>> getRightFirstTimeDrilldown(String site, String sampleType, LocalDate from, LocalDate to,
+            String q, String sortBy, String sortDir, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.RFT_DOCUMENTATION, site, from, to,
+                Map.of("sampleType", PeriodCombiner.parseSelection(sampleType)), q, sortBy, sortDir, page, pageSize);
+    }
+
+    public DrilldownPage<Map<String, Object>> getTrainingCompletionRateDrilldown(String site, String department, String trainingType,
+            LocalDate from, LocalDate to, String q, String sortBy, String sortDir, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.TRAINING_COMPLETION_RATE, site, from, to, Map.of(
+                "department", PeriodCombiner.parseSelection(department),
+                "trainingType", PeriodCombiner.parseSelection(trainingType)),
+                q, sortBy, sortDir, page, pageSize);
+    }
+
+    public DrilldownPage<Map<String, Object>> getQualificationCycleTimeDrilldown(String site, String designation, LocalDate from, LocalDate to,
+            String q, String sortBy, String sortDir, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.QUALIFICATION_CYCLE_TIME, site, from, to,
+                Map.of("designation", PeriodCombiner.parseSelection(designation)), q, sortBy, sortDir, page, pageSize);
     }
 }

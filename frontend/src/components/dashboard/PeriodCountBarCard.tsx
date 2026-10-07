@@ -1,4 +1,5 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
+import { Maximize2 } from 'lucide-react'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import type { KpiDomain, KpiDefinition } from '@/lib/kpiConfig'
 import { useKpiData, type GlobalKpiFilters } from '@/hooks/useKpiData'
@@ -11,15 +12,16 @@ import { emptyStateFor, toChartData } from '@/components/kpi/KpiChartCard'
 import { FiltersPopoverButton } from '@/components/kpi/FiltersPopoverButton'
 import { GrainToggle } from '@/components/kpi/GrainToggle'
 import { SEVERITY_META, kpiAnchorId } from './types'
+import { PeriodCountBarDetailModal } from './PeriodCountBarDetailModal'
 
 // Plain counts with no threshold to judge them by - same always-green chrome as KpiRankingBarCard.
-const GREEN = SEVERITY_META['in-control']
+export const GREEN = SEVERITY_META['in-control']
 const CHART_HEIGHT_PX = 200
 const MAX_X_TICKS = 13
 const BAR_RADIUS_PX = 3
 
 // A level keeps its own color even when filtered down to just that one level.
-function seriesColor(label: string, index: number, seriesCount: number): string {
+export function seriesColor(label: string, index: number, seriesCount: number): string {
   const levelColor = CAPA_AGING_LEVEL_COLORS[label]
   if (levelColor) return levelColor
   if (seriesCount === 1) return GREEN.solidHex
@@ -27,14 +29,14 @@ function seriesColor(label: string, index: number, seriesCount: number): string 
 }
 
 /** Bold dark text beside each series' swatch - the level colors are too pale to read as text themselves. */
-interface CountTooltipItem {
+export interface CountTooltipItem {
   dataKey?: unknown
   name?: unknown
   value?: unknown
   color?: string
 }
 
-function CountTooltip({ active, payload, periodLabel }: { active?: boolean; payload?: readonly CountTooltipItem[]; periodLabel: string }) {
+export function CountTooltip({ active, payload, periodLabel }: { active?: boolean; payload?: readonly CountTooltipItem[]; periodLabel: string }) {
   if (!active || !payload?.length) return null
   const total = payload.reduce((sum, item) => sum + (typeof item.value === 'number' ? item.value : 0), 0)
   return (
@@ -68,7 +70,7 @@ function CountTooltip({ active, payload, periodLabel }: { active?: boolean; payl
 // date) routinely span a year boundary with real bars on both sides, where that's exactly the
 // inconsistency it becomes ("Sep '25" beside a bare "Jan"). A `today` no real record's year could
 // ever match makes every tick take the "not current year" branch, always showing its year.
-const NEVER_CURRENT_YEAR = new Date(0)
+export const NEVER_CURRENT_YEAR = new Date(0)
 
 /**
  * One vertical bar per period of a plain-count KPI (chartType 'column', e.g. CAPA Aging) - Power
@@ -86,8 +88,9 @@ export function PeriodCountBarCard({
   globalFilters: GlobalKpiFilters
   lens: KpiVisibilityLens
 }) {
+  const [detailOpen, setDetailOpen] = useState(false)
   const { grain, setGrain, cardFilters } = useCardGrain(kpi.id, lens, globalFilters)
-  const filters = useExtraFilters(domain, kpi, cardFilters, false)
+  const filters = useExtraFilters(domain, kpi, cardFilters, detailOpen)
   const query = useKpiData(domain, kpi, cardFilters, filters.extraParams)
   const { shownSeries: unsortedSeries, chartData } = useMemo(() => toChartData(query.data ?? []), [query.data])
   // Series arrive in first-seen order - sorted so each level (L1..L5) always stacks in the same place.
@@ -121,6 +124,9 @@ export function PeriodCountBarCard({
         <div className="flex shrink-0 items-center gap-1">
           <GrainToggle grain={grain} onChange={setGrain} activeHex={GREEN.solidHex} borderHex={GREEN.paleHex} />
           <FiltersPopoverButton kpi={kpi} filters={filters} />
+          <button className="text-muted-foreground hover:text-foreground" onClick={() => setDetailOpen(true)} title="Expand view">
+            <Maximize2 className="size-3.5" />
+          </button>
         </div>
       </div>
 
@@ -169,6 +175,28 @@ export function PeriodCountBarCard({
           </ResponsiveContainer>
         )}
       </div>
+
+      {detailOpen && (
+        <PeriodCountBarDetailModal
+          domain={domain}
+          domainLabel={domain.label}
+          kpi={kpi}
+          grain={grain}
+          onGrainChange={setGrain}
+          shownSeries={shownSeries}
+          chartData={chartData}
+          seriesTotals={seriesTotals}
+          namedSeries={namedSeries}
+          viewLabel={viewLabel}
+          extraStates={filters.extraStates}
+          onExtraStateChange={filters.setExtraState}
+          optionsFor={filters.optionsFor}
+          filterOptionsLoading={filters.filterOptionsLoading}
+          cardFilters={cardFilters}
+          extraParams={filters.extraParams}
+          onClose={() => setDetailOpen(false)}
+        />
+      )}
     </div>
   )
 }

@@ -43,7 +43,7 @@ export function TeamWorkloadOverview() {
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-sky-200/70 px-5 py-4">
         <div className="flex flex-wrap items-center gap-2">
           <Users className="size-4 text-foreground" />
-          <h2 className="text-base font-semibold">Team workload overview</h2>
+          <h2 className="text-base font-semibold">Team overview</h2>
           <span className="text-xs text-muted-foreground">— click any analyst to see their KPIs and tasks</span>
         </div>
         <span className="shrink-0 text-xs font-semibold text-foreground">

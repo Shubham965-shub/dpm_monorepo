@@ -86,6 +86,6 @@ public class AuthController {
     @GET
     @Path("/feedback-token")
     public FeedbackTokenResponse feedbackToken() {
-        return new FeedbackTokenResponse(feedbackJwt.issue(currentUser.get().getId().toString()));
+        return new FeedbackTokenResponse(feedbackJwt.issue(currentUser.get().getId().toString(), currentUser.get().getFullName()));
     }
 }

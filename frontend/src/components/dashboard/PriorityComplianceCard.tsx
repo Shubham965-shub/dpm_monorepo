@@ -208,6 +208,7 @@ export function PriorityComplianceCard({
 
       {detailOpen && (
         <PriorityComplianceDetailModal
+          domain={domain}
           domainLabel={domain.label}
           onGrainChange={setGrain}
           kpi={kpi}
@@ -222,6 +223,8 @@ export function PriorityComplianceCard({
           onExtraStateChange={setExtraState}
           optionsFor={optionsFor}
           filterOptionsLoading={filterOptionsLoading}
+          cardFilters={cardFilters}
+          extraParams={extraParams}
           onClose={() => setDetailOpen(false)}
         />
       )}
