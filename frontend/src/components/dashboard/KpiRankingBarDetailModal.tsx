@@ -2,15 +2,17 @@ import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { TOOLTIP_Z_INDEX } from '@/lib/chartPalette'
-import type { ExtraFilter, KpiDefinition } from '@/lib/kpiConfig'
+import type { ExtraFilter, KpiDefinition, KpiDomain } from '@/lib/kpiConfig'
 import type { BarRow } from '@/components/kpi/KpiChartCard'
 import type { ExtraFilterState } from '@/components/kpi/ExtraFilterControl'
+import type { ExtraParams, GlobalKpiFilters } from '@/hooks/useKpiData'
 import { FilterPills } from '@/components/kpi/FilterPills'
 import { KpiInfoDropdown } from '@/components/kpi/KpiInfoDropdown'
 import { GrainToggle } from '@/components/kpi/GrainToggle'
 import { useBackdropClose } from '@/hooks/useBackdropClose'
 import type { Grain } from '@/lib/kpiSchemas'
 import { SEVERITY_META, rankingValueDomain } from './types'
+import { KpiDrilldownTable } from './KpiDrilldownTable'
 import {
   barShapeFor,
   RankingValueAxis,
@@ -22,14 +24,20 @@ import {
 
 const GREEN = SEVERITY_META['in-control']
 const MODAL_CHART_RIGHT_MARGIN_PX = 24
+// Bigger than the compact card's own RANKING_BAR_MAX_VIEWPORT_PX cap (there's more room in a modal),
+// but still capped - a KPI with many categories would otherwise stretch the chart tall enough that
+// the drill-down table below it is pushed out of view, and the modal becomes one long scroll.
+const RANKING_BAR_MODAL_MAX_HEIGHT_PX = 480
 
 /** Same modal shell as KpiDetailModal/RootCauseHeatmapDetailModal (backdrop, top accent bar,
  * Back/X header) - the expanded view every other card gets, applied here to KpiRankingBarCard's
  * category ranking: a bigger version of the same horizontal bar chart rather than a line chart,
- * since this data has no per-period trend or threshold to plot. No inner scroll box (unlike the
- * compact card's RANKING_BAR_MAX_VIEWPORT_PX cap) - the modal backdrop itself scrolls, and there's
- * plenty of vertical room here already. */
+ * since this data has no per-period trend or threshold to plot. The chart itself scrolls within
+ * its own capped box (RANKING_BAR_MODAL_MAX_HEIGHT_PX, mirroring the compact card's own
+ * RANKING_BAR_MAX_VIEWPORT_PX) rather than growing the whole modal - the drill-down table below it
+ * needs to stay reachable without a very long ranking pushing it out of view. */
 export function KpiRankingBarDetailModal({
+  domain,
   domainLabel,
   kpi,
   grain,
@@ -40,8 +48,11 @@ export function KpiRankingBarDetailModal({
   optionsFor,
   filterOptionsLoading,
   onGrainChange,
+  cardFilters,
+  extraParams,
   onClose,
 }: {
+  domain: KpiDomain
   domainLabel: string
   kpi: KpiDefinition
   grain: Grain
@@ -53,6 +64,10 @@ export function KpiRankingBarDetailModal({
   filterOptionsLoading: boolean
   /** Shares the compact card's grain (see useCardGrain), same as its filters. */
   onGrainChange: (grain: Grain) => void
+  /** The card's own already-resolved grain/date-range (see useCardGrain) - the drill-down table
+   * (see KpiDrilldownTable) fetches at this same from/to, not a second independent one. */
+  cardFilters: GlobalKpiFilters
+  extraParams: ExtraParams
   onClose: () => void
 }) {
   return createPortal(
@@ -86,7 +101,9 @@ export function KpiRankingBarDetailModal({
               <KpiInfoDropdown kpiId={kpi.id} />
             </div>
           </div>
-          <div className="flex flex-col items-end gap-3">
+          {/* max-w-xs: without a real width to wrap against, FilterPills' own flex-wrap never
+          activates (a flex item with no width constraint just grows to fit one unwrapped row). */}
+          <div className="flex max-w-xs flex-col items-end gap-3">
             <GrainToggle grain={grain} onChange={onGrainChange} activeHex={GREEN.solidHex} size="modal" />
             <FilterPills
               kpi={kpi}
@@ -108,22 +125,24 @@ export function KpiRankingBarDetailModal({
             <p className="text-muted-foreground text-sm">No data for this selection.</p>
           ) : (
             <>
-              {/* Sticks to the top of the scrolling modal, so the scale stays in view down a long ranking. */}
-              <div className="sticky top-0 z-10 bg-card">
-                <RankingValueAxis rows={rankingData} domain={rankingValueDomain(rankingData)} rightMarginPx={MODAL_CHART_RIGHT_MARGIN_PX} fontSize={11} />
+              {/* Pinned above the chart's own scroll box below, so the scale stays in view down a long ranking. */}
+              <RankingValueAxis rows={rankingData} domain={rankingValueDomain(rankingData)} rightMarginPx={MODAL_CHART_RIGHT_MARGIN_PX} fontSize={11} />
+              <div style={{ maxHeight: RANKING_BAR_MODAL_MAX_HEIGHT_PX }} className="w-full overflow-x-hidden overflow-y-auto [scrollbar-gutter:stable]">
+                <ResponsiveContainer width="100%" height={Math.max(RANKING_BAR_MIN_HEIGHT_PX, rankingData.length * BAR_ROW_HEIGHT_PX)}>
+                  <BarChart data={rankingData} layout="vertical" margin={{ top: 4, right: MODAL_CHART_RIGHT_MARGIN_PX, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                    <XAxis type="number" domain={rankingValueDomain(rankingData)} hide />
+                    <YAxis type="category" dataKey="name" tick={truncatedCategoryTick} width={Y_AXIS_WIDTH_PX} interval={0} />
+                    <Tooltip contentStyle={{ fontSize: 12 }} wrapperStyle={{ zIndex: TOOLTIP_Z_INDEX }} />
+                    <Bar dataKey="value" radius={[0, 3, 3, 0]} shape={barShapeFor(kpi.id)} />
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
-              <ResponsiveContainer width="100%" height={Math.max(RANKING_BAR_MIN_HEIGHT_PX, rankingData.length * BAR_ROW_HEIGHT_PX)}>
-                <BarChart data={rankingData} layout="vertical" margin={{ top: 4, right: MODAL_CHART_RIGHT_MARGIN_PX, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                  <XAxis type="number" domain={rankingValueDomain(rankingData)} hide />
-                  <YAxis type="category" dataKey="name" tick={truncatedCategoryTick} width={Y_AXIS_WIDTH_PX} interval={0} />
-                  <Tooltip contentStyle={{ fontSize: 12 }} wrapperStyle={{ zIndex: TOOLTIP_Z_INDEX }} />
-                  <Bar dataKey="value" radius={[0, 3, 3, 0]} shape={barShapeFor(kpi.id)} />
-                </BarChart>
-              </ResponsiveContainer>
             </>
           )}
         </div>
+
+        {kpi.drilldownPath && <KpiDrilldownTable domain={domain} kpi={kpi} globalFilters={cardFilters} extraParams={extraParams} />}
       </div>
     </div>,
     document.body,

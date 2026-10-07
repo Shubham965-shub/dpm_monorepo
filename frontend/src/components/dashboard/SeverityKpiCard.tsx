@@ -374,6 +374,7 @@ export function SeverityKpiCard({
 
       {detailOpen && (
         <KpiDetailModal
+          domain={domain}
           domainLabel={domain.label}
           kpi={kpi}
           metrics={metrics}
@@ -388,6 +389,8 @@ export function SeverityKpiCard({
           optionsFor={optionsFor}
           filterOptionsLoading={filterOptionsLoading}
           filterExtra={rootCausePicker}
+          cardFilters={cardFilters}
+          extraParams={filters.extraParams}
           onClose={() => setDetailOpen(false)}
         />
       )}

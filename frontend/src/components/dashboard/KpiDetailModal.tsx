@@ -15,9 +15,10 @@ import { CATEGORICAL_PALETTE, MAX_SERIES, TOOLTIP_Z_INDEX } from '@/lib/chartPal
 import type { Grain } from '@/lib/kpiSchemas'
 import { evenTickInterval, formatPeriodTick } from '@/lib/periodFormat'
 import { formatAxisTick, percentChange } from '@/lib/format'
-import type { ExtraFilter, KpiDefinition } from '@/lib/kpiConfig'
+import type { ExtraFilter, KpiDefinition, KpiDomain } from '@/lib/kpiConfig'
 import { computeValueDomain, type KpiMetrics } from '@/hooks/useDomainTrendKpis'
 import type { ExtraFilterState } from '@/components/kpi/ExtraFilterControl'
+import type { ExtraParams, GlobalKpiFilters } from '@/hooks/useKpiData'
 import { FilterPills } from '@/components/kpi/FilterPills'
 import { KpiLineTooltip } from '@/components/kpi/KpiLineTooltip'
 import { KpiInfoDropdown } from '@/components/kpi/KpiInfoDropdown'
@@ -26,6 +27,7 @@ import { PeriodRangePicker, type DateRange } from '@/components/kpi/PeriodRangeP
 import { useBackdropClose } from '@/hooks/useBackdropClose'
 import { SEVERITY_META, boundaryHex, boundaryLines, boundaryZones, severityMeta, type Severity } from './types'
 import { renderBoundaryOverlay } from './boundaryOverlay'
+import { KpiDrilldownTable } from './KpiDrilldownTable'
 
 const MODAL_OVERLAY_STYLE = { strokeWidth: 1, labelFontSize: 10 }
 
@@ -45,6 +47,7 @@ function ThresholdRow({ label, value, unit, colorHex }: { label: string; value: 
  * `grain` state as the card it was opened from, so switching the grain here (a real refetch, see
  * SeverityKpiCard) updates the compact card too once this closes. */
 export function KpiDetailModal({
+  domain,
   domainLabel,
   kpi,
   metrics,
@@ -59,8 +62,11 @@ export function KpiDetailModal({
   optionsFor,
   filterOptionsLoading,
   filterExtra,
+  cardFilters,
+  extraParams,
   onClose,
 }: {
+  domain: KpiDomain
   domainLabel: string
   kpi: KpiDefinition
   metrics: KpiMetrics
@@ -83,6 +89,12 @@ export function KpiDetailModal({
   filterOptionsLoading: boolean
   /** A non-standard control shown alongside the filter pills (e.g. Root Cause Breakdown's dimension picker). */
   filterExtra?: ReactNode
+  /** The card's own already-resolved grain/date-range (see useCardGrain) - the record-level drill-
+   * down table (see KpiDrilldownTable) fetches at this same from/to, not a second independent one. */
+  cardFilters: GlobalKpiFilters
+  /** The card's own current filter selections (see useExtraFilters), resolved to raw query params -
+   * shared with the drill-down table's own fetch so its rows match what the chart above is showing. */
+  extraParams: ExtraParams
   onClose: () => void
 }) {
   const { chartData, shownSeries, latestValue, previousValue, unit, thresholds } = metrics
@@ -153,7 +165,11 @@ export function KpiDetailModal({
             </div>
           </div>
 
-          <div className="flex shrink-0 flex-col items-end gap-3">
+          {/* max-w-xs: without a real width to wrap against, FilterPills' own flex-wrap never
+          activates (a flex item with no width constraint just grows to fit one unwrapped row) - a
+          KPI with several filters (e.g. Deviations' 6) would spill its pill row out past the
+          modal's own edge instead of wrapping onto a second line under the others. */}
+          <div className="flex max-w-xs shrink-0 flex-col items-end gap-3">
             <GrainToggle grain={grain} onChange={onGrainChange} activeHex={meta.solidHex} size="modal" />
             <PeriodRangePicker
               key={grain}
@@ -229,6 +245,8 @@ export function KpiDetailModal({
             </div>
           </div>
         </div>
+
+        {kpi.drilldownPath && <KpiDrilldownTable domain={domain} kpi={kpi} globalFilters={cardFilters} extraParams={extraParams} />}
       </div>
     </div>,
     document.body,

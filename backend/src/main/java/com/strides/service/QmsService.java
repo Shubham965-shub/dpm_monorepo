@@ -27,7 +27,9 @@ import com.strides.repository.AggTwRciBeyondTimelineRepository;
 import com.strides.repository.AggTwRepeatFailureRateRepository;
 import com.strides.repository.AggTwRootCauseDistributionRepository;
 import com.strides.repository.AggTwValidOosRateRepository;
+import com.strides.dto.DrilldownPage;
 import com.strides.repository.DepartmentScopeLiterals;
+import com.strides.repository.DrilldownSpecs;
 import com.strides.service.kpi.PeriodCombiner;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -84,6 +86,8 @@ public class QmsService {
     AggTwProductWiseFailureRepository productWiseFailureRepository;
     @Inject
     DepartmentScopeLiterals deptLiterals;
+    @Inject
+    GenericDrilldownService genericDrilldownService;
 
     private static final double PER_1000_TESTS = 1000;
     private static final String PER_1000_TESTS_UNIT = "per 1000 tests";
@@ -585,5 +589,109 @@ public class QmsService {
         Set<String> selectedProducts = PeriodCombiner.parseSelection(product);
         return productWiseFailureRepository.filterOptions(site, grain, from, to,
                 PeriodCombiner.parseSelection(materialType), PeriodCombiner.parseSelection(disposition), selectedProducts);
+    }
+
+    public DrilldownPage<Map<String, Object>> getInvalidOosRateDrilldown(String site, LocalDate from, LocalDate to,
+            String q, String sortBy, String sortDir, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.INVALID_OOS_RATE, site, from, to, Map.of(), q, sortBy, sortDir, page, pageSize);
+    }
+
+    public DrilldownPage<Map<String, Object>> getConfirmedOosRateDrilldown(String site, String productType, LocalDate from, LocalDate to,
+            String q, String sortBy, String sortDir, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.VALID_OOS_RATE, site, from, to,
+                Map.of("productType", PeriodCombiner.parseSelection(productType)), q, sortBy, sortDir, page, pageSize);
+    }
+
+    public DrilldownPage<Map<String, Object>> getOosTrendDrilldown(String site, LocalDate from, LocalDate to,
+            String q, String sortBy, String sortDir, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.OOS_TREND, site, from, to, Map.of(), q, sortBy, sortDir, page, pageSize);
+    }
+
+    public DrilldownPage<Map<String, Object>> getOotTrendDrilldown(String site, LocalDate from, LocalDate to,
+            String q, String sortBy, String sortDir, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.OOT_TREND, site, from, to, Map.of(), q, sortBy, sortDir, page, pageSize);
+    }
+
+    public DrilldownPage<Map<String, Object>> getDeviationsDrilldown(String site, String respDept, String level,
+            String initialClassification, String finalClassification, LocalDate from, LocalDate to,
+            String q, String sortBy, String sortDir, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.DEVIATIONS, site, from, to, Map.of(
+                "respDept", PeriodCombiner.parseSelection(respDept),
+                "level", PeriodCombiner.parseSelection(level),
+                "initialClassification", PeriodCombiner.parseSelection(initialClassification),
+                "finalClassification", PeriodCombiner.parseSelection(finalClassification)),
+                q, sortBy, sortDir, page, pageSize);
+    }
+
+    public DrilldownPage<Map<String, Object>> getInvestigationClosureTatDrilldown(String site, String initiatedThrough,
+            LocalDate from, LocalDate to, String q, String sortBy, String sortDir, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.INVESTIGATION_CLOSURE_TAT, site, from, to,
+                Map.of("initiatedThrough", PeriodCombiner.parseSelection(initiatedThrough)), q, sortBy, sortDir, page, pageSize);
+    }
+
+    public DrilldownPage<Map<String, Object>> getRciBeyondTimelineDrilldown(String site, String initiatedThrough,
+            LocalDate from, LocalDate to, String q, String sortBy, String sortDir, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.RCI_BEYOND_TIMELINE, site, from, to,
+                Map.of("initiatedThrough", PeriodCombiner.parseSelection(initiatedThrough)), q, sortBy, sortDir, page, pageSize);
+    }
+
+    public DrilldownPage<Map<String, Object>> getRepeatFailureRateDrilldown(String site, String recordType,
+            LocalDate from, LocalDate to, String q, String sortBy, String sortDir, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.REPEAT_FAILURE_RATE, site, from, to,
+                Map.of("recordType", PeriodCombiner.parseSelection(recordType)), q, sortBy, sortDir, page, pageSize);
+    }
+
+    public DrilldownPage<Map<String, Object>> getRepeatHumanErrorRateDrilldown(String site, LocalDate from, LocalDate to,
+            String q, String sortBy, String sortDir, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.REPEAT_HUMAN_ERROR_RATE, site, from, to, Map.of(), q, sortBy, sortDir, page, pageSize);
+    }
+
+    public DrilldownPage<Map<String, Object>> getHumanErrorRateDrilldown(String site, LocalDate from, LocalDate to,
+            String q, String sortBy, String sortDir, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.HUMAN_ERROR_RATE, site, from, to, Map.of(), q, sortBy, sortDir, page, pageSize);
+    }
+
+
+    public DrilldownPage<Map<String, Object>> getHumanErrorSeverityDrilldown(String site, String finalClassification,
+            LocalDate from, LocalDate to, String q, String sortBy, String sortDir, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.HUMAN_ERROR_SEVERITY, site, from, to,
+                Map.of("finalClassification", PeriodCombiner.parseSelection(finalClassification)), q, sortBy, sortDir, page, pageSize);
+    }
+
+    public DrilldownPage<Map<String, Object>> getHumanErrorByProductDrilldown(String site, String material,
+            LocalDate from, LocalDate to, String q, String sortBy, String sortDir, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.HUMAN_ERROR_BY_PRODUCT, site, from, to,
+                Map.of("material", PeriodCombiner.parseSelection(material)), q, sortBy, sortDir, page, pageSize);
+    }
+
+    public DrilldownPage<Map<String, Object>> getMethodFailureRateDrilldown(String site, LocalDate from, LocalDate to,
+            String q, String sortBy, String sortDir, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.METHOD_FAILURE_RATE, site, from, to, Map.of(), q, sortBy, sortDir, page, pageSize);
+    }
+
+    public DrilldownPage<Map<String, Object>> getCapaEffectivenessDrilldown(String site, String originatedFrom,
+            LocalDate from, LocalDate to, String q, String sortBy, String sortDir, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.CAPA_EFFECTIVENESS, site, from, to,
+                Map.of("originatedFrom", PeriodCombiner.parseSelection(originatedFrom)), q, sortBy, sortDir, page, pageSize);
+    }
+
+    /** Shared by capa-recurrence-rate and capa-aging - both read fact_tw_capa_aging_status (see DrilldownSpecs). */
+    public DrilldownPage<Map<String, Object>> getCapaRecurrenceRateDrilldown(String site, LocalDate from, LocalDate to,
+            String q, String sortBy, String sortDir, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.CAPA_AGING_STATUS, site, from, to, Map.of(), q, sortBy, sortDir, page, pageSize);
+    }
+
+    public DrilldownPage<Map<String, Object>> getCapaAgingDrilldown(String site, String level, LocalDate from, LocalDate to,
+            String q, String sortBy, String sortDir, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.CAPA_AGING_STATUS, site, from, to,
+                Map.of("level", PeriodCombiner.parseSelection(level)), q, sortBy, sortDir, page, pageSize);
+    }
+
+    public DrilldownPage<Map<String, Object>> getProductWiseFailureDrilldown(String site, String materialType, String disposition,
+            LocalDate from, LocalDate to, String q, String sortBy, String sortDir, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.PRODUCT_WISE_FAILURE, site, from, to, Map.of(
+                "materialType", PeriodCombiner.parseSelection(materialType),
+                "disposition", PeriodCombiner.parseSelection(disposition)),
+                q, sortBy, sortDir, page, pageSize);
     }
 }

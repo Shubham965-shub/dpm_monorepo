@@ -1,5 +1,6 @@
 package com.strides.controller;
 
+import com.strides.dto.DrilldownPage;
 import com.strides.dto.KpiCardResponse;
 import com.strides.dto.KpiParams;
 import com.strides.service.PeoplePerformanceService;
@@ -34,10 +35,24 @@ public class PeoplePerformanceController {
     }
 
     @GET
+    @Path("/repeat-analysis-rate/drilldown")
+    public DrilldownPage<Map<String, Object>> repeatAnalysisRateDrilldown(@BeanParam KpiParams.SampleTypeDrilldown p) {
+        return service.getRepeatAnalysisRateDrilldown(p.site, p.sampleType, RequiredParams.require(p.from, "from"),
+                RequiredParams.require(p.to, "to"), p.q, p.sortBy, p.sortDir, p.page, p.pageSize);
+    }
+
+    @GET
     @Path("/reviewer-productivity")
     public List<KpiCardResponse> reviewerProductivity(@BeanParam KpiParams.DateRange p) {
         return service.getReviewerProductivity(p.site,
                 RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
+    }
+
+    @GET
+    @Path("/reviewer-productivity/drilldown")
+    public DrilldownPage<Map<String, Object>> reviewerProductivityDrilldown(@BeanParam KpiParams.DrilldownBase p) {
+        return service.getReviewerProductivityDrilldown(p.site, RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"),
+                p.q, p.sortBy, p.sortDir, p.page, p.pageSize);
     }
 
     @GET
@@ -55,6 +70,13 @@ public class PeoplePerformanceController {
     }
 
     @GET
+    @Path("/rft-documentation/drilldown")
+    public DrilldownPage<Map<String, Object>> rftDocumentationDrilldown(@BeanParam KpiParams.SampleTypeDrilldown p) {
+        return service.getRightFirstTimeDrilldown(p.site, p.sampleType, RequiredParams.require(p.from, "from"),
+                RequiredParams.require(p.to, "to"), p.q, p.sortBy, p.sortDir, p.page, p.pageSize);
+    }
+
+    @GET
     @Path("/training-completion-rate")
     public List<KpiCardResponse> trainingCompletionRate(@BeanParam KpiParams.WithDepartmentAndTrainingType p) {
         return service.getTrainingCompletionRate(p.site, p.department, p.trainingType, p.departmentScope,
@@ -69,6 +91,13 @@ public class PeoplePerformanceController {
     }
 
     @GET
+    @Path("/training-completion-rate/drilldown")
+    public DrilldownPage<Map<String, Object>> trainingCompletionRateDrilldown(@BeanParam KpiParams.TrainingCompletionRateDrilldown p) {
+        return service.getTrainingCompletionRateDrilldown(p.site, p.department, p.trainingType, RequiredParams.require(p.from, "from"),
+                RequiredParams.require(p.to, "to"), p.q, p.sortBy, p.sortDir, p.page, p.pageSize);
+    }
+
+    @GET
     @Path("/qualification-cycle-time")
     public List<KpiCardResponse> qualificationCycleTime(@BeanParam KpiParams.WithDesignation p) {
         return service.getQualificationCycleTime(p.site, p.designation,
@@ -80,5 +109,12 @@ public class PeoplePerformanceController {
     public Map<String, List<String>> qualificationCycleTimeFilterOptions(@BeanParam KpiParams.WithDesignation p) {
         return service.getQualificationCycleTimeFilterOptions(p.site,
                 RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
+    }
+
+    @GET
+    @Path("/qualification-cycle-time/drilldown")
+    public DrilldownPage<Map<String, Object>> qualificationCycleTimeDrilldown(@BeanParam KpiParams.DesignationDrilldown p) {
+        return service.getQualificationCycleTimeDrilldown(p.site, p.designation, RequiredParams.require(p.from, "from"),
+                RequiredParams.require(p.to, "to"), p.q, p.sortBy, p.sortDir, p.page, p.pageSize);
     }
 }

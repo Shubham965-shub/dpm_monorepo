@@ -170,6 +170,7 @@ export function KpiRankingBarCard({
 
       {detailOpen && (
         <KpiRankingBarDetailModal
+          domain={domain}
           domainLabel={domain.label}
           grain={grain}
           onGrainChange={setGrain}
@@ -180,6 +181,8 @@ export function KpiRankingBarCard({
           onExtraStateChange={setExtraState}
           optionsFor={optionsFor}
           filterOptionsLoading={filterOptionsLoading}
+          cardFilters={cardFilters}
+          extraParams={extraParams}
           onClose={() => setDetailOpen(false)}
         />
       )}

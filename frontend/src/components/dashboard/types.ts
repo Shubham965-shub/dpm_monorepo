@@ -1,5 +1,6 @@
 import type { KpiStatus, KpiThresholds, ScoreBand } from '@/lib/kpiSchemas'
 import type { BarRow } from '@/components/kpi/KpiChartCard'
+import type { KpiDefinition, KpiDomain } from '@/lib/kpiConfig'
 
 /**
  * Shared by every KPI card grid (DomainSeverityBoard's severity tiers, SectionSummaryList's
@@ -266,28 +267,47 @@ export function rankingValueDomain(rows: BarRow[]): [number, number] {
   return [0, Math.max(0, ...rows.map((row) => row.value ?? 0))]
 }
 
-/** One section's latest-month tier breakdown, restricted to `visibleKpiIds` (a role lens's KPI
- * Framework list) - shared by SectionSummaryList's per-section chips and DashboardPage's
- * page-level severity badge summary, so the two totals can never disagree. */
-export function countSeverityTiers(
-  rows: HeatmapRow[],
-  visibleKpiIds: Set<string>,
-): { critical: number; warning: number; onTrack: number; noThreshold: number } {
-  let critical = 0
-  let warning = 0
-  let onTrack = 0
-  let noThreshold = 0
-  for (const row of rows) {
-    if (!visibleKpiIds.has(row.slug)) continue
-    const latest = row.cells.at(-1)?.status
-    if (latest === 'action') critical++
-    else if (latest === 'alert') warning++
-    else if (latest === 'in-control') onTrack++
-    // 'no-data'/undefined - no threshold configured for this KPI yet (see backend/README.md's
-    // "KPI thresholds" section: several KPIs have no kpi_threshold_snapshot rows at all) - counted
-    // separately rather than silently dropped, so it's visible instead of just disappearing from
-    // every tier's total.
-    else noThreshold++
+/** A domain's (or the whole page's) critical/warning/onTrack/noThreshold breakdown - shared by
+ * SectionSummaryList's per-section chips and DashboardPage's page-level severity badge summary
+ * (see DomainTierCounts) so the two totals can never disagree. */
+export interface TierCounts {
+  critical: number
+  warning: number
+  onTrack: number
+  noThreshold: number
+}
+
+export const ZERO_TIER_COUNTS: TierCounts = { critical: 0, warning: 0, onTrack: 0, noThreshold: 0 }
+
+export function sumTierCounts(a: TierCounts, b: TierCounts): TierCounts {
+  return {
+    critical: a.critical + b.critical,
+    warning: a.warning + b.warning,
+    onTrack: a.onTrack + b.onTrack,
+    noThreshold: a.noThreshold + b.noThreshold,
   }
-  return { critical, warning, onTrack, noThreshold }
+}
+
+// KPIs whose real shape is a per-category share of a period's total (not a single trending value
+// or a whole-range ranking) - routed to their own dedicated card instead of DomainSeverityBoard or
+// KpiRankingBarCard - its real data is a raw sample count per priority tier (P1..P4) that always
+// sums to the period's total, not one trending value a threshold could colour.
+export const STACKED_SHARE_KPI_IDS = new Set(['priority-sample-compliance'])
+
+// KPIs whose real shape is a dimension x period matrix best read as a heatmap, not a trendline or
+// ranking - root-cause-consolidated has no single trending value a threshold could colour. Rendered
+// as a DomainSeverityBoard "companion" of its paired host id (see SectionSummaryList's
+// HEATMAP_COMPANION_HOST_ID), not as its own grid card.
+export const HEATMAP_KPI_IDS = new Set(['root-cause-consolidated'])
+
+/** The per-period trend KPIs DomainSeverityBoard actually places into severity tiers for a domain -
+ * excludes STACKED_SHARE_KPI_IDS/HEATMAP_KPI_IDS (routed to their own card types) and ranking/column
+ * chart types (category totals over a range, not a per-period value a tier applies to). Shared by
+ * SectionSummaryList's own card-grid population and DomainTierCounts' seed, so the two populations
+ * can never disagree either. */
+export function trendKpisForDomain(domain: KpiDomain | undefined, visibleKpiIds: Set<string>): KpiDefinition[] {
+  const domainKpis = domain?.kpis.filter((kpi) => visibleKpiIds.has(kpi.id)) ?? []
+  return domainKpis.filter(
+    (kpi) => kpi.chartType !== 'bar' && kpi.chartType !== 'column' && !STACKED_SHARE_KPI_IDS.has(kpi.id) && !HEATMAP_KPI_IDS.has(kpi.id),
+  )
 }
