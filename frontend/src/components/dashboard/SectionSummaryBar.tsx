@@ -28,6 +28,11 @@ export interface SectionSummaryBarProps {
   onToggleStar: () => void
   expanded: boolean
   onToggle: () => void
+  /** False for a domain carrying `scored: false` (see kpiConfig.ts's KpiDomain.scored /
+   * qaKpiConfig.ts's Cross-Functional Context) - no star, no severity chips, no score/points
+   * readout, and a neutral slate bar instead of the amber/rose scored styling, so it reads as a
+   * different kind of row rather than a scored section that merely has no data yet. */
+  scored?: boolean
 }
 
 export function SectionSummaryBar({
@@ -43,6 +48,7 @@ export function SectionSummaryBar({
   onToggleStar,
   expanded,
   onToggle,
+  scored = true,
 }: SectionSummaryBarProps) {
   const isImproving = deltaPts != null && deltaPts >= 0
 
@@ -50,18 +56,22 @@ export function SectionSummaryBar({
     <div
       className={cn(
         'flex items-center justify-between gap-4 rounded-xl px-4 py-3 text-white',
-        expanded ? 'bg-rose-800' : 'bg-amber-700',
+        !scored ? 'bg-slate-600' : expanded ? 'bg-rose-800' : 'bg-amber-700',
       )}
     >
       <div className="flex items-center gap-3">
-        <button
-          onClick={onToggleStar}
-          aria-label={starred ? `Unfavorite ${title}` : `Favorite ${title}`}
-          aria-pressed={starred}
-          className="flex shrink-0 items-center justify-center"
-        >
-          <Star className={cn('size-4', starred ? 'fill-emerald-400 text-emerald-400' : 'text-white/60')} />
-        </button>
+        {scored ? (
+          <button
+            onClick={onToggleStar}
+            aria-label={starred ? `Unfavorite ${title}` : `Favorite ${title}`}
+            aria-pressed={starred}
+            className="flex shrink-0 items-center justify-center"
+          >
+            <Star className={cn('size-4', starred ? 'fill-emerald-400 text-emerald-400' : 'text-white/60')} />
+          </button>
+        ) : (
+          <span className="rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold whitespace-nowrap">Context only</span>
+        )}
         <div>
           <div className="text-[11px] font-semibold tracking-wide text-white/70 uppercase">{category}</div>
           <div className="text-lg font-bold">{title}</div>
@@ -69,25 +79,29 @@ export function SectionSummaryBar({
       </div>
 
       <div className="flex items-center gap-3">
-        {critical > 0 && <Chip dotHex={SEVERITY_META.action.pillDotHex} label={`${critical} critical`} />}
-        {warning > 0 && <Chip dotHex={SEVERITY_META.alert.pillDotHex} label={`${warning} warning`} />}
-        {onTrack > 0 && <Chip dotHex={SEVERITY_META['in-control'].pillDotHex} label={`${onTrack} on track`} />}
-        {noThreshold > 0 && <Chip dotHex={severityMeta(null).pillDotHex} label={`${noThreshold} no threshold`} />}
+        {scored && (
+          <>
+            {critical > 0 && <Chip dotHex={SEVERITY_META.action.pillDotHex} label={`${critical} critical`} />}
+            {warning > 0 && <Chip dotHex={SEVERITY_META.alert.pillDotHex} label={`${warning} warning`} />}
+            {onTrack > 0 && <Chip dotHex={SEVERITY_META['in-control'].pillDotHex} label={`${onTrack} on track`} />}
+            {noThreshold > 0 && <Chip dotHex={severityMeta(null).pillDotHex} label={`${noThreshold} no threshold`} />}
 
-        <div className="text-right">
-          <div className="text-2xl leading-none font-bold">{formatScore(score)}</div>
-          {deltaPts != null && (
-            <div
-              className={cn(
-                'flex items-center justify-end gap-0.5 text-xs',
-                isImproving ? 'text-emerald-300' : 'text-white/70',
+            <div className="text-right">
+              <div className="text-2xl leading-none font-bold">{formatScore(score)}</div>
+              {deltaPts != null && (
+                <div
+                  className={cn(
+                    'flex items-center justify-end gap-0.5 text-xs',
+                    isImproving ? 'text-emerald-300' : 'text-white/70',
+                  )}
+                >
+                  <span>{isImproving ? '▲' : '▼'}</span>
+                  <span>{Math.abs(deltaPts).toFixed(1)} pts</span>
+                </div>
               )}
-            >
-              <span>{isImproving ? '▲' : '▼'}</span>
-              <span>{Math.abs(deltaPts).toFixed(1)} pts</span>
             </div>
-          )}
-        </div>
+          </>
+        )}
 
         <button
           onClick={onToggle}

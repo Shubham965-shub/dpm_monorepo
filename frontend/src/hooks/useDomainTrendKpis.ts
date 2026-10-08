@@ -1,6 +1,5 @@
 import { keepPreviousData, useQueries } from '@tanstack/react-query'
-import { getValidated } from '@/lib/apiClient'
-import { kpiCardListSchema, type Grain, type KpiCardResponse, type KpiThresholds } from '@/lib/kpiSchemas'
+import type { Grain, KpiCardResponse, KpiThresholds } from '@/lib/kpiSchemas'
 import type { KpiDomain, KpiDefinition } from '@/lib/kpiConfig'
 import { defaultGrainFor } from '@/lib/kpiDefaultGrain'
 import { getGrainDateRange } from '@/lib/kpiDateRange'
@@ -9,7 +8,7 @@ import { filterRootCauseRowsToDimension, pickMaximalRootCauseDimension } from '@
 import type { KpiVisibilityLens } from '@/lib/roleAccess'
 import { severityFromStatus, type Severity, type TierCounts } from '@/components/dashboard/types'
 import { toChartData } from '@/components/kpi/KpiChartCard'
-import { buildKpiQueryString, type GlobalKpiFilters } from './useKpiData'
+import { buildKpiQueryString, fetchKpiCardData, type GlobalKpiFilters } from './useKpiData'
 
 /** Default (no user selection yet) reduction applied per-KPI before deriving chart metrics.
  * Root Cause Breakdown defaults to its single highest-count-in-the-latest-period dimension rather
@@ -129,10 +128,11 @@ export function useDomainTrendKpis(
 ): DomainTrendKpiResult[] {
   const results = useQueries({
     queries: kpis.map((kpi) => {
-      const queryString = buildKpiQueryString(resolvedKpiFilters(kpi, lens, globalFilters), kpi)
+      const resolvedFilters = resolvedKpiFilters(kpi, lens, globalFilters)
+      const queryString = buildKpiQueryString(resolvedFilters, kpi)
       return {
         queryKey: ['kpi', domain.key, kpi.id, queryString] as const,
-        queryFn: () => getValidated(kpiCardListSchema, `${domain.basePath}/${kpi.path}?${queryString}`),
+        queryFn: () => fetchKpiCardData(domain, kpi, resolvedFilters, queryString),
         // Without this, a sibling card's own interaction (e.g. another KPI's grain toggle) that
         // causes DomainSeverityBoard to re-render makes this whole useQueries call momentarily
         // report every untouched KPI's data as undefined too (confirmed live: no new network

@@ -155,7 +155,7 @@ export function KpiDetailModal({
               </span>
             </div>
             <div className="mt-3 flex items-center gap-x-6">
-              <KpiInfoDropdown kpiId={kpi.id} />
+              <KpiInfoDropdown domain={domain} kpi={kpi} />
               <span
                 className="shrink-0 text-sm font-bold tracking-wider whitespace-nowrap capitalize"
                 style={{ color: thresholds ? SEVERITY_META['in-control'].solidHex : undefined }}

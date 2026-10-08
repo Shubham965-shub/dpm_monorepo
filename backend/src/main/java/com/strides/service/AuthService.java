@@ -76,11 +76,15 @@ public class AuthService {
 
     public static UserPublic toPublic(User user) {
         return new UserPublic(user.getId(), user.getEmail(), user.getFullName(), user.getDisplayName(),
-                user.getTitle(), user.getDepartment(), user.isActive(), roleNames(user));
+                user.getTitle(), departmentNames(user), user.isActive(), roleNames(user));
     }
 
     private static List<String> roleNames(User user) {
         return user.getRoles().stream().map(Enum::name).sorted().toList();
+    }
+
+    private static List<String> departmentNames(User user) {
+        return user.getDepartments().stream().map(Enum::name).sorted().toList();
     }
 
     private static WebApplicationException tooManyRequests(String message) {

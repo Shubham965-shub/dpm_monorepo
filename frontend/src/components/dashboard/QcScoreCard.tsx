@@ -4,8 +4,7 @@ import { cn } from '@/lib/utils'
 import type { Grain } from '@/lib/kpiSchemas'
 import { getGrainDateRange } from '@/lib/kpiDateRange'
 import { useQcScore } from '@/hooks/useQcScore'
-import type { SectionKey } from './mockData'
-import { SECTION_LABELS } from './sectionLabels'
+import { KPI_DOMAINS } from '@/lib/kpiConfig'
 import { bandSeverity, formatScore, scoreBandLabel, scoreBandMeta, SEVERITY_ORDER } from './types'
 import { DemoDataBadge, UPCOMING_FEATURE_CLASS } from './DemoDataBadge'
 
@@ -79,8 +78,7 @@ export function QcScoreCard({
           score alone could rank a RED section above an AMBER one if its average happened to be
           higher. Score is only the tiebreaker within the same band. No-data sections sort last:
           they aren't a bad score, just an unavailable one. */}
-          {(Object.keys(SECTION_LABELS) as SectionKey[])
-            .map((key) => ({ key, section: data?.sections.find((s) => s.sectionId === key) }))
+          {KPI_DOMAINS.map((domain) => ({ domain, section: data?.sections.find((s) => s.sectionId === domain.key) }))
             .sort((a, b) => {
               const severityRank = (s: typeof a) => {
                 const severity = bandSeverity(s.section?.band ?? null)
@@ -88,15 +86,15 @@ export function QcScoreCard({
               }
               return severityRank(a) - severityRank(b) || (a.section?.score ?? Infinity) - (b.section?.score ?? Infinity)
             })
-            .map(({ key, section }) => {
+            .map(({ domain, section }) => {
               const sectionMeta = scoreBandMeta(section?.band ?? null)
               return (
-                <div key={key} className="flex flex-col items-center text-center">
+                <div key={domain.key} className="flex flex-col items-center text-center">
                   <div className="text-xl font-black" style={{ color: sectionMeta.solidHex }}>
                     {formatScore(section?.score)}
                   </div>
                   <div className="pt-0.5 text-[8px] font-bold tracking-wide uppercase" style={{ color: '#99a1af' }}>
-                    {SECTION_LABELS[key].shortLabel}
+                    {domain.shortLabel}
                   </div>
                   <div className="mt-1 h-1 w-full rounded-full" style={{ backgroundColor: sectionMeta.solidHex }} />
                 </div>

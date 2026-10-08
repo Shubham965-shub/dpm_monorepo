@@ -1,17 +1,19 @@
 import { useCallback, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { useAuth } from './useAuth'
-import type { SectionKey } from '@/components/dashboard/mockData'
 
+// A plain domain key (string), not the QC-only SectionKey union - SectionSummaryList now renders
+// any KpiDomain[] (see its own `domains` prop), including qaKpiConfig.ts's QA section keys, and a
+// favorited section is just whatever key was starred, regardless of which domain set it came from.
 function storageKeyFor(userId: string): string {
   return `dpm.favoriteSections.${userId}`
 }
 
-function readFavorites(userId: string): Set<SectionKey> {
+function readFavorites(userId: string): Set<string> {
   try {
     const raw = localStorage.getItem(storageKeyFor(userId))
     const parsed: unknown = raw ? JSON.parse(raw) : []
-    return Array.isArray(parsed) ? new Set(parsed as SectionKey[]) : new Set()
+    return Array.isArray(parsed) ? new Set(parsed as string[]) : new Set()
   } catch {
     return new Set()
   }
@@ -29,10 +31,10 @@ export function useFavoriteSections() {
   // Lazy initializer only (no re-sync effect): DashboardPage - and everything under it, including
   // this hook - only mounts while a user is logged in (see App.tsx) and fully unmounts on logout,
   // so a user-id change always comes with a fresh mount, never a live swap under this same instance.
-  const [favorites, setFavorites] = useState<Set<SectionKey>>(() => (userId ? readFavorites(userId) : new Set()))
+  const [favorites, setFavorites] = useState<Set<string>>(() => (userId ? readFavorites(userId) : new Set()))
 
   const toggleFavorite = useCallback(
-    (key: SectionKey) => {
+    (key: string) => {
       if (!userId) return
       const applyToggle = () =>
         setFavorites((prev) => {

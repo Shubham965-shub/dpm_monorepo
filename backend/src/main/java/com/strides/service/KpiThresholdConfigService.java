@@ -48,12 +48,12 @@ public class KpiThresholdConfigService {
                 .orElseThrow(() -> new NotFoundException("No KPI catalogue entry for card " + cardKpiId));
     }
 
-    /** kpi_info is optional reference text - a missing table or grant must not fail the catalogue itself. */
+    /** qc_kpi_info is optional reference text - a missing table or grant must not fail the catalogue itself. */
     private static <T> T readInfo(Supplier<T> lookup, T fallback) {
         try {
             return lookup.get();
         } catch (AggQueryException e) {
-            LOG.warn("kpi_info lookup failed - serving the catalogue without source system/summary", e);
+            LOG.warn("qc_kpi_info lookup failed - serving the catalogue without source system/summary", e);
             return fallback;
         }
     }

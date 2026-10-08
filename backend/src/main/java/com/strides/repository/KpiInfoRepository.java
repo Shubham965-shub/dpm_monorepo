@@ -7,11 +7,11 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Optional;
 
-/** Read-only: needs SELECT on kpi_info only. kpi_id is its primary key, so at most one row per KPI. */
+/** Read-only: needs SELECT on qc_kpi_info only. kpi_id is its primary key, so at most one row per KPI. */
 @ApplicationScoped
 public class KpiInfoRepository extends AbstractAggRepository<KpiInfoRow> {
 
-    private static final String SELECT_INFO = "SELECT kpi_id, source_system, summary FROM public.kpi_info";
+    private static final String SELECT_INFO = "SELECT kpi_id, source_system, summary FROM public.qc_kpi_info";
 
     public List<KpiInfoRow> findAll() {
         return query(SELECT_INFO, KpiInfoRepository::mapRow);

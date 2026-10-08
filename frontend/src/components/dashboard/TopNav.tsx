@@ -87,7 +87,7 @@ export function TopNav({
   )
 }
 
-export type SubNavView = 'dashboard' | 'performance'
+export type SubNavView = 'dashboard' | 'performance' | 'qa'
 
 const OPERATIONS_LENS_OPTIONS: { value: AnalystSupervisorView; label: string }[] = [
   { value: 'analyst', label: 'Analyst' },
@@ -137,6 +137,8 @@ export function SubNav({
   analystSupervisorView,
   onAnalystSupervisorViewChange,
   analystSupervisorLocked,
+  showDashboardTab = true,
+  showQaTab = false,
 }: {
   view: SubNavView
   onViewChange: (view: SubNavView) => void
@@ -144,23 +146,44 @@ export function SubNav({
   analystSupervisorView?: AnalystSupervisorView
   onAnalystSupervisorViewChange?: (value: AnalystSupervisorView) => void
   analystSupervisorLocked?: boolean
+  /** True for ADMIN or a user whose departments include QC (see roleAccess.ts's
+   * hasDepartmentAccess / DashboardPage) - hides the tab entirely for a QA-only user rather than
+   * just blocking it if somehow navigated to. */
+  showDashboardTab?: boolean
+  /** True for ADMIN or a user whose departments include QA (see roleAccess.ts's
+   * hasDepartmentAccess / DashboardPage) - hides the tab entirely for everyone else rather than
+   * just being blocked if somehow navigated to. */
+  showQaTab?: boolean
 }) {
   return (
     <div className="flex items-center justify-between border-b border-border px-6 py-2 md:px-10 lg:px-20">
       <div className="flex items-center gap-4 text-sm">
-        <button
-          onClick={() => onViewChange('dashboard')}
-          className={view === 'dashboard' ? 'font-semibold text-brand' : 'text-muted-foreground hover:text-foreground'}
-        >
-          Dashboard
-        </button>
-        <NavDivider className="bg-border" />
+        {showDashboardTab && (
+          <button
+            onClick={() => onViewChange('dashboard')}
+            className={view === 'dashboard' ? 'font-semibold text-brand' : 'text-muted-foreground hover:text-foreground'}
+          >
+            Dashboard
+          </button>
+        )}
+        {showDashboardTab && <NavDivider className="bg-border" />}
         <button
           onClick={() => onViewChange('performance')}
           className={view === 'performance' ? 'font-semibold text-brand' : 'text-muted-foreground hover:text-foreground'}
         >
           Performance
         </button>
+        {showQaTab && (
+          <>
+            <NavDivider className="bg-border" />
+            <button
+              onClick={() => onViewChange('qa')}
+              className={view === 'qa' ? 'font-semibold text-brand' : 'text-muted-foreground hover:text-foreground'}
+            >
+              QA (Preview)
+            </button>
+          </>
+        )}
       </div>
       <div className="flex items-center gap-4">
         {analystSupervisorView && onAnalystSupervisorViewChange && (

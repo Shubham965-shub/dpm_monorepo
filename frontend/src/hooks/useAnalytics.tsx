@@ -62,7 +62,7 @@ function AnalyticsIdentityBridge() {
         posthog.identify(user.email, {
           email: user.email,
           name: user.fullName,
-          department: user.department ?? undefined,
+          department: user.departments.length > 0 ? user.departments.join(', ') : undefined,
           title: user.title ?? undefined,
           roles: user.roles,
         })

@@ -1,6 +1,6 @@
 import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
-import type { ExtraFilter, KpiDefinition } from '@/lib/kpiConfig'
+import type { ExtraFilter, KpiDefinition, KpiDomain } from '@/lib/kpiConfig'
 import type { Grain } from '@/lib/kpiSchemas'
 import type { ExtraFilterState } from '@/components/kpi/ExtraFilterControl'
 import { FilterPills } from '@/components/kpi/FilterPills'
@@ -17,6 +17,7 @@ import type { HeatmapDimensionRow } from '@/lib/rootCauseHeatmap'
  * (dense=false) rather than a bigger line chart, since a matrix "zooms in" by growing cells/labels,
  * not by re-plotting. */
 export function RootCauseHeatmapDetailModal({
+  domain,
   domainLabel,
   kpi,
   severity,
@@ -34,6 +35,7 @@ export function RootCauseHeatmapDetailModal({
   filterOptionsLoading,
   onClose,
 }: {
+  domain: KpiDomain
   domainLabel: string
   kpi: KpiDefinition
   severity: Severity | null
@@ -84,7 +86,7 @@ export function RootCauseHeatmapDetailModal({
             </div>
             <h2 className="text-2xl font-bold">{kpi.label}</h2>
             <div className="mt-3">
-              <KpiInfoDropdown kpiId={kpi.id} />
+              <KpiInfoDropdown domain={domain} kpi={kpi} />
             </div>
           </div>
           {/* max-w-xs: without a real width to wrap against, FilterPills' own flex-wrap never

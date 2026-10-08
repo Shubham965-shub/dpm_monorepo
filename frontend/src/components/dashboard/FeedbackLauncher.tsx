@@ -39,7 +39,7 @@ export function FeedbackLauncher() {
       // Cosmetic only: it fills the modal's read-only "Submitting as ..." line. The identity
       // stored against the feedback is read from the token server-side, so nothing here can
       // misattribute a submission.
-      user={user ? { full_name: user.fullName, display_name: user.displayName, department: user.department } : null}
+      user={user ? { full_name: user.fullName, display_name: user.displayName, department: user.departments.join(', ') || null } : null}
     >
       <button
         type="button"

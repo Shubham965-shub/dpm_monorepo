@@ -1,8 +1,10 @@
 package com.strides.controller;
 
+import com.strides.domain.Department;
 import com.strides.dto.DrilldownPage;
 import com.strides.dto.KpiCardResponse;
 import com.strides.dto.KpiParams;
+import com.strides.security.RequiresDepartment;
 import com.strides.service.QmsService;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.BeanParam;
@@ -15,6 +17,7 @@ import java.util.Map;
 
 @Path("/api/qms")
 @Produces(MediaType.APPLICATION_JSON)
+@RequiresDepartment(Department.QC)
 public class QmsController {
 
     @Inject

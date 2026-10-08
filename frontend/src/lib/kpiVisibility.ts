@@ -1,4 +1,5 @@
 import type { KpiVisibilityLens } from './roleAccess'
+import { QA_KPI_VISIBILITY } from './qaKpiVisibility'
 
 /**
  * Role-visibility, straight from Strides_DPM_KPI_Framework_v1's Analyst/Supervisor/Manager/HOD/CXO
@@ -161,10 +162,19 @@ const CXO_VISIBLE_KPI_IDS = new Set([
 ])
 
 /** Shared by SectionSummaryList's per-section KPI filtering/chips and DashboardPage's page-level
- * severity badge summary, so neither can drift from the other. */
+ * severity badge summary, so neither can drift from the other. Merged with QA_KPI_VISIBILITY
+ * (qaKpiVisibility.ts) rather than kept as a separate lookup - QC and QA KPI ids are disjoint
+ * (every QA id is `qa-`-prefixed - see qaKpiConfig.ts), so a QC domain's `.has()` calls are
+ * unaffected by QA's extra entries, and vice versa; this lets SectionSummaryList/DomainSeverityBoard/
+ * useDomainTrendKpis/useCardGrain stay untouched for the QA preview instead of threading a second
+ * visibility map through every one of them. */
 export const KPI_VISIBILITY: Record<KpiVisibilityLens, Set<string>> = {
-  analyst: ANALYST_VISIBLE_KPI_IDS,
-  supervisor: SUPERVISOR_VISIBLE_KPI_IDS,
-  leadership: LEADERSHIP_VISIBLE_KPI_IDS,
-  cxo: CXO_VISIBLE_KPI_IDS,
+  analyst: new Set([...ANALYST_VISIBLE_KPI_IDS, ...QA_KPI_VISIBILITY.analyst]),
+  supervisor: new Set([...SUPERVISOR_VISIBLE_KPI_IDS, ...QA_KPI_VISIBILITY.supervisor]),
+  leadership: new Set([...LEADERSHIP_VISIBLE_KPI_IDS, ...QA_KPI_VISIBILITY.leadership]),
+  cxo: new Set([...CXO_VISIBLE_KPI_IDS, ...QA_KPI_VISIBILITY.cxo]),
+  // QC has no Cluster Head tier (see the DPM role ladder) - reuses its own CXO set rather than
+  // leaving 'clusterHead' empty for QC ids. QA's own Cluster Head set is genuinely distinct (see
+  // qaKpiVisibility.ts), not a reuse of its cxo entry.
+  clusterHead: new Set([...CXO_VISIBLE_KPI_IDS, ...QA_KPI_VISIBILITY.clusterHead]),
 }

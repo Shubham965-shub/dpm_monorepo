@@ -5,11 +5,16 @@ export type RoleTab = 'CXO' | 'Leadership' | 'Operations'
 /** One KPI-visibility list per KPI Framework spec role column (see SectionSummaryList's
  * KPI_VISIBILITY) - 'leadership' covers both HOD and MANAGER, which the spec never distinguishes
  * (same column for both). Every tab/role resolves to exactly one of these - there is no unfiltered
- * "all KPIs" state. */
-export type KpiVisibilityLens = 'analyst' | 'supervisor' | 'leadership' | 'cxo'
+ * "all KPIs" state. 'clusterHead' sits alongside 'cxo' within a department's CXO tier (see the DPM
+ * role ladder) - currently only meaningful for QA (qaKpiVisibility.ts/qaDefaultGrain.ts carry real,
+ * distinct Cluster Head data); QC has no Cluster Head tier, so its own KPI_VISIBILITY/
+ * KPI_DEFAULT_GRAIN just reuse the 'cxo' entry for 'clusterHead' (see kpiVisibility.ts). */
+export type KpiVisibilityLens = 'analyst' | 'supervisor' | 'leadership' | 'cxo' | 'clusterHead'
 /** The two lenses a locked SUPERVISOR/ANALYST (and ADMIN, via its own free-toggle Operations
  * choice) switch between within Operations. */
 export type AnalystSupervisorView = Extract<KpiVisibilityLens, 'analyst' | 'supervisor'>
+/** The two lenses within a department's CXO tier (see resolveQaLens) - CLUSTER_HEAD and CXO. */
+export type CxoClusterHeadView = Extract<KpiVisibilityLens, 'cxo' | 'clusterHead'>
 
 /**
  * Maps the backend's fixed Role enum (CXO/HOD/MANAGER/SUPERVISOR/ANALYST/ADMIN - see
@@ -39,4 +44,40 @@ export function resolveAnalystSupervisorView(roles: string[]): { view: AnalystSu
   if (role === 'ADMIN') return { view: 'supervisor', locked: false }
   if (role === 'ANALYST') return { view: 'analyst', locked: true }
   return { view: 'supervisor', locked: true }
+}
+
+/** True if any of the user's roles is ADMIN (a user can hold more than one - see
+ * backend/src/main/java/com/strides/domain/Role.java). ADMIN bypasses both the QC/QA tab gate (see
+ * hasDepartmentAccess) and the role-tab locking above - unlike resolveRoleTab/
+ * resolveAnalystSupervisorView, this isn't about which of the existing QC lenses a role is confined
+ * to, just a plain admin check. */
+export function isAdmin(roles: string[]): boolean {
+  return roles.includes('ADMIN')
+}
+
+/** True if the user can access `department`'s dashboard - either ADMIN (bypasses this gate
+ * entirely, same as it already bypasses role-tab locking) or the department is in their own list
+ * (a user can hold more than one - see backend/src/main/java/com/strides/domain/Department.java,
+ * e.g. the one CXO shared across Mfg/Engg/SC&P). Mirrors RequiresDepartment's server-side check -
+ * see TopNav's tab visibility / DashboardPage. */
+export function hasDepartmentAccess(roles: string[], departments: string[], department: string): boolean {
+  return isAdmin(roles) || departments.includes(department)
+}
+
+/**
+ * QA's own role→lens resolution (there's no separate "tab" concept for QA - just one page, see
+ * QaDashboardPage) - mirrors resolveRoleTab/resolveAnalystSupervisorView's combined shape for QC,
+ * adapted to QA's flatter ladder (no Analyst-level column in the sheet - see qaKpiVisibility.ts) and
+ * its CXO/Cluster Head split (see CxoClusterHeadView). ADMIN previews freely (locked: false);
+ * every other role is locked to exactly one lens. A role with no QA-specific mapping (ANALYST, or
+ * none) falls back to 'supervisor', QA's least-privileged real lens.
+ */
+export function resolveQaLens(roles: string[]): { lens: KpiVisibilityLens; locked: boolean } {
+  const role = roles[0]
+  if (role === 'ADMIN') return { lens: 'cxo', locked: false }
+  if (role === 'CXO') return { lens: 'cxo', locked: true }
+  if (role === 'CLUSTER_HEAD') return { lens: 'clusterHead', locked: true }
+  if (role === 'HOD' || role === 'MANAGER') return { lens: 'leadership', locked: true }
+  if (role === 'SUPERVISOR') return { lens: 'supervisor', locked: true }
+  return { lens: 'supervisor', locked: true }
 }

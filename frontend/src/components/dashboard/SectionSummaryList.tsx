@@ -1,7 +1,6 @@
 import { forwardRef, useImperativeHandle, useState, type CSSProperties, type ReactNode } from 'react'
 import { DomainTierCounts } from './DomainTierCounts'
 import { cn } from '@/lib/utils'
-import { useHeatmapData } from '@/hooks/useHeatmapData'
 import { useFavoriteSections } from '@/hooks/useFavoriteSections'
 import { KPI_DOMAINS, type KpiDefinition, type KpiDomain } from '@/lib/kpiConfig'
 import { getGrainDateRange } from '@/lib/kpiDateRange'
@@ -11,14 +10,11 @@ import { KpiRankingBarCard } from './KpiRankingBarCard'
 import { PeriodCountBarCard } from './PeriodCountBarCard'
 import { PriorityComplianceCard } from './PriorityComplianceCard'
 import { RootCauseHeatmapCard } from './RootCauseHeatmapCard'
-import { SECTION_LABELS } from './sectionLabels'
 import { useQcScore } from '@/hooks/useQcScore'
 import { SectionSummaryBar } from './SectionSummaryBar'
 import { DomainSeverityBoard } from './DomainSeverityBoard'
-import type { SectionFilterValue } from './FilterBar'
 import type { KpiVisibilityLens } from '@/lib/roleAccess'
 import { KPI_VISIBILITY } from '@/lib/kpiVisibility'
-import { SIDEBAR_HEATMAP_MONTH_COUNT } from '@/lib/kpiDateRange'
 import {
   kpiAnchorId,
   KPI_CARD_GRID_CLASS,
@@ -63,6 +59,7 @@ function SectionBlock({
   globalFilters,
   lens,
   initialTierCounts,
+  scored,
 }: {
   sectionKey: string
   category: string
@@ -82,6 +79,8 @@ function SectionBlock({
   globalFilters: GlobalKpiFilters
   lens: KpiVisibilityLens
   initialTierCounts: TierCounts
+  /** See kpiConfig.ts's KpiDomain.scored / SectionSummaryBar's own `scored` prop. */
+  scored: boolean
 }) {
   // Not useState(initialTierCounts): that only reads its argument on this component's very first
   // render. DomainTierCounts' probes (a separate, independent useDomainTrendKpis fetch per domain)
@@ -112,9 +111,15 @@ function SectionBlock({
         onToggleStar={onToggleStar}
         expanded={expanded}
         onToggle={onToggle}
+        scored={scored}
       />
       {expanded && domain && (
         <div className="rounded-b-lg border border-t-0 border-border bg-card">
+          {trendKpis.length === 0 && stackedKpis.length === 0 && columnKpis.length === 0 && rankingKpis.length === 0 && (
+            <p className="text-muted-foreground px-4 py-6 text-center text-sm">
+              No KPIs in this section are visible to the current role.
+            </p>
+          )}
           {trendKpis.length > 0 && (
             <DomainSeverityBoard
               domain={domain}
@@ -165,25 +170,44 @@ export const SectionSummaryList = forwardRef<
   SectionSummaryListHandle,
   {
     site: string
-    section: SectionFilterValue
+    section: 'all' | string
     grain: Grain
     /** Leadership's Timeline: T-7/T-30/T-90/T-180 filter (see LeadershipFilterBar) - a trailing
      * day-count window in place of getGrainDateRange(grain)'s. Omitted elsewhere. */
     dateRangeOverride?: { from: string; to: string }
     searchQuery: string
     lens: KpiVisibilityLens
+    /** Defaults to KPI_DOMAINS (QC). A domain carrying `mock: true` (see qaKpiConfig.ts) has no real
+     * backend yet - its KPI data comes from generateMockKpiSeries instead (see useKpiData.ts). */
+    domains?: KpiDomain[]
+    /** Overrides the real `useQcScore` fetch (GET /api/qc-score, QC-specific) with a plain lookup -
+     * for a mock domain set with no real score endpoint (see qaKpiConfig.ts / qaSectionScore.ts).
+     * A section with no entry here (or returning undefined) shows no score, same as real "no data". */
+    sectionScores?: (sectionKey: string) => { score: number | null; previousScore: number | null } | undefined
   }
->(function SectionSummaryList({ site, section, grain, dateRangeOverride, searchQuery, lens }, ref) {
+>(function SectionSummaryList({ site, section, grain, dateRangeOverride, searchQuery, lens, domains = KPI_DOMAINS, sectionScores }, ref) {
   const visibleKpiIds = KPI_VISIBILITY[lens]
-  const { sections: allSections } = useHeatmapData(site, { unit: 'month', count: SIDEBAR_HEATMAP_MONTH_COUNT })
+  // Section list/titles come straight from `domains` rather than useHeatmapData's own derived list -
+  // this file never reads a heatmap cell's `rows`, only each section's key/title, so a dedicated
+  // real-data fetch just for that (which useHeatmapData always hardcodes to KPI_DOMAINS, with no way
+  // to point it at a different domain set) is both unnecessary and QC-only. See git history for the
+  // prior useHeatmapData-backed version.
+  const allSections = domains.map((d) => ({ key: d.key, title: d.label }))
   const { favorites, toggleFavorite } = useFavoriteSections()
   const filteredSections = section === 'all' ? allSections : allSections.filter((s) => s.key === section)
-  // Favorited sections render first (stable otherwise, so non-favorited sections keep their
-  // existing relative order) - see useFavoriteSections.ts for the per-user localStorage persistence.
-  const sections = [...filteredSections].sort(
-    (a, b) => Number(favorites.has(b.key)) - Number(favorites.has(a.key)),
-  )
-  const [expandedKey, setExpandedKey] = useState<string | null>('lab-performance')
+  const isScored = (sectionKey: string) => domains.find((d) => d.key === sectionKey)?.scored ?? true
+  // Favorited sections render first within the scored group (stable otherwise, so non-favorited
+  // sections keep their existing relative order - see useFavoriteSections.ts for the per-user
+  // localStorage persistence); an unscored section (e.g. Cross-Functional Context - see
+  // kpiConfig.ts's KpiDomain.scored) always sorts after every scored one, favorited or not, per the
+  // "sits below the four scored sections" rule.
+  const sections = [...filteredSections].sort((a, b) => {
+    const scoredRank = Number(isScored(b.key)) - Number(isScored(a.key))
+    return scoredRank !== 0 ? scoredRank : Number(favorites.has(b.key)) - Number(favorites.has(a.key))
+  })
+  // Lazy initializer, not a hardcoded literal: the first domain in whichever `domains` this instance
+  // was given (QC's 'lab-performance', or a QA preview's first section) starts expanded.
+  const [expandedKey, setExpandedKey] = useState<string | null>(() => domains[0]?.key ?? null)
   const [tierCounts, setTierCounts] = useState<{ bySection: Record<string, TierCounts>; total: TierCounts }>({
     bySection: {},
     total: ZERO_TIER_COUNTS,
@@ -220,22 +244,21 @@ export const SectionSummaryList = forwardRef<
   const effectiveExpandedKey = section === 'all' ? expandedKey : section
 
   // Trailing window sized to the top Timeline filter's grain (see kpiDateRange.ts's
-  // getGrainDateRange) - independent of the Overall Heatmap above, which always shows its own
-  // fixed trailing 3 calendar months (see useHeatmapData). The Performance tab's KpiFilterBar is a
-  // separate, user-adjustable filter set - not shared here.
+  // getGrainDateRange). The Performance tab's KpiFilterBar is a separate, user-adjustable filter
+  // set - not shared here.
   const { from, to } = dateRangeOverride ?? getGrainDateRange(grain)
   const globalFilters: GlobalKpiFilters = { site, grain, from, to }
-  // Same query key as QcScoreCard's, so both read one cached request.
-  const { data: qcScore } = useQcScore(globalFilters)
+  // Same query key as QcScoreCard's, so both read one cached request. Disabled when `sectionScores`
+  // is given (a mock domain set - see qaSectionScore.ts) - there's no real score endpoint to call.
+  const { data: qcScore } = useQcScore(globalFilters, { enabled: !sectionScores })
 
   const rows = sections.map((sec) => {
-        const labels = SECTION_LABELS[sec.key]
-        const sectionScore = qcScore?.sections.find((s) => s.sectionId === sec.key)
+        const domain = domains.find((d) => d.key === sec.key)
+        const sectionScore = sectionScores ? sectionScores(sec.key) : qcScore?.sections.find((s) => s.sectionId === sec.key)
         // Tier counts come from DomainTierCounts (see its own doc comment) - each KPI's own real
         // per-lens grain and the identical trendKpis population tier-bucketed below, so this chip
         // always agrees with what the section shows once expanded.
         const { critical, warning, onTrack, noThreshold } = tierCounts.bySection[sec.key] ?? ZERO_TIER_COUNTS
-        const domain = KPI_DOMAINS.find((d) => d.key === sec.key)
         const domainKpis = domain?.kpis.filter((kpi) => visibleKpiIds.has(kpi.id))
         // Per-period trend KPIs get the severity-card treatment (DomainSeverityBoard);
         // STACKED_SHARE_KPI_IDS get PriorityComplianceCard's stacked-percentage view;
@@ -276,14 +299,25 @@ export const SectionSummaryList = forwardRef<
         // visibleKpiIds) - a role whose KPI Framework column leaves a whole section blank (e.g.
         // Analyst sees nothing under Compliance System) shouldn't render that section's header
         // and an empty body, regardless of whether a search is also active.
-        if (!hasMatch) return null
+        //
+        // Exception: a domain with `scored` explicitly set (today, only qaKpiConfig.ts's QA
+        // domains - QC's KPI_DOMAINS never sets it) is one of a fixed, structural set of sections
+        // the Sections tab describes as always showing its score and counting toward the roll-up -
+        // that's a section-level fact, not conditional on whether the CURRENT lens happens to have
+        // a visible KPI inside it (e.g. People Performance's one KPI, Training Completion, has no
+        // CQO cell, so the CXO lens would otherwise make the whole section vanish instead of just
+        // showing no cards - see SectionBlock's own empty-state message for that case). Still
+        // suppressed while actively searching, same as before, since a scored section whose KPIs
+        // don't match the search text is just noise then, not a structural guarantee.
+        const alwaysShowSection = domain?.scored !== undefined && !isSearching
+        if (!hasMatch && !alwaysShowSection) return null
         const expanded = isSearching ? true : effectiveExpandedKey === sec.key
 
         return (
           <SectionBlock
             key={sec.key}
             sectionKey={sec.key}
-            category={labels.category}
+            category={domain?.category ?? ''}
             title={sec.title}
             score={sectionScore?.score ?? null}
             deltaPts={
@@ -295,6 +329,7 @@ export const SectionSummaryList = forwardRef<
             onToggleStar={() => toggleFavorite(sec.key)}
             expanded={expanded}
             onToggle={() => setExpandedKey((k) => (k === sec.key ? null : sec.key))}
+            scored={isScored(sec.key)}
             domain={domain}
             trendKpis={trendKpis}
             stackedKpis={stackedKpis}
@@ -310,7 +345,7 @@ export const SectionSummaryList = forwardRef<
 
   return (
     <div className="flex flex-col gap-3">
-      <DomainTierCounts lens={lens} globalFilters={globalFilters} visibleKpiIds={visibleKpiIds} onChange={setTierCounts} />
+      <DomainTierCounts lens={lens} globalFilters={globalFilters} visibleKpiIds={visibleKpiIds} onChange={setTierCounts} domains={domains} />
       {rows}
       {isSearching && rows.every((r) => r == null) && (
         <p className="text-muted-foreground px-2 py-6 text-center text-sm">
