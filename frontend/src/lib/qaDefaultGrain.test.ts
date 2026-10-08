@@ -28,6 +28,13 @@ describe('qaDefaultGrain', () => {
     expect(qaDefaultGrainFor('qa-plan-vs-actual-pm-calibration-engineering', 'cxo')).toBeNull()
   })
 
+  it('Cluster Head - QA has its own column, genuinely distinct from CXO\'s, not a reuse', () => {
+    // Reg/Customer Audit Success Rate: CXO is quarterly, Cluster Head is monthly - a real difference,
+    // not a copy of the CXO cell.
+    expect(qaDefaultGrainFor('qa-reg-customer-audit-success-rate', 'cxo')).toBe('quarterly')
+    expect(qaDefaultGrainFor('qa-reg-customer-audit-success-rate', 'clusterHead')).toBe('monthly')
+  })
+
   it('merges into the shared defaultGrainFor (kpiDefaultGrain.ts) without disturbing QC ids', () => {
     // A QA id resolves through the same merged lookup every card/hook already calls.
     expect(defaultGrainFor('qa-batch-reject', 'supervisor')).toBe('weekly')

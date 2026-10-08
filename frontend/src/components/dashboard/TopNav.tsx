@@ -137,6 +137,7 @@ export function SubNav({
   analystSupervisorView,
   onAnalystSupervisorViewChange,
   analystSupervisorLocked,
+  showDashboardTab = true,
   showQaTab = false,
 }: {
   view: SubNavView
@@ -145,21 +146,27 @@ export function SubNav({
   analystSupervisorView?: AnalystSupervisorView
   onAnalystSupervisorViewChange?: (value: AnalystSupervisorView) => void
   analystSupervisorLocked?: boolean
-  /** ADMIN only (see roleAccess.ts's isAdmin / DashboardPage) - the QA KPI Framework preview isn't
-   * rolled out to any real persona yet, so the tab itself stays invisible for everyone else rather
-   * than just being blocked if somehow navigated to. */
+  /** True for ADMIN or a user whose departments include QC (see roleAccess.ts's
+   * hasDepartmentAccess / DashboardPage) - hides the tab entirely for a QA-only user rather than
+   * just blocking it if somehow navigated to. */
+  showDashboardTab?: boolean
+  /** True for ADMIN or a user whose departments include QA (see roleAccess.ts's
+   * hasDepartmentAccess / DashboardPage) - hides the tab entirely for everyone else rather than
+   * just being blocked if somehow navigated to. */
   showQaTab?: boolean
 }) {
   return (
     <div className="flex items-center justify-between border-b border-border px-6 py-2 md:px-10 lg:px-20">
       <div className="flex items-center gap-4 text-sm">
-        <button
-          onClick={() => onViewChange('dashboard')}
-          className={view === 'dashboard' ? 'font-semibold text-brand' : 'text-muted-foreground hover:text-foreground'}
-        >
-          Dashboard
-        </button>
-        <NavDivider className="bg-border" />
+        {showDashboardTab && (
+          <button
+            onClick={() => onViewChange('dashboard')}
+            className={view === 'dashboard' ? 'font-semibold text-brand' : 'text-muted-foreground hover:text-foreground'}
+          >
+            Dashboard
+          </button>
+        )}
+        {showDashboardTab && <NavDivider className="bg-border" />}
         <button
           onClick={() => onViewChange('performance')}
           className={view === 'performance' ? 'font-semibold text-brand' : 'text-muted-foreground hover:text-foreground'}

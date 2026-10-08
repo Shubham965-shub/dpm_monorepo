@@ -4,7 +4,7 @@ import { TopNav, SubNav, type SubNavView } from './TopNav'
 import {
   resolveRoleTab,
   resolveAnalystSupervisorView,
-  isAdmin,
+  hasDepartmentAccess,
   type RoleTab,
   type AnalystSupervisorView,
   type KpiVisibilityLens,
@@ -48,13 +48,21 @@ const BEST_EVER_SCORE = { score: 91, period: 'February 2026' }
 
 export function DashboardPage() {
   const { user, logout } = useAuth()
-  const [view, setView] = useState<SubNavView>('dashboard')
+  // Department-gated (see roleAccess.ts's hasDepartmentAccess) - ADMIN bypasses regardless of their
+  // own departments, same as it already bypasses role-tab locking below. A user with neither (a
+  // fresh account before an admin assigns one) sees neither tab - see the fallback message below.
+  const canViewQc = hasDepartmentAccess(user?.roles ?? [], user?.departments ?? [], 'QC')
+  const canViewQa = hasDepartmentAccess(user?.roles ?? [], user?.departments ?? [], 'QA')
+  // Lands on whichever tab the user can actually see rather than always defaulting to QC's -
+  // computed once (not re-synced if departments change mid-session, same as every other
+  // role-derived value here, which also doesn't re-sync - a department change takes effect on next
+  // login, consistent with the rest of this page's role resolution).
+  const [view, setView] = useState<SubNavView>(() => (canViewQc ? 'dashboard' : canViewQa ? 'qa' : 'dashboard'))
   // Only ADMIN (roleTabAccess.locked === false) can actually change these - everyone else is
   // confined to their resolved tab/view (see lib/roleAccess.ts). ADMIN can preview all 4 lens
   // variants (CXO, Leadership, Analyst, Supervisor) via this free-toggle local state.
   const [adminActiveRole, setAdminActiveRole] = useState<RoleTab>('CXO')
   const [adminOperationsLens, setAdminOperationsLens] = useState<AnalystSupervisorView>('supervisor')
-  const admin = isAdmin(user?.roles ?? [])
   const roleTabAccess = resolveRoleTab(user?.roles ?? [])
   const analystSupervisorAccess = resolveAnalystSupervisorView(user?.roles ?? [])
   const activeRole = roleTabAccess.locked ? roleTabAccess.tab : adminActiveRole
@@ -107,18 +115,27 @@ export function DashboardPage() {
         analystSupervisorView={showAnalystSupervisorToggle ? operationsLensChoice : undefined}
         onAnalystSupervisorViewChange={showAnalystSupervisorToggle ? setAdminOperationsLens : undefined}
         analystSupervisorLocked={analystSupervisorAccess.locked}
-        showQaTab={admin}
+        showDashboardTab={canViewQc}
+        showQaTab={canViewQa}
       />
 
       {view === 'qa' ? (
         // Gated on both the nav entry (showQaTab above) and here - flipping `view` state without
-        // the real ADMIN role (it can't be reached without the button, but this is the actual
-        // render guard, not just the nav's) still renders nothing.
-        admin ? (
+        // real QA department access (it can't be reached without the button, but this is the
+        // actual render guard, not just the nav's) still renders nothing.
+        canViewQa ? (
           <QaDashboardPage />
         ) : null
       ) : view === 'performance' ? (
         <PerformanceWorkInProgress />
+      ) : !canViewQc ? (
+        // A user with neither QC nor QA department access yet (e.g. a fresh account before an
+        // admin assigns one) - every other branch below assumes QC access, so this must come first.
+        <main className="flex min-h-[60vh] items-center justify-center px-6 text-center">
+          <p className="text-muted-foreground text-sm">
+            Your account has no department assigned yet. Contact an admin to get access to a dashboard.
+          </p>
+        </main>
       ) : /* The two persona lenses with a strict reference screenshot (see LENS_TITLE) get that
       exact layout - no FilterBar/Heatmap/QcScore/PositiveSignals, a Pending Actions panel instead
       of Needs Attention, and the Timeline/Chart control row. Leadership/CXO/unfiltered keep the
