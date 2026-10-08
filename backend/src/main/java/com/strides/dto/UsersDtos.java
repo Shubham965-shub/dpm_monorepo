@@ -19,7 +19,7 @@ public final class UsersDtos {
             String fullName,
             String displayName,
             String title,
-            String department,
+            List<String> departments,
             String employeeCode,
             boolean isActive,
             OffsetDateTime lastLoginAt,
@@ -33,7 +33,7 @@ public final class UsersDtos {
             @NotBlank @Size(max = 160) String fullName,
             @Size(max = 80) String displayName,
             @Size(max = 120) String title,
-            @Size(max = 120) String department,
+            List<String> departmentNames,
             @Size(max = 40) String employeeCode,
             List<String> roleNames,
             UUID managerId) {
@@ -41,17 +41,17 @@ public final class UsersDtos {
 
     /**
      * Partial update: null = leave unchanged, "" on optional text fields = clear to NULL,
-     * roleNames null = unchanged / [] = remove all. Email is immutable (no field) - it's the
-     * account's identity, not just a profile attribute. Activate/deactivate is just isActive here
-     * rather than dedicated endpoints, to avoid endpoint sprawl for a single boolean flip. managerId
-     * follows the same "null = leave unchanged" rule as the other optional fields - there's no
-     * sentinel for "clear the manager" yet, since nothing has needed that so far.
+     * roleNames/departmentNames null = unchanged / [] = remove all. Email is immutable (no field) -
+     * it's the account's identity, not just a profile attribute. Activate/deactivate is just
+     * isActive here rather than dedicated endpoints, to avoid endpoint sprawl for a single boolean
+     * flip. managerId follows the same "null = leave unchanged" rule as the other optional fields -
+     * there's no sentinel for "clear the manager" yet, since nothing has needed that so far.
      */
     public record UpdateUserRequest(
             @Size(max = 160) String fullName,
             @Size(max = 80) String displayName,
             @Size(max = 120) String title,
-            @Size(max = 120) String department,
+            List<String> departmentNames,
             @Size(max = 40) String employeeCode,
             Boolean isActive,
             List<String> roleNames,

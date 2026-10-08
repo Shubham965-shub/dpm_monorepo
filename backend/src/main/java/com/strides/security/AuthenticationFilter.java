@@ -1,5 +1,6 @@
 package com.strides.security;
 
+import com.strides.domain.Department;
 import com.strides.domain.Role;
 import com.strides.domain.User;
 import com.strides.repository.UserRepository;
@@ -78,8 +79,15 @@ public class AuthenticationFilter implements ContainerRequestFilter {
         }
         currentUser.set(user);
 
-        if (requiresAdmin() && !user.getRoles().contains(Role.ADMIN)) {
+        boolean isAdmin = user.getRoles().contains(Role.ADMIN);
+        if (requiresAdmin() && !isAdmin) {
             abort(ctx, Response.Status.FORBIDDEN, "Admin role required");
+            return;
+        }
+
+        Department requiredDepartment = requiredDepartment();
+        if (requiredDepartment != null && !isAdmin && !user.getDepartments().contains(requiredDepartment)) {
+            abort(ctx, Response.Status.FORBIDDEN, requiredDepartment + " department required");
         }
     }
 
@@ -89,6 +97,15 @@ public class AuthenticationFilter implements ContainerRequestFilter {
             return true;
         }
         return resourceInfo.getResourceClass().isAnnotationPresent(RequiresAdmin.class);
+    }
+
+    private Department requiredDepartment() {
+        var method = resourceInfo.getResourceMethod();
+        RequiresDepartment annotation = method != null ? method.getAnnotation(RequiresDepartment.class) : null;
+        if (annotation == null) {
+            annotation = resourceInfo.getResourceClass().getAnnotation(RequiresDepartment.class);
+        }
+        return annotation != null ? annotation.value() : null;
     }
 
     private static void abort(ContainerRequestContext ctx, Response.Status status, String message) {

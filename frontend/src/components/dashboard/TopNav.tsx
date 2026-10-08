@@ -87,7 +87,7 @@ export function TopNav({
   )
 }
 
-export type SubNavView = 'dashboard' | 'performance'
+export type SubNavView = 'dashboard' | 'performance' | 'qa'
 
 const OPERATIONS_LENS_OPTIONS: { value: AnalystSupervisorView; label: string }[] = [
   { value: 'analyst', label: 'Analyst' },
@@ -137,6 +137,7 @@ export function SubNav({
   analystSupervisorView,
   onAnalystSupervisorViewChange,
   analystSupervisorLocked,
+  showQaTab = false,
 }: {
   view: SubNavView
   onViewChange: (view: SubNavView) => void
@@ -144,6 +145,10 @@ export function SubNav({
   analystSupervisorView?: AnalystSupervisorView
   onAnalystSupervisorViewChange?: (value: AnalystSupervisorView) => void
   analystSupervisorLocked?: boolean
+  /** ADMIN only (see roleAccess.ts's isAdmin / DashboardPage) - the QA KPI Framework preview isn't
+   * rolled out to any real persona yet, so the tab itself stays invisible for everyone else rather
+   * than just being blocked if somehow navigated to. */
+  showQaTab?: boolean
 }) {
   return (
     <div className="flex items-center justify-between border-b border-border px-6 py-2 md:px-10 lg:px-20">
@@ -161,6 +166,17 @@ export function SubNav({
         >
           Performance
         </button>
+        {showQaTab && (
+          <>
+            <NavDivider className="bg-border" />
+            <button
+              onClick={() => onViewChange('qa')}
+              className={view === 'qa' ? 'font-semibold text-brand' : 'text-muted-foreground hover:text-foreground'}
+            >
+              QA (Preview)
+            </button>
+          </>
+        )}
       </div>
       <div className="flex items-center gap-4">
         {analystSupervisorView && onAnalystSupervisorViewChange && (

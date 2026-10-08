@@ -4,10 +4,12 @@ import { TopNav, SubNav, type SubNavView } from './TopNav'
 import {
   resolveRoleTab,
   resolveAnalystSupervisorView,
+  isAdmin,
   type RoleTab,
   type AnalystSupervisorView,
   type KpiVisibilityLens,
 } from '@/lib/roleAccess'
+import { QaDashboardPage } from './QaDashboardPage'
 import { DEFAULT_DASHBOARD_FILTERS, FilterBar, type DashboardFilters } from './FilterBar'
 import { DEFAULT_LEADERSHIP_TRAILING_DAYS, LeadershipFilterBar, type LeadershipTrailingDays } from './LeadershipFilterBar'
 import { OverallHeatmapDemo, LEADERSHIP_HEATMAP_RANGES, heatmapRangesForGrain } from './OverallHeatmapDemo'
@@ -31,8 +33,9 @@ import type { GlobalKpiFilters } from '@/hooks/useKpiData'
 // by the same `lens` value that gates the KPI list and TeamWorkloadOverview, so ADMIN previewing a
 // lens sees the identical title a real locked-in user of that role would. Leadership isn't here -
 // its own reference screenshot gives it a fixed "KRSG Operations" title instead (see the Leadership
-// branch below), not one derived from the lens name.
-const LENS_TITLE: Record<Exclude<KpiVisibilityLens, 'leadership'>, string> = {
+// branch below), not one derived from the lens name. clusterHead isn't here either - QC has no
+// Cluster Head tier (see the DPM role ladder), so this page's own `lens` value never resolves to it.
+const LENS_TITLE: Record<Exclude<KpiVisibilityLens, 'leadership' | 'clusterHead'>, string> = {
   analyst: 'QC Operational View',
   supervisor: 'QC Supervisor View',
   cxo: 'CXO View',
@@ -51,6 +54,7 @@ export function DashboardPage() {
   // variants (CXO, Leadership, Analyst, Supervisor) via this free-toggle local state.
   const [adminActiveRole, setAdminActiveRole] = useState<RoleTab>('CXO')
   const [adminOperationsLens, setAdminOperationsLens] = useState<AnalystSupervisorView>('supervisor')
+  const admin = isAdmin(user?.roles ?? [])
   const roleTabAccess = resolveRoleTab(user?.roles ?? [])
   const analystSupervisorAccess = resolveAnalystSupervisorView(user?.roles ?? [])
   const activeRole = roleTabAccess.locked ? roleTabAccess.tab : adminActiveRole
@@ -103,9 +107,17 @@ export function DashboardPage() {
         analystSupervisorView={showAnalystSupervisorToggle ? operationsLensChoice : undefined}
         onAnalystSupervisorViewChange={showAnalystSupervisorToggle ? setAdminOperationsLens : undefined}
         analystSupervisorLocked={analystSupervisorAccess.locked}
+        showQaTab={admin}
       />
 
-      {view === 'performance' ? (
+      {view === 'qa' ? (
+        // Gated on both the nav entry (showQaTab above) and here - flipping `view` state without
+        // the real ADMIN role (it can't be reached without the button, but this is the actual
+        // render guard, not just the nav's) still renders nothing.
+        admin ? (
+          <QaDashboardPage />
+        ) : null
+      ) : view === 'performance' ? (
         <PerformanceWorkInProgress />
       ) : /* The two persona lenses with a strict reference screenshot (see LENS_TITLE) get that
       exact layout - no FilterBar/Heatmap/QcScore/PositiveSignals, a Pending Actions panel instead

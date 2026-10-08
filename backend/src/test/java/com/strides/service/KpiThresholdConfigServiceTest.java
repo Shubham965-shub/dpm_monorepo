@@ -55,7 +55,7 @@ class KpiThresholdConfigServiceTest {
     @Test
     void anUnreadableKpiInfoTableLeavesTheInfoNullInsteadOfFailingTheCatalogue() {
         when(repository.findAll()).thenReturn(List.of(SAMPLE_TAT));
-        when(infoRepository.findAll()).thenThrow(new AggQueryException("SELECT ... FROM public.kpi_info", new SQLException("relation \"kpi_info\" does not exist")));
+        when(infoRepository.findAll()).thenThrow(new AggQueryException("SELECT ... FROM public.qc_kpi_info", new SQLException("relation \"qc_kpi_info\" does not exist")));
 
         KpiCatalogueEntry entry = service.getAll().get(0);
 

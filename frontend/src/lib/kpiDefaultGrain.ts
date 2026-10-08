@@ -1,5 +1,6 @@
 import type { Grain } from './kpiSchemas'
 import type { KpiVisibilityLens } from './roleAccess'
+import { QA_KPI_DEFAULT_GRAIN } from './qaDefaultGrain'
 
 /**
  * Strides_DPM_KPI_Framework_v1's Analyst/Supervisor/Manager/HOD/CXO columns are each filled with a
@@ -18,7 +19,7 @@ import type { KpiVisibilityLens } from './roleAccess'
  * (root-cause-consolidated) and KpiRankingBarCard
  * (capa-aging-status/human-error-by-product/product-wise-failure).
  */
-export const KPI_DEFAULT_GRAIN: Partial<Record<string, Partial<Record<KpiVisibilityLens, Grain>>>> = {
+const QC_KPI_DEFAULT_GRAIN: Partial<Record<string, Partial<Record<KpiVisibilityLens, Grain>>>> = {
   'sample-tat': { analyst: 'daily', supervisor: 'daily', leadership: 'weekly', cxo: 'monthly' },
   'sla-adherence': { supervisor: 'daily', leadership: 'weekly', cxo: 'monthly' },
   'priority-sample-compliance': { analyst: 'daily', supervisor: 'daily', leadership: 'weekly', cxo: 'monthly' },
@@ -60,6 +61,15 @@ export const KPI_DEFAULT_GRAIN: Partial<Record<string, Partial<Record<KpiVisibil
   'qualification-cycle-time': { supervisor: 'weekly', leadership: 'weekly', cxo: 'monthly' },
   'training-completion-rate': { analyst: 'daily', supervisor: 'weekly', leadership: 'weekly', cxo: 'monthly' },
   'repeat-analysis-rate': { supervisor: 'daily', leadership: 'weekly', cxo: 'monthly' },
+}
+
+/** Merged with QA_KPI_DEFAULT_GRAIN (qaDefaultGrain.ts) - same reasoning as kpiVisibility.ts's own
+ * merge: QC and QA KPI ids are disjoint (every QA id is `qa`-prefixed), so this stays a single
+ * lookup every existing consumer (useCardGrain, useDomainTrendKpis) already reads by kpiId, with no
+ * changes needed to thread a second map through them for the QA preview. */
+export const KPI_DEFAULT_GRAIN: Partial<Record<string, Partial<Record<KpiVisibilityLens, Grain>>>> = {
+  ...QC_KPI_DEFAULT_GRAIN,
+  ...QA_KPI_DEFAULT_GRAIN,
 }
 
 /** null when this KPI/lens pair isn't in the framework doc's table - callers fall back to the

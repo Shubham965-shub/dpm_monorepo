@@ -36,7 +36,15 @@ public class User {
 
     private String title;
 
-    private String department;
+    // Fixed, code-level Department enum, not a joined entity - see Department.java. A user can hold
+    // more than one (e.g. the single CXO shared across Manufacturing, Engineering and Supply Chain
+    // & Planning). Governs dashboard routing (see frontend roleAccess.ts), ADMIN bypasses it. Eager
+    // for the same reason as roles below - a handful of enum values, not worth a second query.
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "user_departments", joinColumns = @JoinColumn(name = "user_id"))
+    @Column(name = "department", nullable = false)
+    @Enumerated(EnumType.STRING)
+    private Set<Department> departments = EnumSet.noneOf(Department.class);
 
     @Column(name = "employee_code")
     private String employeeCode;
@@ -117,14 +125,6 @@ public class User {
         this.title = title;
     }
 
-    public String getDepartment() {
-        return department;
-    }
-
-    public void setDepartment(String department) {
-        this.department = department;
-    }
-
     public String getEmployeeCode() {
         return employeeCode;
     }
@@ -175,5 +175,9 @@ public class User {
 
     public Set<Role> getRoles() {
         return roles;
+    }
+
+    public Set<Department> getDepartments() {
+        return departments;
     }
 }

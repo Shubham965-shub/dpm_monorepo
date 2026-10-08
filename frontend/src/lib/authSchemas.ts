@@ -7,10 +7,15 @@ export const userPublicSchema = z.object({
   fullName: z.string(),
   displayName: z.string().nullable(),
   title: z.string().nullable(),
-  department: z.string().nullable(),
+  // Fixed backend enum: 'QC' | 'QA' | 'MFG' | 'ENGG' | 'SCP'. A user can hold more than one (e.g.
+  // the one CXO shared across Mfg/Engg/SC&P) - gates which dashboard(s) are shown (see
+  // roleAccess.ts's hasDepartmentAccess), mirroring RequiresDepartment's server-side check. ADMIN
+  // (the role) bypasses this regardless of departments.
+  departments: z.array(z.string()),
   isActive: z.boolean(),
-  // Fixed backend enum: 'CXO' | 'HOD' | 'MANAGER' | 'SUPERVISOR' | 'ANALYST' | 'ADMIN'. A user can
-  // hold more than one. Only 'ADMIN' gates anything server-side today.
+  // Fixed backend enum: 'CXO' | 'HOD' | 'MANAGER' | 'SUPERVISOR' | 'ANALYST' | 'ADMIN' |
+  // 'CLUSTER_HEAD'. A user can hold more than one. Only 'ADMIN' gates anything server-side today
+  // (department-gated endpoints also let ADMIN through regardless of department).
   roles: z.array(z.string()),
 })
 export type UserPublic = z.infer<typeof userPublicSchema>

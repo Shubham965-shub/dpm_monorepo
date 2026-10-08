@@ -98,7 +98,7 @@ export function KpiRankingBarDetailModal({
             </div>
             <h2 className="text-2xl font-bold">{kpi.label}</h2>
             <div className="mt-3">
-              <KpiInfoDropdown kpiId={kpi.id} />
+              <KpiInfoDropdown domain={domain} kpi={kpi} />
             </div>
           </div>
           {/* max-w-xs: without a real width to wrap against, FilterPills' own flex-wrap never

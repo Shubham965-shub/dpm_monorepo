@@ -187,6 +187,7 @@ export function RootCauseHeatmapCard({
 
       {detailOpen && (
         <RootCauseHeatmapDetailModal
+          domain={domain}
           domainLabel={domain.label}
           kpi={kpi}
           severity={severity}

@@ -94,7 +94,7 @@ export function PeriodCountBarDetailModal({
             <h2 className="text-2xl font-bold">{kpi.label}</h2>
             {viewLabel && <p className="text-muted-foreground text-sm">By {viewLabel}</p>}
             <div className="mt-3">
-              <KpiInfoDropdown kpiId={kpi.id} />
+              <KpiInfoDropdown domain={domain} kpi={kpi} />
             </div>
           </div>
           {/* max-w-xs: without a real width to wrap against, FilterPills' own flex-wrap never

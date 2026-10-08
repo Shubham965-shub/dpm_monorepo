@@ -39,7 +39,10 @@ public final class AuthDtos {
     /**
      * `roles` is the fixed Role enum's names (e.g. "ADMIN", "MANAGER") - the frontend can check
      * `roles.includes('ADMIN')` to decide whether to show the admin UI, since AuthenticationFilter
-     * checks the exact same thing server-side for every admin-only endpoint.
+     * checks the exact same thing server-side for every admin-only endpoint. `departments` is the
+     * fixed Department enum's names (e.g. "QC", "QA") - a user can hold more than one (see
+     * Department.java) - the frontend gates which dashboard(s) it shows the same way, mirroring
+     * RequiresDepartment's server-side check.
      */
     public record UserPublic(
             UUID id,
@@ -47,7 +50,7 @@ public final class AuthDtos {
             String fullName,
             String displayName,
             String title,
-            String department,
+            List<String> departments,
             boolean isActive,
             List<String> roles) {
     }

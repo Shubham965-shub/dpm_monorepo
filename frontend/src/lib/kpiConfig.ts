@@ -55,8 +55,27 @@ export interface KpiDefinition {
 export interface KpiDomain {
   key: string
   label: string
+  /** Section bar's short header label (e.g. "QMS") - was sectionLabels.ts's own
+   * Record<SectionKey,...>, folded in here so a new domain (see qaKpiConfig.ts) carries its own
+   * display metadata instead of a second table keyed by a domain-specific literal union. */
+  shortLabel: string
+  /** Section bar's category line (e.g. "Compliance System"). */
+  category: string
   /** Backend @Path base, e.g. "/api/qms". */
   basePath: string
+  /** True = this domain has no real backend yet - useKpiData/useDomainTrendKpis synthesize data via
+   * generateMockKpiSeries (mockKpiSeries.ts) instead of fetching `basePath`. See qaKpiConfig.ts. */
+  mock?: boolean
+  /** Base path for this domain's KPI Info-dropdown text (see useKpiInfo/KpiInfoDropdown) - each
+   * domain family keeps its own info table (QC: qc_kpi_info via /api/kpi-thresholds, resolved
+   * through the KPI catalogue; QA: qa_kpi_info via /api/qa-kpi-info, keyed directly by the card id -
+   * see backend/README.md). Defaults to '/api/kpi-thresholds' (every QC domain) when omitted. */
+  infoBasePath?: string
+  /** False = this domain carries no score, no points change, no status chips and no star, is
+   * excluded from any section-score roll-up, and renders visually distinct from scored domains -
+   * see SectionSummaryBar's own `scored` prop and qaSectionScore.ts. Undefined (every QC domain)
+   * means true - every QC section is scored today. */
+  scored?: boolean
   kpis: KpiDefinition[]
 }
 
@@ -81,6 +100,8 @@ export const KPI_DOMAINS: KpiDomain[] = [
   {
     key: 'lab-performance',
     label: 'Lab Performance',
+    shortLabel: 'Lab',
+    category: 'Operational Efficiency',
     basePath: '/api/lab-performance',
     kpis: [
       {
@@ -122,6 +143,8 @@ export const KPI_DOMAINS: KpiDomain[] = [
   {
     key: 'instrument-health',
     label: 'Instrument Health',
+    shortLabel: 'Instrument',
+    category: 'Asset Reliability',
     basePath: '/api/instrument-health',
     kpis: [
       // All 5 below share one drill-down table (fact_lims_instrument_utilization) - see DrilldownSpecs.INSTRUMENT_UTILIZATION.
@@ -139,6 +162,8 @@ export const KPI_DOMAINS: KpiDomain[] = [
   {
     key: 'qms',
     label: 'QMS',
+    shortLabel: 'QMS',
+    category: 'Compliance System',
     basePath: '/api/qms',
     kpis: [
       // Blank testScope = All tests; RISE / Commercial are the switchable variants (QmsService.getInvalidOosRate).
@@ -247,6 +272,8 @@ export const KPI_DOMAINS: KpiDomain[] = [
   {
     key: 'people-performance',
     label: 'People Performance',
+    shortLabel: 'People',
+    category: 'Workforce',
     basePath: '/api/people-performance',
     kpis: [
       { id: 'repeat-analysis-rate', label: 'Repeat Analysis Rate', path: 'repeat-analysis-rate', drilldownPath: 'repeat-analysis-rate/drilldown', extraFilters: [{ kind: 'multiSelect', param: 'sampleType' }] },

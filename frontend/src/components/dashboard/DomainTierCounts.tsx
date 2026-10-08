@@ -51,11 +51,14 @@ export function DomainTierCounts({
   globalFilters,
   visibleKpiIds,
   onChange,
+  domains = KPI_DOMAINS,
 }: {
   lens: KpiVisibilityLens
   globalFilters: GlobalKpiFilters
   visibleKpiIds: Set<string>
   onChange: (counts: { bySection: Record<string, TierCounts>; total: TierCounts }) => void
+  /** Defaults to KPI_DOMAINS (QC) - see SectionSummaryList's own `domains` prop. */
+  domains?: KpiDomain[]
 }) {
   const [bySection, setBySection] = useState<Record<string, TierCounts>>({})
   const reportCounts = useCallback((key: string, counts: TierCounts) => {
@@ -67,7 +70,7 @@ export function DomainTierCounts({
 
   return (
     <>
-      {KPI_DOMAINS.map((domain) => (
+      {domains.map((domain) => (
         <DomainTierCountProbe
           key={domain.key}
           domain={domain}
