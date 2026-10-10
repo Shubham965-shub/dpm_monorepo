@@ -246,7 +246,16 @@ export function KpiDetailModal({
           </div>
         </div>
 
-        {kpi.drilldownPath && <KpiDrilldownTable domain={domain} kpi={kpi} globalFilters={cardFilters} extraParams={extraParams} />}
+        {kpi.drilldownPath && (
+          <KpiDrilldownTable
+            domain={domain}
+            kpi={kpi}
+            globalFilters={cardFilters}
+            extraParams={extraParams}
+            periodRows={metrics.rows}
+            extraStates={extraStates}
+          />
+        )}
       </div>
     </div>,
     document.body,

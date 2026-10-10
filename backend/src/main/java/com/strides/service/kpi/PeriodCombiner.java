@@ -51,16 +51,25 @@ public final class PeriodCombiner {
     /**
      * Same as the 5-arg overload, but every row carries the given caveat note (or null for none) -
      * see KpiCardResponse.note. Also carries the raw numerator/denominator PeriodTotal was already
-     * built from (see KpiCardResponse.numerator/denominator) so the UI can show "45 / 120" alongside "37.5%".
+     * built from (see KpiCardResponse.numerator/denominator) so the UI can show "45 / 120" alongside
+     * "37.5%" - with no numerator/denominator labels (see the 8-arg overload for those), so the UI
+     * falls back to a generic "Numerator / Denominator" heading for this KPI.
      */
     public static List<KpiCardResponse> fromTotals(List<PeriodTotal> totals, double multiplier,
             String kpiId, String name, String unit, String note) {
+        return fromTotals(totals, multiplier, kpiId, name, unit, note, null, null);
+    }
+
+    /** Same as the 6-arg overload, but with real names for what numerator/denominator count (e.g.
+     * "On-Time Samples"/"Total Samples" for SLA Adherence) - see KpiCardResponse.numeratorLabel. */
+    public static List<KpiCardResponse> fromTotals(List<PeriodTotal> totals, double multiplier,
+            String kpiId, String name, String unit, String note, String numeratorLabel, String denominatorLabel) {
         return totals.stream()
                 .map(t -> {
                     BigDecimal value = t.denominator() == 0 ? null
                             : BigDecimal.valueOf(t.numerator() * multiplier / t.denominator()).setScale(2, RoundingMode.HALF_UP);
                     return new KpiCardResponse(kpiId, name, value, unit, null, t.grain(), t.periodStart(), note,
-                            BigDecimal.valueOf(t.numerator()), BigDecimal.valueOf(t.denominator()));
+                            BigDecimal.valueOf(t.numerator()), BigDecimal.valueOf(t.denominator()), numeratorLabel, denominatorLabel);
                 })
                 .toList();
     }

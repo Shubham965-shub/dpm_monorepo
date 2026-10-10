@@ -40,6 +40,13 @@ export const kpiCardResponseSchema = z.object({
   // (see backend InstrumentHealthService.getInstrumentFailureRate). Shown as a tooltip breakdown.
   numerator: z.coerce.number().nullable(),
   denominator: z.coerce.number().nullable(),
+  // What numerator/denominator actually count (e.g. "On-Time Samples"/"Total Samples" for SLA
+  // Adherence) - null wherever numerator/denominator are null, and also null for a ratio KPI not
+  // labeled yet (see backend PeriodCombiner.fromTotals's call sites); the UI falls back to a
+  // generic "Numerator / Denominator" heading in that case. nullish since a backend deployed before
+  // this field existed simply omits it.
+  numeratorLabel: z.string().nullish(),
+  denominatorLabel: z.string().nullish(),
   // nullish, not nullable: a backend deployed before this field existed simply omits it.
   thresholds: kpiThresholdsSchema.nullish(),
   // The period hasn't finished yet, so its value (and colour) is still moving.

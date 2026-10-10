@@ -1,6 +1,7 @@
 package com.strides.repository;
 
 import com.strides.repository.GenericDrilldownRepository.Column;
+import com.strides.repository.GenericDrilldownRepository.ColumnKind;
 import com.strides.repository.GenericDrilldownRepository.TableSpec;
 import java.util.List;
 import java.util.Map;
@@ -18,6 +19,24 @@ public final class DrilldownSpecs {
     private DrilldownSpecs() {
     }
 
+    /** Record-level rows behind the Sample TAT card's chart - previously served by its own bespoke
+     * FactLimsTurnAroundTimeRepository (built before this generic repository existed); migrated here
+     * so it gets the same column-filter/multi-sort/export machinery every other KPI's drill-down
+     * table now has. */
+    public static final TableSpec SAMPLE_TAT = new TableSpec(
+            "fact_lims_turn_around_time", "site_name", "sampled_date",
+            List.of(
+                    new Column("site_name", "siteName"),
+                    new Column("sample_number", "sampleNumber"),
+                    new Column("batch_category", "batchCategory"),
+                    new Column("sample_type", "sampleType"),
+                    new Column("status", "status"),
+                    new Column("sampled_date", "sampledDate", ColumnKind.DATE),
+                    new Column("completed_date", "completedDate", ColumnKind.DATE),
+                    new Column("tat_days", "tatDays")),
+            List.of("sample_number"),
+            Map.of("sampleType", "sample_type", "batchCategory", "batch_category"));
+
     public static final TableSpec SLA_ADHERENCE = new TableSpec(
             "fact_lims_sla_adherence", "site_name", "sampled_date",
             List.of(
@@ -25,13 +44,13 @@ public final class DrilldownSpecs {
                     new Column("sample_number", "sampleNumber"),
                     new Column("text_id", "textId"),
                     new Column("sample_category", "sampleCategory"),
-                    new Column("sampled_date", "sampledDate"),
-                    new Column("completed_date", "completedDate"),
+                    new Column("sampled_date", "sampledDate", ColumnKind.DATE),
+                    new Column("completed_date", "completedDate", ColumnKind.DATE),
                     new Column("max_test_number", "maxTestNumber"),
                     new Column("max_test_status", "maxTestStatus"),
                     new Column("max_test_analysis", "maxTestAnalysis"),
                     new Column("on_time", "onTime"),
-                    new Column("due_date", "dueDate")),
+                    new Column("due_date", "dueDate", ColumnKind.DATE)),
             List.of("sample_number", "text_id"),
             Map.of("sampleCategory", "sample_category"));
 
@@ -45,9 +64,9 @@ public final class DrilldownSpecs {
                     new Column("text_id", "textId"),
                     new Column("str_product_name", "productName"),
                     new Column("priority_at_completion", "priorityAtCompletion"),
-                    new Column("sampled_date", "sampledDate"),
-                    new Column("due_date", "dueDate"),
-                    new Column("completed_date", "completedDate"),
+                    new Column("sampled_date", "sampledDate", ColumnKind.DATE),
+                    new Column("due_date", "dueDate", ColumnKind.DATE),
+                    new Column("completed_date", "completedDate", ColumnKind.DATE),
                     new Column("status", "status")),
             List.of("sample_number", "text_id", "str_product_name"),
             Map.of("sampleType", "sample_type"));
@@ -60,7 +79,7 @@ public final class DrilldownSpecs {
     public static final TableSpec TESTS_PER_ANALYST = new TableSpec(
             "fact_lims_tests_per_analyst", "site_name", "completed_date",
             List.of(
-                    new Column("completed_date", "completedDate"),
+                    new Column("completed_date", "completedDate", ColumnKind.DATE),
                     new Column("group_name", "groupName"),
                     new Column("sample_category", "sampleCategory"),
                     new Column("sample_type", "sampleType"),
@@ -79,7 +98,7 @@ public final class DrilldownSpecs {
     public static final TableSpec HPLC_SEQUENCES_PER_ANALYST = new TableSpec(
             "fact_chrm_hplc_sequence_and_injections", "site", "inject_date",
             List.of(
-                    new Column("inject_date", "date"),
+                    new Column("inject_date", "date", ColumnKind.DATE),
                     new Column("sequence_name", "sequenceName")),
             List.of("sequence_name"),
             Map.of());
@@ -87,7 +106,7 @@ public final class DrilldownSpecs {
     public static final TableSpec HPLC_INJECTIONS_PER_ANALYST = new TableSpec(
             "fact_chrm_hplc_sequence_and_injections", "site", "inject_date",
             List.of(
-                    new Column("inject_date", "date"),
+                    new Column("inject_date", "date", ColumnKind.DATE),
                     new Column("unique_injection_number", "injectionNumber")),
             List.of("unique_injection_number"),
             Map.of());
@@ -100,7 +119,7 @@ public final class DrilldownSpecs {
                     new Column("site_name", "siteName"),
                     new Column("\"Group\"", "instrumentGroup"),
                     new Column("instrument", "instrument"),
-                    new Column("usage_date", "usageDate"),
+                    new Column("usage_date", "usageDate", ColumnKind.DATE),
                     new Column("actual_available_time", "availableTime"),
                     new Column("breakdown_hours", "breakdownHours"),
                     new Column("has_ongoing_breakdown", "hasOngoingBreakdown"),
@@ -117,8 +136,8 @@ public final class DrilldownSpecs {
                     new Column("site_name", "siteName"),
                     new Column("instrument", "instrument"),
                     new Column("event_window", "windowDays"),
-                    new Column("due_date", "dueDate"),
-                    new Column("completed_date", "completedDate"),
+                    new Column("due_date", "dueDate", ColumnKind.DATE),
+                    new Column("completed_date", "completedDate", ColumnKind.DATE),
                     new Column("delay_days", "delayDays"),
                     new Column("ontime_status", "status")),
             List.of("instrument"),
@@ -131,8 +150,8 @@ public final class DrilldownSpecs {
                     new Column("site_name", "siteName"),
                     new Column("instrument", "instrument"),
                     new Column("event_window", "windowDays"),
-                    new Column("due_date", "dueDate"),
-                    new Column("completed_date", "completedDate"),
+                    new Column("due_date", "dueDate", ColumnKind.DATE),
+                    new Column("completed_date", "completedDate", ColumnKind.DATE),
                     new Column("delay_days", "delayDays"),
                     new Column("ontime_status", "status")),
             List.of("instrument"),
@@ -144,9 +163,9 @@ public final class DrilldownSpecs {
             List.of(
                     new Column("site_name", "siteName"),
                     new Column("instruments", "instruments"),
-                    new Column("breakdown_date", "breakdownDate"),
+                    new Column("breakdown_date", "breakdownDate", ColumnKind.DATE),
                     new Column("breakdown_details", "breakdownDetails"),
-                    new Column("rectified_date", "rectifiedDate"),
+                    new Column("rectified_date", "rectifiedDate", ColumnKind.DATE),
                     new Column("breakdown_duration_hrs", "breakdownDurationHrs"),
                     new Column("removed", "removed")),
             List.of("instruments", "breakdown_details"),
@@ -157,7 +176,7 @@ public final class DrilldownSpecs {
             List.of(
                     new Column("site_name", "siteName"),
                     new Column("instrument", "instrument"),
-                    new Column("usage_date", "usageDate"),
+                    new Column("usage_date", "usageDate", ColumnKind.DATE),
                     new Column("effective_usage_hours", "effectiveUsageHours"),
                     new Column("breakdown_count", "breakdownCount"),
                     new Column("breakdown_hours", "breakdownHours")),
@@ -170,8 +189,8 @@ public final class DrilldownSpecs {
                     new Column("site_name", "siteName"),
                     new Column("record_id", "recordId"),
                     new Column("oos_title", "title"),
-                    new Column("date_closed", "dateClosed"),
-                    new Column("closed_date", "closedDate"),
+                    new Column("date_closed", "dateClosed", ColumnKind.DATE),
+                    new Column("closed_date", "closedDate", ColumnKind.DATE),
                     new Column("category", "category"),
                     new Column("conclusion", "conclusion"),
                     new Column("product_type", "productType")),
@@ -189,7 +208,7 @@ public final class DrilldownSpecs {
                     new Column("product_name", "productName"),
                     new Column("product_type", "productType"),
                     new Column("event_type", "eventType"),
-                    new Column("date_closed", "dateClosed")),
+                    new Column("date_closed", "dateClosed", ColumnKind.DATE)),
             List.of("record_id", "oos_title", "product_name"),
             Map.of("productType", "product_type"));
 
@@ -201,8 +220,8 @@ public final class DrilldownSpecs {
                     new Column("initiated_through", "initiatedThrough"),
                     new Column("record_title", "title"),
                     new Column("record_status", "status"),
-                    new Column("date_opened_ist", "dateOpened"),
-                    new Column("date_closed_ist", "dateClosed"),
+                    new Column("date_opened_ist", "dateOpened", ColumnKind.DATE),
+                    new Column("date_closed_ist", "dateClosed", ColumnKind.DATE),
                     new Column("tat_days", "tatDays")),
             List.of("record_id", "record_title"),
             Map.of("initiatedThrough", "initiated_through"));
@@ -215,9 +234,9 @@ public final class DrilldownSpecs {
                     new Column("record_title", "title"),
                     new Column("record_status", "status"),
                     new Column("initiated_through", "initiatedThrough"),
-                    new Column("date_opened_ist", "dateOpened"),
-                    new Column("due_date", "dueDate"),
-                    new Column("closed_date", "closedDate"),
+                    new Column("date_opened_ist", "dateOpened", ColumnKind.DATE),
+                    new Column("due_date", "dueDate", ColumnKind.DATE),
+                    new Column("closed_date", "closedDate", ColumnKind.DATE),
                     new Column("overdue_status", "overdueStatus")),
             List.of("record_id", "record_title"),
             Map.of("initiatedThrough", "initiated_through"));
@@ -229,7 +248,7 @@ public final class DrilldownSpecs {
                     new Column("record_id", "recordId"),
                     new Column("record_type", "recordType"),
                     new Column("title", "title"),
-                    new Column("date_closed_ist", "dateClosed"),
+                    new Column("date_closed_ist", "dateClosed", ColumnKind.DATE),
                     new Column("is_recurring", "isRecurring")),
             List.of("record_id", "title"),
             Map.of("recordType", "record_type"));
@@ -249,8 +268,8 @@ public final class DrilldownSpecs {
                     new Column("title", "title"),
                     new Column("record_status", "status"),
                     new Column("is_recurring", "isRecurring"),
-                    new Column("date_opened", "dateOpened"),
-                    new Column("date_closed", "dateClosed"),
+                    new Column("date_opened", "dateOpened", ColumnKind.DATE),
+                    new Column("date_closed", "dateClosed", ColumnKind.DATE),
                     new Column("cf_category", "causalFactor"),
                     new Column("cf_sub_category", "causalFactorSub")),
             List.of("record_id", "title"),
@@ -264,7 +283,7 @@ public final class DrilldownSpecs {
                     new Column("site", "site"),
                     new Column("bucket", "bucket"),
                     new Column("final_classification", "finalClassification"),
-                    new Column("date_opened", "dateOpened"),
+                    new Column("date_opened", "dateOpened", ColumnKind.DATE),
                     new Column("record_id", "recordId"),
                     new Column("title", "title"),
                     new Column("record_type", "recordType"),
@@ -278,9 +297,9 @@ public final class DrilldownSpecs {
             List.of(
                     new Column("site", "site"),
                     new Column("record_id", "recordId"),
-                    new Column("date_opened", "dateOpened"),
+                    new Column("date_opened", "dateOpened", ColumnKind.DATE),
                     new Column("title", "title"),
-                    new Column("date_closed", "dateClosed"),
+                    new Column("date_closed", "dateClosed", ColumnKind.DATE),
                     new Column("material_code", "materialCode"),
                     new Column("material_description", "materialDescription"),
                     new Column("cf_category", "causalFactor")),
@@ -294,7 +313,7 @@ public final class DrilldownSpecs {
                     new Column("test_number", "testNumber"),
                     new Column("test_modified_results", "testModifiedResults"),
                     new Column("test_status", "testStatus"),
-                    new Column("date_completed", "dateCompleted"),
+                    new Column("date_completed", "dateCompleted", ColumnKind.DATE),
                     new Column("batch_name", "batchName"),
                     new Column("str_batch_category", "batchCategory"),
                     new Column("sample_type", "sampleType")),
@@ -307,9 +326,9 @@ public final class DrilldownSpecs {
                     new Column("site", "site"),
                     new Column("record_type", "recordType"),
                     new Column("record_id", "recordId"),
-                    new Column("date_opened", "dateOpened"),
+                    new Column("date_opened", "dateOpened", ColumnKind.DATE),
                     new Column("title", "title"),
-                    new Column("date_closed", "dateClosed"),
+                    new Column("date_closed", "dateClosed", ColumnKind.DATE),
                     new Column("record_status", "status"),
                     new Column("cf_category", "causalFactor"),
                     new Column("cf_sub_category", "causalFactorSub")),
@@ -324,7 +343,7 @@ public final class DrilldownSpecs {
                     new Column("record_id", "recordId"),
                     new Column("title", "title"),
                     new Column("record_status", "status"),
-                    new Column("closed_date", "closedDate"),
+                    new Column("closed_date", "closedDate", ColumnKind.DATE),
                     new Column("eff_conclusion", "effectivenessConclusion")),
             List.of("record_id", "title"),
             Map.of("originatedFrom", "originated_from"));
@@ -339,8 +358,8 @@ public final class DrilldownSpecs {
                     new Column("title", "title"),
                     new Column("record_status", "status"),
                     new Column("capa_for_recurring_qms_event", "recurringQmsEvent"),
-                    new Column("open_date_ist", "dateOpened"),
-                    new Column("due_date", "dueDate"),
+                    new Column("open_date_ist", "dateOpened", ColumnKind.DATE),
+                    new Column("due_date", "dueDate", ColumnKind.DATE),
                     new Column("days_to_due", "daysToDue")),
             List.of("record_id", "title"),
             Map.of("level", "level"));
@@ -351,7 +370,7 @@ public final class DrilldownSpecs {
                     new Column("site", "site"),
                     new Column("record_id", "recordId"),
                     new Column("title", "title"),
-                    new Column("date_opened_ist", "dateOpened"),
+                    new Column("date_opened_ist", "dateOpened", ColumnKind.DATE),
                     new Column("record_status", "status")),
             List.of("record_id", "title"),
             Map.of());
@@ -362,7 +381,7 @@ public final class DrilldownSpecs {
                     new Column("site", "site"),
                     new Column("record_id", "recordId"),
                     new Column("title", "title"),
-                    new Column("open_date", "dateOpened"),
+                    new Column("open_date", "dateOpened", ColumnKind.DATE),
                     new Column("record_status", "status")),
             List.of("record_id", "title"),
             Map.of());
@@ -376,9 +395,9 @@ public final class DrilldownSpecs {
                     new Column("title", "title"),
                     new Column("record_status", "status"),
                     new Column("recurring_dev_cause_capa", "recurring"),
-                    new Column("open_date_ist", "dateOpened"),
-                    new Column("due_date_ist", "dueDate"),
-                    new Column("date_closed", "dateClosed"),
+                    new Column("open_date_ist", "dateOpened", ColumnKind.DATE),
+                    new Column("due_date_ist", "dueDate", ColumnKind.DATE),
+                    new Column("date_closed", "dateClosed", ColumnKind.DATE),
                     new Column("resp_dept", "respDept"),
                     new Column("preliminary_classification", "initialClassification"),
                     new Column("final_dev_classification", "finalClassification"),
@@ -399,7 +418,7 @@ public final class DrilldownSpecs {
                     new Column("site", "site"),
                     new Column("r_type", "recordType"),
                     new Column("record_id", "recordId"),
-                    new Column("date_opened_key", "dateOpened"),
+                    new Column("date_opened_key", "dateOpened", ColumnKind.DATE),
                     new Column("material_code", "materialCode"),
                     new Column("material_type", "materialType"),
                     new Column("material_name", "materialName"),
@@ -420,7 +439,7 @@ public final class DrilldownSpecs {
                     new Column("employee_status", "employeeStatus"),
                     new Column("confirmation_status", "confirmationStatus"),
                     new Column("date_of_joining", "dateOfJoining"),
-                    new Column("min_aq_completion_date", "aqCompletionDate"),
+                    new Column("min_aq_completion_date", "aqCompletionDate", ColumnKind.DATE),
                     new Column("days_to_first_aq_completion", "qualificationCycleDays"),
                     new Column("str_product_name", "product")),
             List.of("full_name", "operator_id"),
@@ -435,9 +454,9 @@ public final class DrilldownSpecs {
                     new Column("training", "trainingTitle"),
                     new Column("training_type", "trainingType"),
                     new Column("assignment_status", "status"),
-                    new Column("assignment_due_date", "dueDate"),
+                    new Column("assignment_due_date", "dueDate", ColumnKind.DATE),
                     new Column("days_overdue", "daysOverdue"),
-                    new Column("assignment_completed_date", "completedDate")),
+                    new Column("assignment_completed_date", "completedDate", ColumnKind.DATE)),
             List.of("user", "training"),
             Map.of("department", "dept_name", "trainingType", "training_type"));
 
@@ -446,7 +465,7 @@ public final class DrilldownSpecs {
     public static final TableSpec REPEAT_TEST_RATE = new TableSpec(
             "fact_lims_repeat_analysis_rate", "site_name", "sampled_date",
             List.of(
-                    new Column("sampled_date", "testDate"),
+                    new Column("sampled_date", "testDate", ColumnKind.DATE),
                     new Column("sample_type", "sampleType"),
                     new Column("test_number", "testCount")),
             List.of(),
@@ -461,7 +480,7 @@ public final class DrilldownSpecs {
                     new Column("\"SAMPLE_TYPE\"", "sampleType"),
                     new Column("\"WEIGHT\"", "weight"),
                     new Column("\"SAMPLE_NUMBER\"", "sampleNumber"),
-                    new Column("\"DATE_REVIEWED\"", "dateReviewed"),
+                    new Column("\"DATE_REVIEWED\"", "dateReviewed", ColumnKind.DATE),
                     new Column("\"STATUS\"", "status"),
                     new Column("\"REVIEWER\"", "reviewer")),
             List.of("\"SAMPLE_NUMBER\"", "\"REVIEWER\""),

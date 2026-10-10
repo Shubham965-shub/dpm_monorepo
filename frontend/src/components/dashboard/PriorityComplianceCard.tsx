@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Maximize2 } from 'lucide-react'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { cn } from '@/lib/utils'
 import { TOOLTIP_Z_INDEX, greenGradient } from '@/lib/chartPalette'
 import { evenTickInterval, formatPeriodTick, formatPeriodLabel } from '@/lib/periodFormat'
 import { extractRowCategory } from '@/lib/kpiRowName'
@@ -119,12 +120,17 @@ export function PriorityComplianceCard({
   kpi,
   globalFilters,
   lens,
+  dimmed = false,
 }: {
   domain: KpiDomain
   kpi: KpiDefinition
   globalFilters: GlobalKpiFilters
   /** Picks the card's default D/W/M/Q/Y grain - see useCardGrain. */
   lens: KpiVisibilityLens
+  /** True while DashboardPage's selectedSeverity (see SeverityBadgeSummary) is active - this card
+   * has no threshold by design (see stackedShareNoThresholdCount), so it never matches a selected
+   * severity and should fade exactly like a DomainSeverityBoard "no threshold" card does. */
+  dimmed?: boolean
 }) {
   const [detailOpen, setDetailOpen] = useState(false)
   const { grain, setGrain, cardFilters, dateRange, setDateRange, clearDateRange } = useCardGrain(kpi.id, lens, globalFilters)
@@ -142,7 +148,7 @@ export function PriorityComplianceCard({
   return (
     <div
       id={kpiAnchorId(kpi.id)}
-      className="flex flex-col gap-2 rounded-xl border-t border-r border-b p-3"
+      className={cn('flex flex-col gap-2 rounded-xl border-t border-r border-b p-3 transition-opacity', dimmed && 'opacity-40')}
       style={{ backgroundColor: GREEN.cardBg, borderColor: GREEN.solidHex, borderLeftWidth: 3, borderLeftColor: GREEN.solidHex }}
     >
       <div className="flex items-start justify-between gap-2">

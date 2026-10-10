@@ -1,5 +1,6 @@
 package com.strides.controller;
 
+import com.strides.dto.AuthDtos.ChangePasswordRequest;
 import com.strides.dto.AuthDtos.FeedbackTokenResponse;
 import com.strides.dto.AuthDtos.LoginRequest;
 import com.strides.dto.AuthDtos.RefreshResponse;
@@ -71,6 +72,15 @@ public class AuthController {
     @Path("/me")
     public UserPublic me() {
         return AuthService.toPublic(currentUser.get());
+    }
+
+    /** Self-service password change - distinct from UsersController's admin-only reset (see
+     * AuthService.changePassword). */
+    @POST
+    @Path("/change-password")
+    public TokenResponse changePassword(@Valid ChangePasswordRequest request) {
+        LoginResult result = auth.changePassword(currentUser.get(), request.currentPassword(), request.newPassword());
+        return new TokenResponse(result.accessToken(), result.refreshToken(), result.user());
     }
 
     /** The current user's own direct-report analysts (TeamWorkloadOverview's real roster) - open to

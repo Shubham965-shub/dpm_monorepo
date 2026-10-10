@@ -51,6 +51,24 @@ public final class KpiParams {
         @QueryParam("pageSize")
         @DefaultValue("" + DrilldownSupport.DEFAULT_PAGE_SIZE)
         public int pageSize;
+        /** The drill-down table's own per-column filter row (dropdown for a <=50-distinct-value
+         * column, free-text search otherwise, min/max or from/to for a NUMBER/DATE column) and
+         * multi-column sort - see DrilldownSupport.parseSort/parseColumnFilters/parseColumnSearches/
+         * parseColumnRanges. sort: repeated `column:asc`/`column:dir` pairs, ordered by sort
+         * priority. colFilter: repeated `column:value` pairs (same column repeated = a multi-select).
+         * colSearch: repeated `column:text` pairs. colRange: repeated `column:min:max` pairs (either
+         * side blank for an open range). Declared here (not per-subclass) so every drill-down
+         * endpoint gets the same shape for free - a KPI's own service method still decides whether to
+         * actually use them (see GenericDrilldownService.fetch's two overloads) or keep the older
+         * single-sort/no-filter-row behavior. */
+        @QueryParam("sort")
+        public List<String> sort = List.of();
+        @QueryParam("colFilter")
+        public List<String> colFilter = List.of();
+        @QueryParam("colSearch")
+        public List<String> colSearch = List.of();
+        @QueryParam("colRange")
+        public List<String> colRange = List.of();
     }
 
     /** Sample TAT's own drill-down filters, matching its existing card filters (see WithSampleTypeAndBatchCategory). */

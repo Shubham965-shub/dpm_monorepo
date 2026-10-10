@@ -37,6 +37,12 @@ class TeamServiceTest {
         return u;
     }
 
+    private static User analystWithEmail(UUID id, String fullName, String email) {
+        User u = analyst(id, fullName, "Analyst");
+        u.setEmail(email);
+        return u;
+    }
+
     @Test
     void myAnalysts_mapsEachReportToATeamMember() {
         UUID supervisorId = UUID.randomUUID();
@@ -75,5 +81,22 @@ class TeamServiceTest {
 
         assertEquals(1, result.size());
         assertEquals(new TeamMember(analystId, "Ravi Shankar", "Analyst"), result.get(0));
+    }
+
+    @Test
+    void myAnalysts_admin_excludesVerificationAccounts() {
+        UUID adminId = UUID.randomUUID();
+        User admin = new User();
+        admin.setId(adminId);
+        admin.getRoles().add(Role.ADMIN);
+        UUID realAnalystId = UUID.randomUUID();
+        when(users.findAllAnalysts()).thenReturn(List.of(
+                analystWithEmail(realAnalystId, "Ravi Shankar", "ravi.shankar@strides.com"),
+                analystWithEmail(UUID.randomUUID(), "Verify ANALYST", "verify-analyst@mail.com")));
+
+        List<TeamMember> result = service.myAnalysts(admin);
+
+        assertEquals(1, result.size());
+        assertEquals(realAnalystId, result.get(0).id());
     }
 }

@@ -30,6 +30,7 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<void>
   logout: () => Promise<void>
   loginError: string | null
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -70,6 +71,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
   })
 
+  const changePasswordMutation = useMutation({
+    mutationFn: ({ currentPassword, newPassword }: { currentPassword: string; newPassword: string }) =>
+      postValidated(loginResponseSchema, '/api/auth/change-password', { currentPassword, newPassword }),
+    onSuccess: (response) => {
+      // Same response shape as login (see AuthController.changePassword) - every other refresh
+      // token for this user was just revoked server-side (see AuthService.changePassword's own
+      // doc), so this session must swap in the fresh pair it issued instead, same as login does.
+      // Unlike login, this is still the same user/session - no cache wipe, just the new tokens.
+      setAccessToken(response.accessToken)
+      setRefreshToken(response.refreshToken)
+    },
+  })
+
   const logoutMutation = useMutation({
     mutationFn: async () => {
       const refreshToken = getRefreshToken()
@@ -94,6 +108,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await logoutMutation.mutateAsync()
     },
     loginError: loginMutation.isError ? errorMessage(loginMutation.error) : null,
+    changePassword: async (currentPassword, newPassword) => {
+      await changePasswordMutation.mutateAsync({ currentPassword, newPassword })
+    },
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

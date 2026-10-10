@@ -5,8 +5,10 @@ import {
   resolveRoleTab,
   resolveAnalystSupervisorView,
   hasDepartmentAccess,
+  LENS_LABEL,
   type RoleTab,
   type AnalystSupervisorView,
+  type CxoClusterHeadView,
   type KpiVisibilityLens,
 } from '@/lib/roleAccess'
 import { QaDashboardPage } from './QaDashboardPage'
@@ -26,7 +28,7 @@ import { KPI_VISIBILITY } from '@/lib/kpiVisibility'
 import { getGrainDateRange, trailingDayRange } from '@/lib/kpiDateRange'
 import { pluralize } from '@/lib/utils'
 import { DomainTierCounts } from './DomainTierCounts'
-import { ZERO_TIER_COUNTS, type TierCounts } from './types'
+import { ZERO_TIER_COUNTS, type Severity, type TierCounts } from './types'
 import type { GlobalKpiFilters } from '@/hooks/useKpiData'
 
 // Per-lens page title, matching the reference designs exactly (analyst/supervisor/cxo) - driven
@@ -63,6 +65,11 @@ export function DashboardPage() {
   // variants (CXO, Leadership, Analyst, Supervisor) via this free-toggle local state.
   const [adminActiveRole, setAdminActiveRole] = useState<RoleTab>('CXO')
   const [adminOperationsLens, setAdminOperationsLens] = useState<AnalystSupervisorView>('supervisor')
+  // ADMIN's QA-preview sub-choice within the CXO tab (see qaLensForRoleTab / QaDashboardPage) -
+  // mirrors adminOperationsLens's role exactly, just for QA's CXO tab instead of QC's Operations
+  // tab. Real CXO/Cluster Head users never read this - resolveQaLens locks them to their own role's
+  // lens directly, bypassing the tab/toggle entirely.
+  const [adminQaCxoView, setAdminQaCxoView] = useState<CxoClusterHeadView>('cxo')
   const roleTabAccess = resolveRoleTab(user?.roles ?? [])
   const analystSupervisorAccess = resolveAnalystSupervisorView(user?.roles ?? [])
   const activeRole = roleTabAccess.locked ? roleTabAccess.tab : adminActiveRole
@@ -73,7 +80,28 @@ export function DashboardPage() {
   // has a further Analyst/Supervisor choice.
   const lens: KpiVisibilityLens =
     activeRole === 'CXO' ? 'cxo' : activeRole === 'Leadership' ? 'leadership' : operationsLensChoice
-  const showAnalystSupervisorToggle = activeRole === 'Operations'
+  // No further Analyst/Supervisor split while previewing QA (see QaDashboardPage/qaLensForRoleTab) -
+  // QA's Operations tab always resolves straight to Supervisor, so the toggle would have no effect.
+  const showAnalystSupervisorToggle = activeRole === 'Operations' && view !== 'qa'
+  // QA's CXO tab splits further into CXO/Cluster Head (see qaLensForRoleTab) - only ADMIN's free
+  // preview needs a toggle for this; a real CXO or Cluster Head user is already locked to their own
+  // lens by resolveQaLens before this tab/toggle ever enters the picture.
+  const showQaCxoClusterHeadToggle = view === 'qa' && activeRole === 'CXO' && !roleTabAccess.locked
+  const secondaryToggle = showAnalystSupervisorToggle
+    ? {
+        value: operationsLensChoice as KpiVisibilityLens,
+        options: (['analyst', 'supervisor'] as const).map((v) => ({ value: v as KpiVisibilityLens, label: LENS_LABEL[v] })),
+        onChange: (v: KpiVisibilityLens) => setAdminOperationsLens(v as AnalystSupervisorView),
+        locked: analystSupervisorAccess.locked,
+      }
+    : showQaCxoClusterHeadToggle
+      ? {
+          value: adminQaCxoView as KpiVisibilityLens,
+          options: (['cxo', 'clusterHead'] as const).map((v) => ({ value: v as KpiVisibilityLens, label: LENS_LABEL[v] })),
+          onChange: (v: KpiVisibilityLens) => setAdminQaCxoView(v as CxoClusterHeadView),
+          locked: false,
+        }
+      : undefined
   const [filters, setFilters] = useState<DashboardFilters>(DEFAULT_DASHBOARD_FILTERS)
   const [searchQuery, setSearchQuery] = useState('')
   // Leadership's own Timeline filter (see LeadershipFilterBar) - a trailing day-count window
@@ -98,6 +126,11 @@ export function DashboardPage() {
   // render would refire it (and the setState it causes) every render regardless of whether the
   // counts actually changed.
   const handleSeverityTotalsChange = useCallback((counts: { total: TierCounts }) => setSeverityTotals(counts.total), [])
+  // Which severity's badge (see SeverityBadgeSummary) is currently toggled on in the Operations
+  // view - null = no filter. Forwarded to SectionSummaryList as highlightSeverity, which force-
+  // expands every section containing a match and highlights those cards (see DomainSeverityBoard).
+  const [selectedSeverity, setSelectedSeverity] = useState<Severity | null>(null)
+  const toggleSelectedSeverity = (severity: Severity) => setSelectedSeverity((prev) => (prev === severity ? null : severity))
   if (!user) return null
 
   return (
@@ -112,9 +145,7 @@ export function DashboardPage() {
       <SubNav
         view={view}
         onViewChange={setView}
-        analystSupervisorView={showAnalystSupervisorToggle ? operationsLensChoice : undefined}
-        onAnalystSupervisorViewChange={showAnalystSupervisorToggle ? setAdminOperationsLens : undefined}
-        analystSupervisorLocked={analystSupervisorAccess.locked}
+        secondaryToggle={secondaryToggle}
         showDashboardTab={canViewQc}
         showQaTab={canViewQa}
       />
@@ -124,7 +155,7 @@ export function DashboardPage() {
         // real QA department access (it can't be reached without the button, but this is the
         // actual render guard, not just the nav's) still renders nothing.
         canViewQa ? (
-          <QaDashboardPage />
+          <QaDashboardPage activeRoleTab={activeRole} cxoClusterHeadView={adminQaCxoView} />
         ) : null
       ) : view === 'performance' ? (
         <PerformanceWorkInProgress />
@@ -155,12 +186,6 @@ export function DashboardPage() {
                 {DEFAULT_SITE} · All shifts · {pluralize(visibleKpiIds.size, 'assigned KPI')}, critical first, with alerts and assigned activities.
               </p>
             </div>
-            <SeverityBadgeSummary
-              critical={severityTotals.critical}
-              warning={severityTotals.warning}
-              onTrack={severityTotals.onTrack}
-              noThreshold={severityTotals.noThreshold}
-            />
           </div>
 
           {/* A supervisor manages a team's assignments; an analyst only manages their own work -
@@ -169,7 +194,19 @@ export function DashboardPage() {
 
           <NeedsAttentionPanel section={filters.section} lens={lens} />
 
-          <SearchKpiBar value={searchQuery} onChange={setSearchQuery} />
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="min-w-64 flex-1">
+              <SearchKpiBar value={searchQuery} onChange={setSearchQuery} />
+            </div>
+            <SeverityBadgeSummary
+              critical={severityTotals.critical}
+              warning={severityTotals.warning}
+              onTrack={severityTotals.onTrack}
+              noThreshold={severityTotals.noThreshold}
+              selected={selectedSeverity}
+              onSelect={toggleSelectedSeverity}
+            />
+          </div>
 
           <SectionSummaryList
             ref={sectionSummaryListRef}
@@ -178,6 +215,7 @@ export function DashboardPage() {
             grain={filters.grain}
             searchQuery={searchQuery}
             lens={lens}
+            highlightSeverity={selectedSeverity}
           />
         </main>
       ) : lens === 'leadership' ? (

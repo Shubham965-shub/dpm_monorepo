@@ -22,6 +22,8 @@ function TrendResult({
   lens,
   companion,
   onLiveSeverityChange,
+  highlighted,
+  dimmed,
 }: {
   result: DomainTrendKpiResult
   domain: KpiDomain
@@ -29,6 +31,8 @@ function TrendResult({
   lens: KpiVisibilityLens
   companion?: (severity: Severity | null) => ReactNode
   onLiveSeverityChange: (kpiId: string, severity: Severity | null) => void
+  highlighted: boolean
+  dimmed: boolean
 }) {
   const [liveSeverity, setLiveSeverity] = useState<Severity | null>(result.severity)
   const kpiId = result.kpi.id
@@ -47,6 +51,8 @@ function TrendResult({
         result={result}
         lens={lens}
         onLiveSeverityChange={handleLiveSeverityChange}
+        highlighted={highlighted}
+        dimmed={dimmed}
       />
       {companion?.(liveSeverity)}
     </Fragment>
@@ -77,6 +83,8 @@ export function DomainSeverityBoard({
   lens,
   companions,
   onTierCounts,
+  extraNoThreshold = 0,
+  highlightSeverity = null,
 }: {
   domain: KpiDomain
   kpis: KpiDefinition[]
@@ -92,6 +100,15 @@ export function DomainSeverityBoard({
    * exactly what can cause that gap). Reporting these tiers' real counts up lets the badge match
    * what's actually on screen instead of that separate reading. */
   onTierCounts?: (counts: { critical: number; warning: number; onTrack: number; noThreshold: number }) => void
+  /** This domain's own STACKED_SHARE_KPI_IDS count (see types.ts's stackedShareNoThresholdCount) -
+   * `kpis` here never includes them (they render via PriorityComplianceCard, not this board), but
+   * they still have no threshold by design, so the caller folds their count in here rather than the
+   * header silently dropping them once a section expands. */
+  extraNoThreshold?: number
+  /** DashboardPage's own selectedSeverity (see SeverityBadgeSummary) - every card whose live
+   * severity matches gets a highlight ring, every other card dims, so the selected tier stands out
+   * across every section at once, not just within whichever band it already sorts into here. */
+  highlightSeverity?: Severity | null
 }) {
   const results = useDomainTrendKpis(domain, kpis, globalFilters, lens)
   // Seeded once from the board-level fetch, then kept current per-KPI by each card's own
@@ -115,7 +132,7 @@ export function DomainSeverityBoard({
     critical: results.filter((r) => effectiveSeverity(r) === 'action').length,
     warning: results.filter((r) => effectiveSeverity(r) === 'alert').length,
     onTrack: results.filter((r) => effectiveSeverity(r) === 'in-control').length,
-    noThreshold: pending.length,
+    noThreshold: pending.length + extraNoThreshold,
   }
   useEffect(() => {
     onTierCounts?.(tierCounts)
@@ -135,6 +152,8 @@ export function DomainSeverityBoard({
         lens={lens}
         companion={companions?.get(r.kpi.id)}
         onLiveSeverityChange={reportLiveSeverity}
+        highlighted={highlightSeverity != null && effectiveSeverity(r) === highlightSeverity}
+        dimmed={highlightSeverity != null && effectiveSeverity(r) !== highlightSeverity}
       />
     )
   }

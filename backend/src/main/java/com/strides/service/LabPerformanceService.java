@@ -4,14 +4,13 @@ import com.strides.dto.DrilldownPage;
 import com.strides.dto.DrilldownSupport;
 import com.strides.dto.KpiCardResponse;
 import com.strides.model.PeriodTotal;
-import com.strides.model.SampleTatDrilldownRow;
 import com.strides.repository.AggChrmHplcSequenceAndInjectionsRepository;
 import com.strides.repository.AggLimsPrioritySampleComplianceRepository;
 import com.strides.repository.AggLimsSlaAdherenceRepository;
 import com.strides.repository.AggLimsTestsPerAnalystRepository;
 import com.strides.repository.AggLimsTurnAroundTimeRepository;
 import com.strides.repository.DrilldownSpecs;
-import com.strides.repository.FactLimsTurnAroundTimeRepository;
+import com.strides.repository.GenericDrilldownRepository;
 import com.strides.service.kpi.PeriodCombiner;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -26,8 +25,6 @@ public class LabPerformanceService {
 
     @Inject
     AggLimsTurnAroundTimeRepository turnAroundTimeRepository;
-    @Inject
-    FactLimsTurnAroundTimeRepository turnAroundTimeDrilldownRepository;
     @Inject
     AggLimsSlaAdherenceRepository slaAdherenceRepository;
     @Inject
@@ -50,7 +47,7 @@ public class LabPerformanceService {
         Set<String> selected = PeriodCombiner.parseSelection(sampleType);
         Set<String> selectedBatchCategories = PeriodCombiner.parseSelection(batchCategory);
         List<PeriodTotal> totals = turnAroundTimeRepository.findTotals(siteName, selected, selectedBatchCategories, grain, from, to);
-        return PeriodCombiner.fromTotals(totals, 1, "sample-tat", "Sample TAT", "days");
+        return PeriodCombiner.fromTotals(totals, 1, "sample-tat", "Sample TAT", "days", null, "Total TAT Days", "Samples");
     }
 
     public Map<String, List<String>> getSampleTatFilterOptions(String siteName, String sampleType,
@@ -59,27 +56,43 @@ public class LabPerformanceService {
                 PeriodCombiner.parseSelection(sampleType), PeriodCombiner.parseSelection(batchCategory));
     }
 
-    /** Record-level rows behind the chart above (see FactLimsTurnAroundTimeRepository) - from/to is
+    /** Record-level rows behind the chart above (see GenericDrilldownRepository) - from/to is
      * whatever date range the card's own grain currently resolves to, same as getSampleTat's. */
-    public DrilldownPage<SampleTatDrilldownRow> getSampleTatDrilldown(String siteName, String sampleType,
-            String batchCategory, LocalDate from, LocalDate to, String q, String sortBy, String sortDir,
-            int page, int pageSize) {
-        Set<String> selectedTypes = PeriodCombiner.parseSelection(sampleType);
-        Set<String> selectedBatchCategories = PeriodCombiner.parseSelection(batchCategory);
-        int clampedPage = DrilldownSupport.clampPage(page);
-        int clampedSize = DrilldownSupport.clampPageSize(pageSize);
-        List<SampleTatDrilldownRow> rows = turnAroundTimeDrilldownRepository.findRows(siteName, from, to,
-                selectedTypes, selectedBatchCategories, q, sortBy, sortDir, clampedPage, clampedSize);
-        long totalRows = turnAroundTimeDrilldownRepository.countRows(siteName, from, to, selectedTypes,
-                selectedBatchCategories, q);
-        return new DrilldownPage<>(rows, clampedPage, clampedSize, totalRows);
+    public DrilldownPage<Map<String, Object>> getSampleTatDrilldown(String siteName, String sampleType,
+            String batchCategory, LocalDate from, LocalDate to, String q, List<String> sort,
+            List<String> colFilter, List<String> colSearch, List<String> colRange, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.SAMPLE_TAT, siteName, from, to, Map.of(
+                "sampleType", PeriodCombiner.parseSelection(sampleType),
+                "batchCategory", PeriodCombiner.parseSelection(batchCategory)),
+                q, DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange), page, pageSize);
+    }
+
+    public Map<String, List<String>> getSampleTatDrilldownColumnOptions(String siteName, String sampleType,
+            String batchCategory, LocalDate from, LocalDate to) {
+        return genericDrilldownService.fetchColumnOptions(DrilldownSpecs.SAMPLE_TAT, siteName, from, to, Map.of(
+                "sampleType", PeriodCombiner.parseSelection(sampleType),
+                "batchCategory", PeriodCombiner.parseSelection(batchCategory)));
+    }
+
+    /** CSV text for the drill-down table's Export button - see GenericDrilldownService.fetchAllForExport. */
+    public String getSampleTatDrilldownExport(String siteName, String sampleType, String batchCategory,
+            LocalDate from, LocalDate to, String q, List<String> sort, List<String> colFilter,
+            List<String> colSearch, List<String> colRange) {
+        List<Map<String, Object>> rows = genericDrilldownService.fetchAllForExport(DrilldownSpecs.SAMPLE_TAT, siteName, from, to, Map.of(
+                "sampleType", PeriodCombiner.parseSelection(sampleType),
+                "batchCategory", PeriodCombiner.parseSelection(batchCategory)),
+                q, DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange));
+        List<String> headers = DrilldownSpecs.SAMPLE_TAT.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
+        return DrilldownSupport.toCsv(headers, rows);
     }
 
     /** sampleCategory: comma-separated RM/IP/FP/Stability to combine, or null/blank for ALL. */
     public List<KpiCardResponse> getSlaAdherence(String siteName, String sampleCategory, String grain, LocalDate from, LocalDate to) {
         Set<String> selected = PeriodCombiner.parseSelection(sampleCategory);
         List<PeriodTotal> totals = slaAdherenceRepository.findTotals(siteName, selected, grain, from, to);
-        return PeriodCombiner.fromTotals(totals, 100, "sla-adherence", "SLA Adherence", "%");
+        return PeriodCombiner.fromTotals(totals, 100, "sla-adherence", "SLA Adherence", "%", null, "On-Time Samples", "Total Samples");
     }
 
     public Map<String, List<String>> getSlaAdherenceFilterOptions(String siteName, String grain, LocalDate from, LocalDate to) {
@@ -115,7 +128,7 @@ public class LabPerformanceService {
             String grain, LocalDate from, LocalDate to) {
         List<PeriodTotal> totals = testsPerAnalystRepository.findTotals(siteName,
                 PeriodCombiner.parseSelection(sampleCategory), PeriodCombiner.parseSelection(analyst), grain, from, to);
-        return PeriodCombiner.fromTotals(totals, 1, "tests-per-analyst", "Tests per Analyst per Day", "tests/analyst");
+        return PeriodCombiner.fromTotals(totals, 1, "tests-per-analyst", "Tests per Analyst per Day", "tests/analyst", null, "Tests", "Analyst-Days");
     }
 
     public Map<String, List<String>> getTestsPerAnalystFilterOptions(String siteName, String sampleCategory,
@@ -157,33 +170,127 @@ public class LabPerformanceService {
     }
 
     public DrilldownPage<Map<String, Object>> getSlaAdherenceDrilldown(String site, String sampleCategory, LocalDate from,
-            LocalDate to, String q, String sortBy, String sortDir, int page, int pageSize) {
+            LocalDate to, String q, List<String> sort, List<String> colFilter, List<String> colSearch,
+            List<String> colRange, int page, int pageSize) {
         return genericDrilldownService.fetch(DrilldownSpecs.SLA_ADHERENCE, site, from, to,
-                Map.of("sampleCategory", PeriodCombiner.parseSelection(sampleCategory)), q, sortBy, sortDir, page, pageSize);
+                Map.of("sampleCategory", PeriodCombiner.parseSelection(sampleCategory)), q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange), page, pageSize);
+    }
+
+    public Map<String, List<String>> getSlaAdherenceDrilldownColumnOptions(String site, String sampleCategory, LocalDate from, LocalDate to) {
+        return genericDrilldownService.fetchColumnOptions(DrilldownSpecs.SLA_ADHERENCE, site, from, to,
+                Map.of("sampleCategory", PeriodCombiner.parseSelection(sampleCategory)));
+    }
+
+    /** CSV text for the drill-down table's Export button - see GenericDrilldownService.fetchAllForExport. */
+    public String getSlaAdherenceDrilldownExport(String site, String sampleCategory, LocalDate from, LocalDate to,
+            String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange) {
+        List<Map<String, Object>> rows = genericDrilldownService.fetchAllForExport(DrilldownSpecs.SLA_ADHERENCE, site, from, to,
+                Map.of("sampleCategory", PeriodCombiner.parseSelection(sampleCategory)), q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange));
+        List<String> headers = DrilldownSpecs.SLA_ADHERENCE.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
+        return DrilldownSupport.toCsv(headers, rows);
     }
 
     public DrilldownPage<Map<String, Object>> getPrioritySampleComplianceDrilldown(String site, String sampleType, LocalDate from,
-            LocalDate to, String q, String sortBy, String sortDir, int page, int pageSize) {
+            LocalDate to, String q, List<String> sort, List<String> colFilter, List<String> colSearch,
+            List<String> colRange, int page, int pageSize) {
         return genericDrilldownService.fetch(DrilldownSpecs.PRIORITY_SAMPLE_COMPLIANCE, site, from, to,
-                Map.of("sampleType", PeriodCombiner.parseSelection(sampleType)), q, sortBy, sortDir, page, pageSize);
+                Map.of("sampleType", PeriodCombiner.parseSelection(sampleType)), q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange), page, pageSize);
+    }
+
+    public Map<String, List<String>> getPrioritySampleComplianceDrilldownColumnOptions(String site, String sampleType, LocalDate from, LocalDate to) {
+        return genericDrilldownService.fetchColumnOptions(DrilldownSpecs.PRIORITY_SAMPLE_COMPLIANCE, site, from, to,
+                Map.of("sampleType", PeriodCombiner.parseSelection(sampleType)));
+    }
+
+    /** CSV text for the drill-down table's Export button - see GenericDrilldownService.fetchAllForExport. */
+    public String getPrioritySampleComplianceDrilldownExport(String site, String sampleType, LocalDate from, LocalDate to,
+            String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange) {
+        List<Map<String, Object>> rows = genericDrilldownService.fetchAllForExport(DrilldownSpecs.PRIORITY_SAMPLE_COMPLIANCE, site, from, to,
+                Map.of("sampleType", PeriodCombiner.parseSelection(sampleType)), q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange));
+        List<String> headers = DrilldownSpecs.PRIORITY_SAMPLE_COMPLIANCE.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
+        return DrilldownSupport.toCsv(headers, rows);
     }
 
     public DrilldownPage<Map<String, Object>> getTestsPerAnalystDrilldown(String site, String sampleCategory, String analyst,
-            LocalDate from, LocalDate to, String q, String sortBy, String sortDir, int page, int pageSize) {
+            LocalDate from, LocalDate to, String q, List<String> sort, List<String> colFilter, List<String> colSearch,
+            List<String> colRange, int page, int pageSize) {
         return genericDrilldownService.fetch(DrilldownSpecs.TESTS_PER_ANALYST, site, from, to,
                 Map.of("sampleCategory", PeriodCombiner.parseSelection(sampleCategory), "analyst", PeriodCombiner.parseSelection(analyst)),
-                q, sortBy, sortDir, page, pageSize);
+                q, DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange), page, pageSize);
+    }
+
+    public Map<String, List<String>> getTestsPerAnalystDrilldownColumnOptions(String site, String sampleCategory, String analyst, LocalDate from, LocalDate to) {
+        return genericDrilldownService.fetchColumnOptions(DrilldownSpecs.TESTS_PER_ANALYST, site, from, to,
+                Map.of("sampleCategory", PeriodCombiner.parseSelection(sampleCategory), "analyst", PeriodCombiner.parseSelection(analyst)));
+    }
+
+    /** CSV text for the drill-down table's Export button - see GenericDrilldownService.fetchAllForExport. */
+    public String getTestsPerAnalystDrilldownExport(String site, String sampleCategory, String analyst, LocalDate from, LocalDate to,
+            String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange) {
+        List<Map<String, Object>> rows = genericDrilldownService.fetchAllForExport(DrilldownSpecs.TESTS_PER_ANALYST, site, from, to,
+                Map.of("sampleCategory", PeriodCombiner.parseSelection(sampleCategory), "analyst", PeriodCombiner.parseSelection(analyst)),
+                q, DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange));
+        List<String> headers = DrilldownSpecs.TESTS_PER_ANALYST.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
+        return DrilldownSupport.toCsv(headers, rows);
     }
 
     public DrilldownPage<Map<String, Object>> getHplcSequencesPerAnalystDrilldown(String site, String injectionStatus, LocalDate from,
-            LocalDate to, String q, String sortBy, String sortDir, int page, int pageSize) {
+            LocalDate to, String q, List<String> sort, List<String> colFilter, List<String> colSearch,
+            List<String> colRange, int page, int pageSize) {
         return genericDrilldownService.fetch(DrilldownSpecs.HPLC_SEQUENCES_PER_ANALYST, site, from, to,
-                Map.of("injectionStatus", PeriodCombiner.parseSelection(injectionStatus)), q, sortBy, sortDir, page, pageSize);
+                Map.of("injectionStatus", PeriodCombiner.parseSelection(injectionStatus)), q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange), page, pageSize);
+    }
+
+    public Map<String, List<String>> getHplcSequencesPerAnalystDrilldownColumnOptions(String site, String injectionStatus, LocalDate from, LocalDate to) {
+        return genericDrilldownService.fetchColumnOptions(DrilldownSpecs.HPLC_SEQUENCES_PER_ANALYST, site, from, to,
+                Map.of("injectionStatus", PeriodCombiner.parseSelection(injectionStatus)));
+    }
+
+    /** CSV text for the drill-down table's Export button - see GenericDrilldownService.fetchAllForExport. */
+    public String getHplcSequencesPerAnalystDrilldownExport(String site, String injectionStatus, LocalDate from, LocalDate to,
+            String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange) {
+        List<Map<String, Object>> rows = genericDrilldownService.fetchAllForExport(DrilldownSpecs.HPLC_SEQUENCES_PER_ANALYST, site, from, to,
+                Map.of("injectionStatus", PeriodCombiner.parseSelection(injectionStatus)), q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange));
+        List<String> headers = DrilldownSpecs.HPLC_SEQUENCES_PER_ANALYST.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
+        return DrilldownSupport.toCsv(headers, rows);
     }
 
     public DrilldownPage<Map<String, Object>> getHplcInjectionsPerAnalystDrilldown(String site, String injectionStatus, LocalDate from,
-            LocalDate to, String q, String sortBy, String sortDir, int page, int pageSize) {
+            LocalDate to, String q, List<String> sort, List<String> colFilter, List<String> colSearch,
+            List<String> colRange, int page, int pageSize) {
         return genericDrilldownService.fetch(DrilldownSpecs.HPLC_INJECTIONS_PER_ANALYST, site, from, to,
-                Map.of("injectionStatus", PeriodCombiner.parseSelection(injectionStatus)), q, sortBy, sortDir, page, pageSize);
+                Map.of("injectionStatus", PeriodCombiner.parseSelection(injectionStatus)), q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange), page, pageSize);
+    }
+
+    public Map<String, List<String>> getHplcInjectionsPerAnalystDrilldownColumnOptions(String site, String injectionStatus, LocalDate from, LocalDate to) {
+        return genericDrilldownService.fetchColumnOptions(DrilldownSpecs.HPLC_INJECTIONS_PER_ANALYST, site, from, to,
+                Map.of("injectionStatus", PeriodCombiner.parseSelection(injectionStatus)));
+    }
+
+    /** CSV text for the drill-down table's Export button - see GenericDrilldownService.fetchAllForExport. */
+    public String getHplcInjectionsPerAnalystDrilldownExport(String site, String injectionStatus, LocalDate from, LocalDate to,
+            String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange) {
+        List<Map<String, Object>> rows = genericDrilldownService.fetchAllForExport(DrilldownSpecs.HPLC_INJECTIONS_PER_ANALYST, site, from, to,
+                Map.of("injectionStatus", PeriodCombiner.parseSelection(injectionStatus)), q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange));
+        List<String> headers = DrilldownSpecs.HPLC_INJECTIONS_PER_ANALYST.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
+        return DrilldownSupport.toCsv(headers, rows);
     }
 }

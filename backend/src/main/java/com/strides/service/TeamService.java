@@ -29,7 +29,17 @@ public class TeamService {
                 ? users.findAllAnalysts()
                 : users.findAnalystsManagedBy(currentUser.getId());
         return rows.stream()
+                .filter(u -> !isVerificationAccount(u))
                 .map(u -> new TeamMember(u.getId(), u.getFullName(), u.getTitle()))
                 .toList();
+    }
+
+    /** One-off manual role-verification accounts (verify-<role>@mail.com, e.g. "Verify ANALYST") -
+     * seeded directly in the database to log in and check each role's own login/dashboard, kept
+     * around for that rather than deleted. They're real ANALYST-role rows, so findAllAnalysts would
+     * otherwise surface a fake analyst card in an admin's Team Overview alongside the real team. */
+    private static boolean isVerificationAccount(User user) {
+        String email = user.getEmail();
+        return email != null && email.toLowerCase().startsWith("verify-") && email.toLowerCase().endsWith("@mail.com");
     }
 }

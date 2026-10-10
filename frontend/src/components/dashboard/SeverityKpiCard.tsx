@@ -53,6 +53,8 @@ export function SeverityKpiCard({
   result,
   lens,
   onLiveSeverityChange,
+  highlighted = false,
+  dimmed = false,
 }: {
   domain: KpiDomain
   globalFilters: GlobalKpiFilters
@@ -68,6 +70,14 @@ export function SeverityKpiCard({
    * "All root causes" reading, and Root Cause (Consolidated)'s heatmap must always match whichever
    * severity is actually on screen, not that stale default. */
   onLiveSeverityChange?: (severity: Severity | null) => void
+  /** True while this card's severity matches DashboardPage's selectedSeverity (see
+   * SeverityBadgeSummary) - an extra ring on top of the card's own severity colouring, since every
+   * card in the same tier already shares that colouring regardless of selection. */
+  highlighted?: boolean
+  /** True while a selectedSeverity is active and this card's severity does NOT match it - fades the
+   * card so the highlighted ones actually stand out, rather than just adding a ring nobody notices
+   * next to a full-strength neighbour. */
+  dimmed?: boolean
 }) {
   const { grain, setGrain, cardFilters, dateRange, setDateRange, clearDateRange, isGrainOverridden } = useCardGrain(result.kpi.id, lens, globalFilters)
   const [viewMode, setViewMode] = useState<ViewMode>('line')
@@ -228,8 +238,14 @@ export function SeverityKpiCard({
   return (
     <div
       id={kpiAnchorId(kpi.id)}
-      className="flex flex-col gap-2 rounded-xl border-t border-r border-b p-3"
-      style={{ backgroundColor: meta.cardBg, borderColor: meta.solidHex, borderLeftWidth: 3, borderLeftColor: meta.solidHex }}
+      className={cn('flex flex-col gap-2 rounded-xl border-t border-r border-b p-3 transition-opacity', dimmed && 'opacity-40')}
+      style={{
+        backgroundColor: meta.cardBg,
+        borderColor: meta.solidHex,
+        borderLeftWidth: 3,
+        borderLeftColor: meta.solidHex,
+        boxShadow: highlighted ? `0 0 0 3px ${meta.solidHex}` : undefined,
+      }}
     >
       <div className="flex items-start justify-between gap-2">
         <div>

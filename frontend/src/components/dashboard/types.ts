@@ -279,6 +279,13 @@ export interface TierCounts {
 
 export const ZERO_TIER_COUNTS: TierCounts = { critical: 0, warning: 0, onTrack: 0, noThreshold: 0 }
 
+/** Maps a Severity onto its own field of a TierCounts - shared by SeverityBadgeSummary's clickable
+ * badges and SectionSummaryList's per-section "does this section contain the selected severity"
+ * check (see DashboardPage's selectedSeverity), so both read the same count the same way. */
+export function tierCountForSeverity(counts: TierCounts, severity: Severity): number {
+  return severity === 'action' ? counts.critical : severity === 'alert' ? counts.warning : counts.onTrack
+}
+
 export function sumTierCounts(a: TierCounts, b: TierCounts): TierCounts {
   return {
     critical: a.critical + b.critical,
@@ -310,4 +317,13 @@ export function trendKpisForDomain(domain: KpiDomain | undefined, visibleKpiIds:
   return domainKpis.filter(
     (kpi) => kpi.chartType !== 'bar' && kpi.chartType !== 'column' && !STACKED_SHARE_KPI_IDS.has(kpi.id) && !HEATMAP_KPI_IDS.has(kpi.id),
   )
+}
+
+/** A STACKED_SHARE_KPI_IDS member has no threshold to colour by design (see its own comment above) -
+ * not a missing/stale config the way a real trend KPI's "no threshold" can be. It's still counted in
+ * the section header's own tier breakdown (see DomainTierCounts/DomainSeverityBoard's
+ * extraNoThreshold), even though PriorityComplianceCard's own stacked-percentage view never goes
+ * grey itself - this only affects the header's count, not that card's rendering. */
+export function stackedShareNoThresholdCount(domain: KpiDomain | undefined, visibleKpiIds: Set<string>): number {
+  return domain?.kpis.filter((kpi) => visibleKpiIds.has(kpi.id) && STACKED_SHARE_KPI_IDS.has(kpi.id)).length ?? 0
 }

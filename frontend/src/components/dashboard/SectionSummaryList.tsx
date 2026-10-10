@@ -21,6 +21,7 @@ import {
   STACKED_SHARE_KPI_IDS,
   HEATMAP_KPI_IDS,
   trendKpisForDomain,
+  tierCountForSeverity,
   ZERO_TIER_COUNTS,
   type Severity,
   type TierCounts,
@@ -60,6 +61,7 @@ function SectionBlock({
   lens,
   initialTierCounts,
   scored,
+  highlightSeverity,
 }: {
   sectionKey: string
   category: string
@@ -81,6 +83,9 @@ function SectionBlock({
   initialTierCounts: TierCounts
   /** See kpiConfig.ts's KpiDomain.scored / SectionSummaryBar's own `scored` prop. */
   scored: boolean
+  /** DashboardPage's own selectedSeverity (see SeverityBadgeSummary) - forwarded to
+   * DomainSeverityBoard for its highlight/dim styling. */
+  highlightSeverity: Severity | null
 }) {
   // Not useState(initialTierCounts): that only reads its argument on this component's very first
   // render. DomainTierCounts' probes (a separate, independent useDomainTrendKpis fetch per domain)
@@ -128,12 +133,21 @@ function SectionBlock({
               lens={lens}
               companions={companions}
               onTierCounts={setLiveTierCounts}
+              extraNoThreshold={stackedKpis.length}
+              highlightSeverity={highlightSeverity}
             />
           )}
           {stackedKpis.length > 0 && (
             <div className="flex flex-col gap-3 p-4">
               {stackedKpis.map((kpi) => (
-                <PriorityComplianceCard key={kpi.id} domain={domain} kpi={kpi} globalFilters={globalFilters} lens={lens} />
+                <PriorityComplianceCard
+                  key={kpi.id}
+                  domain={domain}
+                  kpi={kpi}
+                  globalFilters={globalFilters}
+                  lens={lens}
+                  dimmed={highlightSeverity != null}
+                />
               ))}
             </div>
           )}
@@ -177,6 +191,11 @@ export const SectionSummaryList = forwardRef<
     dateRangeOverride?: { from: string; to: string }
     searchQuery: string
     lens: KpiVisibilityLens
+    /** DashboardPage's own selectedSeverity (see SeverityBadgeSummary) - every section containing a
+     * KPI at this severity force-expands (same mechanism a live search already uses) and that
+     * section's matching cards highlight, via DomainSeverityBoard. Omitted (or null) outside the
+     * Operations view, which is the only place SeverityBadgeSummary renders. */
+    highlightSeverity?: Severity | null
     /** Defaults to KPI_DOMAINS (QC). A domain carrying `mock: true` (see qaKpiConfig.ts) has no real
      * backend yet - its KPI data comes from generateMockKpiSeries instead (see useKpiData.ts). */
     domains?: KpiDomain[]
@@ -185,7 +204,10 @@ export const SectionSummaryList = forwardRef<
      * A section with no entry here (or returning undefined) shows no score, same as real "no data". */
     sectionScores?: (sectionKey: string) => { score: number | null; previousScore: number | null } | undefined
   }
->(function SectionSummaryList({ site, section, grain, dateRangeOverride, searchQuery, lens, domains = KPI_DOMAINS, sectionScores }, ref) {
+>(function SectionSummaryList(
+  { site, section, grain, dateRangeOverride, searchQuery, lens, highlightSeverity = null, domains = KPI_DOMAINS, sectionScores },
+  ref,
+) {
   const visibleKpiIds = KPI_VISIBILITY[lens]
   // Section list/titles come straight from `domains` rather than useHeatmapData's own derived list -
   // this file never reads a heatmap cell's `rows`, only each section's key/title, so a dedicated
@@ -311,7 +333,11 @@ export const SectionSummaryList = forwardRef<
         // don't match the search text is just noise then, not a structural guarantee.
         const alwaysShowSection = domain?.scored !== undefined && !isSearching
         if (!hasMatch && !alwaysShowSection) return null
-        const expanded = isSearching ? true : effectiveExpandedKey === sec.key
+        // A selected severity (see SeverityBadgeSummary) force-expands every section containing a
+        // match, same as a live search does - otherwise a highlighted card could sit inside a
+        // collapsed section the user never opened.
+        const matchesHighlight = highlightSeverity != null && tierCountForSeverity({ critical, warning, onTrack, noThreshold }, highlightSeverity) > 0
+        const expanded = isSearching || matchesHighlight ? true : effectiveExpandedKey === sec.key
 
         return (
           <SectionBlock
@@ -339,6 +365,7 @@ export const SectionSummaryList = forwardRef<
             globalFilters={globalFilters}
             lens={lens}
             initialTierCounts={{ critical, warning, onTrack, noThreshold }}
+            highlightSeverity={highlightSeverity}
           />
         )
       })
