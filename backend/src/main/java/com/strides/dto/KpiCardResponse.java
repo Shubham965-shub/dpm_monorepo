@@ -18,6 +18,11 @@ import java.time.LocalDate;
  * status/thresholds/inProgress are stamped on after the service builds the row, from
  * kpi_threshold_snapshot (see KpiThresholdResponseFilter) - services themselves always pass null.
  * inProgress: the period hasn't finished yet, so its value (and colour) is still moving.
+ * numeratorLabel/denominatorLabel name what numerator/denominator actually count (e.g. "On-Time
+ * Samples"/"Total Samples" for SLA Adherence) - null wherever numerator/denominator themselves are
+ * null, and also null for a handful of labeled-later ratio KPIs that haven't been given real labels
+ * yet (see PeriodCombiner.fromTotals's call sites) - the UI falls back to a generic
+ * "Numerator / Denominator" heading in that case rather than failing to show the breakdown at all.
  */
 public record KpiCardResponse(
         String kpiId,
@@ -31,16 +36,27 @@ public record KpiCardResponse(
         BigDecimal numerator,
         BigDecimal denominator,
         KpiThresholds thresholds,
-        Boolean inProgress) {
+        Boolean inProgress,
+        String numeratorLabel,
+        String denominatorLabel) {
 
     public KpiCardResponse(String kpiId, String name, BigDecimal value, String unit, KpiStatus status,
             String grain, LocalDate periodStart, String note, BigDecimal numerator, BigDecimal denominator) {
-        this(kpiId, name, value, unit, status, grain, periodStart, note, numerator, denominator, null, null);
+        this(kpiId, name, value, unit, status, grain, periodStart, note, numerator, denominator, null, null, null, null);
+    }
+
+    /** Same as the 10-arg constructor, but with real numerator/denominator labels - see
+     * PeriodCombiner.fromTotals's labeled overload. */
+    public KpiCardResponse(String kpiId, String name, BigDecimal value, String unit, KpiStatus status,
+            String grain, LocalDate periodStart, String note, BigDecimal numerator, BigDecimal denominator,
+            String numeratorLabel, String denominatorLabel) {
+        this(kpiId, name, value, unit, status, grain, periodStart, note, numerator, denominator, null, null,
+                numeratorLabel, denominatorLabel);
     }
 
     public KpiCardResponse withThresholdStatus(KpiStatus newStatus, KpiThresholds newThresholds, Boolean newInProgress) {
         return new KpiCardResponse(kpiId, name, value, unit, newStatus, grain, periodStart, note,
-                numerator, denominator, newThresholds, newInProgress);
+                numerator, denominator, newThresholds, newInProgress, numeratorLabel, denominatorLabel);
     }
 
     /** Back-compat shape for the many KPIs with no numerator/denominator breakdown to show. */

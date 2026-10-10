@@ -166,9 +166,9 @@ public class UserAdminService {
         String tempPassword = tempPasswords.generate();
         user.setPasswordHash(hasher.hash(tempPassword));
         user.setUpdatedAt(OffsetDateTime.now());
-        // This is typically used to respond to a suspected compromise (only admins can reset a
-        // password - there's no self-service change), so any refresh token issued before the
-        // reset must not survive it.
+        // This is for a lost/compromised account the user can't log into themselves (see
+        // AuthService.changePassword for the self-service flow a logged-in user has instead), so any
+        // refresh token issued before the reset must not survive it.
         refreshTokens.revokeAllActiveForUser(id);
         return tempPassword;
     }

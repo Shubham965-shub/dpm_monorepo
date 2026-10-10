@@ -12,6 +12,8 @@ import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
@@ -76,7 +78,27 @@ public class InstrumentHealthController {
     @Path("/calibration-compliance/drilldown")
     public DrilldownPage<Map<String, Object>> calibrationComplianceDrilldown(@BeanParam KpiParams.DrilldownBase p) {
         return service.getCalibrationComplianceDrilldown(p.site, RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"),
-                p.q, p.sortBy, p.sortDir, p.page, p.pageSize);
+                p.q, p.sort, p.colFilter, p.colSearch, p.colRange, p.page, p.pageSize);
+    }
+
+    /** Per-column dropdown options for the drill-down table's own filter row - see
+     * GenericDrilldownRepository.findColumnOptions. */
+    @GET
+    @Path("/calibration-compliance/drilldown/column-options")
+    public Map<String, List<String>> calibrationComplianceDrilldownColumnOptions(@BeanParam KpiParams.DrilldownBase p) {
+        return service.getCalibrationComplianceDrilldownColumnOptions(p.site, RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
+    }
+
+    /** Every row matching the current filters/sort as CSV, for the drill-down table's Export button -
+     * see GenericDrilldownService.fetchAllForExport. */
+    @GET
+    @Path("/calibration-compliance/drilldown/export")
+    @Produces("text/csv")
+    public Response calibrationComplianceDrilldownExport(@BeanParam KpiParams.DrilldownBase p) {
+        LocalDate from = RequiredParams.require(p.from, "from");
+        LocalDate to = RequiredParams.require(p.to, "to");
+        String csv = service.getCalibrationComplianceDrilldownExport(p.site, from, to, p.q, p.sort, p.colFilter, p.colSearch, p.colRange);
+        return DrilldownExport.toCsvResponse("calibration-compliance", from, to, csv);
     }
 
     @GET
@@ -106,27 +128,109 @@ public class InstrumentHealthController {
     @Path("/utilization/drilldown")
     public DrilldownPage<Map<String, Object>> utilizationDrilldown(@BeanParam KpiParams.InstrumentUtilizationDrilldown p) {
         return service.getInstrumentUtilizationDrilldown(p.site, p.instGroup, RequiredParams.require(p.from, "from"),
-                RequiredParams.require(p.to, "to"), p.q, p.sortBy, p.sortDir, p.page, p.pageSize);
+                RequiredParams.require(p.to, "to"), p.q, p.sort, p.colFilter, p.colSearch, p.colRange, p.page, p.pageSize);
+    }
+
+    /** Per-column dropdown options for the drill-down table's own filter row - see
+     * GenericDrilldownRepository.findColumnOptions. */
+    @GET
+    @Path("/utilization/drilldown/column-options")
+    public Map<String, List<String>> utilizationDrilldownColumnOptions(@BeanParam KpiParams.InstrumentUtilizationDrilldown p) {
+        return service.getInstrumentUtilizationDrilldownColumnOptions(p.site, p.instGroup,
+                RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
+    }
+
+    /** Every row matching the current filters/sort as CSV, for the drill-down table's Export button -
+     * see GenericDrilldownService.fetchAllForExport. Shared by all 5 utilization-family cards (see
+     * getInstrumentUtilizationDrilldown), so the export name is "utilization", not one per card. */
+    @GET
+    @Path("/utilization/drilldown/export")
+    @Produces("text/csv")
+    public Response utilizationDrilldownExport(@BeanParam KpiParams.InstrumentUtilizationDrilldown p) {
+        LocalDate from = RequiredParams.require(p.from, "from");
+        LocalDate to = RequiredParams.require(p.to, "to");
+        String csv = service.getInstrumentUtilizationDrilldownExport(p.site, p.instGroup, from, to, p.q, p.sort, p.colFilter, p.colSearch, p.colRange);
+        return DrilldownExport.toCsvResponse("utilization", from, to, csv);
     }
 
     @GET
     @Path("/pm-adherence/drilldown")
     public DrilldownPage<Map<String, Object>> pmAdherenceDrilldown(@BeanParam KpiParams.DrilldownBase p) {
         return service.getPmAdherenceDrilldown(p.site, RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"),
-                p.q, p.sortBy, p.sortDir, p.page, p.pageSize);
+                p.q, p.sort, p.colFilter, p.colSearch, p.colRange, p.page, p.pageSize);
+    }
+
+    /** Per-column dropdown options for the drill-down table's own filter row - see
+     * GenericDrilldownRepository.findColumnOptions. */
+    @GET
+    @Path("/pm-adherence/drilldown/column-options")
+    public Map<String, List<String>> pmAdherenceDrilldownColumnOptions(@BeanParam KpiParams.DrilldownBase p) {
+        return service.getPmAdherenceDrilldownColumnOptions(p.site, RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
+    }
+
+    /** Every row matching the current filters/sort as CSV, for the drill-down table's Export button -
+     * see GenericDrilldownService.fetchAllForExport. */
+    @GET
+    @Path("/pm-adherence/drilldown/export")
+    @Produces("text/csv")
+    public Response pmAdherenceDrilldownExport(@BeanParam KpiParams.DrilldownBase p) {
+        LocalDate from = RequiredParams.require(p.from, "from");
+        LocalDate to = RequiredParams.require(p.to, "to");
+        String csv = service.getPmAdherenceDrilldownExport(p.site, from, to, p.q, p.sort, p.colFilter, p.colSearch, p.colRange);
+        return DrilldownExport.toCsvResponse("pm-adherence", from, to, csv);
     }
 
     @GET
     @Path("/breakdown-frequency/drilldown")
     public DrilldownPage<Map<String, Object>> breakdownFrequencyDrilldown(@BeanParam KpiParams.DrilldownBase p) {
         return service.getBreakdownFrequencyDrilldown(p.site, RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"),
-                p.q, p.sortBy, p.sortDir, p.page, p.pageSize);
+                p.q, p.sort, p.colFilter, p.colSearch, p.colRange, p.page, p.pageSize);
+    }
+
+    /** Per-column dropdown options for the drill-down table's own filter row - see
+     * GenericDrilldownRepository.findColumnOptions. */
+    @GET
+    @Path("/breakdown-frequency/drilldown/column-options")
+    public Map<String, List<String>> breakdownFrequencyDrilldownColumnOptions(@BeanParam KpiParams.DrilldownBase p) {
+        return service.getBreakdownFrequencyDrilldownColumnOptions(p.site, RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
+    }
+
+    /** Every row matching the current filters/sort as CSV, for the drill-down table's Export button -
+     * see GenericDrilldownService.fetchAllForExport. */
+    @GET
+    @Path("/breakdown-frequency/drilldown/export")
+    @Produces("text/csv")
+    public Response breakdownFrequencyDrilldownExport(@BeanParam KpiParams.DrilldownBase p) {
+        LocalDate from = RequiredParams.require(p.from, "from");
+        LocalDate to = RequiredParams.require(p.to, "to");
+        String csv = service.getBreakdownFrequencyDrilldownExport(p.site, from, to, p.q, p.sort, p.colFilter, p.colSearch, p.colRange);
+        return DrilldownExport.toCsvResponse("breakdown-frequency", from, to, csv);
     }
 
     @GET
     @Path("/failure-rate/drilldown")
     public DrilldownPage<Map<String, Object>> failureRateDrilldown(@BeanParam KpiParams.DrilldownBase p) {
         return service.getInstrumentFailureRateDrilldown(p.site, RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"),
-                p.q, p.sortBy, p.sortDir, p.page, p.pageSize);
+                p.q, p.sort, p.colFilter, p.colSearch, p.colRange, p.page, p.pageSize);
+    }
+
+    /** Per-column dropdown options for the drill-down table's own filter row - see
+     * GenericDrilldownRepository.findColumnOptions. */
+    @GET
+    @Path("/failure-rate/drilldown/column-options")
+    public Map<String, List<String>> failureRateDrilldownColumnOptions(@BeanParam KpiParams.DrilldownBase p) {
+        return service.getInstrumentFailureRateDrilldownColumnOptions(p.site, RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
+    }
+
+    /** Every row matching the current filters/sort as CSV, for the drill-down table's Export button -
+     * see GenericDrilldownService.fetchAllForExport. */
+    @GET
+    @Path("/failure-rate/drilldown/export")
+    @Produces("text/csv")
+    public Response failureRateDrilldownExport(@BeanParam KpiParams.DrilldownBase p) {
+        LocalDate from = RequiredParams.require(p.from, "from");
+        LocalDate to = RequiredParams.require(p.to, "to");
+        String csv = service.getInstrumentFailureRateDrilldownExport(p.site, from, to, p.q, p.sort, p.colFilter, p.colSearch, p.colRange);
+        return DrilldownExport.toCsvResponse("failure-rate", from, to, csv);
     }
 }

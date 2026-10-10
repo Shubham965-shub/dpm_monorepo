@@ -64,6 +64,10 @@ function periodStarts(from: string, to: string, grain: Grain): string[] {
  * doc) - good enough for a demo card's axis to look sensible, not a claim about the real KPI. */
 function unitAndRangeFor(kpi: KpiDefinition): { unit: string; min: number; max: number } {
   const id = kpi.id
+  // Unlike every other *-tat KPI here, Line Clearance TAT is logged in minutes, not days (see its
+  // qa_kpi_info DB text) - a per-id carve-out before the generic "tat" match below, which would
+  // otherwise mislabel it the same as day-denominated cycle times.
+  if (id === 'qa-line-clearance-tat') return { unit: 'minutes', min: 10, max: 30 }
   if (/time|tat|aging|cycle/.test(id)) return { unit: 'days', min: 0, max: 20 }
   if (/index|density|count|logged|complaints/.test(id) && !/rate/.test(id)) return { unit: 'count', min: 0, max: 40 }
   return { unit: '%', min: 0, max: 100 }

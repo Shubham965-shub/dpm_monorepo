@@ -36,13 +36,13 @@ export function buildKpiQueryString(globalFilters: GlobalKpiFilters, kpi: KpiDef
   return params.toString()
 }
 
-/** A domain's `mock: true` (see qaKpiConfig.ts) resolves from generateMockKpiSeries instead of a
- * real `basePath` fetch - still run through kpiCardListSchema either way, so a mock domain's
- * generator output is held to the identical contract a real backend response would be. Shared by
- * useKpiData's own query and useDomainTrendKpis' batch fetch, so both resolve a mock domain the
- * same way. */
+/** A domain's `mock: true` (see qaKpiConfig.ts), or a KPI's own `mock` override, resolves from
+ * generateMockKpiSeries instead of a real `basePath` fetch - still run through kpiCardListSchema
+ * either way, so a mock domain's generator output is held to the identical contract a real backend
+ * response would be. Shared by useKpiData's own query and useDomainTrendKpis' batch fetch, so both
+ * resolve a mock KPI the same way. */
 export function fetchKpiCardData(domain: KpiDomain, kpi: KpiDefinition, globalFilters: GlobalKpiFilters, queryString: string): Promise<KpiCardResponse[]> {
-  if (domain.mock) return Promise.resolve(kpiCardListSchema.parse(generateMockKpiSeries(domain, kpi, globalFilters)))
+  if (kpi.mock ?? domain.mock) return Promise.resolve(kpiCardListSchema.parse(generateMockKpiSeries(domain, kpi, globalFilters)))
   return getValidated(kpiCardListSchema, `${domain.basePath}/${kpi.path}?${queryString}`)
 }
 

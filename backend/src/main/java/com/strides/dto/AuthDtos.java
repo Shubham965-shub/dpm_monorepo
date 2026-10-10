@@ -2,16 +2,28 @@ package com.strides.dto;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import java.util.List;
 import java.util.UUID;
 
 /** Auth request/response payloads. Field names are camelCase - Jackson serializes them as-is. */
 public final class AuthDtos {
 
+    /** Length-only policy (business decision, 2026-10-09) - no character-class requirements. */
+    public static final int MIN_NEW_PASSWORD_LENGTH = 8;
+
     private AuthDtos() {
     }
 
     public record LoginRequest(@NotBlank @Email String email, @NotBlank String password) {
+    }
+
+    /** Self-service password change (see AuthService.changePassword) - distinct from
+     * UsersController's admin-only reset, which is for a lost/compromised account the user can't
+     * log into themselves. */
+    public record ChangePasswordRequest(
+            @NotBlank String currentPassword,
+            @NotBlank @Size(min = MIN_NEW_PASSWORD_LENGTH) String newPassword) {
     }
 
     /**

@@ -1,23 +1,9 @@
 import { z, type ZodTypeAny } from 'zod'
 
-// Mirrors backend com.strides.model.SampleTatDrilldownRow - Sample TAT's own record-level drill-down
-// row (DPM_QC_Drilldown_Schema_v2.xlsx's "Sample TAT" row), the first KPI wired up to this pattern.
-export const sampleTatDrilldownRowSchema = z.object({
-  siteName: z.string(),
-  sampleNumber: z.number(),
-  batchCategory: z.string(),
-  sampleType: z.string(),
-  status: z.string(),
-  sampledDate: z.string(),
-  completedDate: z.string(),
-  tatDays: z.coerce.number(),
-})
-
-/** Every KPI except Sample TAT's own bespoke row (see sampleTatDrilldownRowSchema) is served by the
- * backend's GenericDrilldownRepository, which returns a plain String-keyed row with no fixed Java
- * shape - a passthrough schema here matches that: each KPI's own DrilldownColumn.key/format reads
- * out of it narrowly (see drilldownColumns.ts), rather than this shared plumbing validating one
- * true row shape. */
+/** Every KPI's drill-down row is served by the backend's GenericDrilldownRepository, which returns
+ * a plain String-keyed row with no fixed Java shape - a passthrough schema here matches that: each
+ * KPI's own DrilldownColumn.key/format reads out of it narrowly (see drilldownColumns.ts), rather
+ * than this shared plumbing validating one true row shape per KPI. */
 export const genericDrilldownRowSchema = z.record(z.string(), z.unknown())
 
 export interface DrilldownPage<T> {
@@ -39,3 +25,10 @@ export function drilldownPageSchema(rowSchema: ZodTypeAny): z.ZodType<DrilldownP
     totalRows: z.number(),
   }) as unknown as z.ZodType<DrilldownPage<Record<string, unknown>>>
 }
+
+/** Mirrors backend GenericDrilldownRepository.findColumnOptions - a column's own real distinct
+ * values (jsonKey -> list), present only for its TEXT columns at or below
+ * DrilldownSupport.MAX_DROPDOWN_DISTINCT_VALUES; a column missing here either has a
+ * DrilldownColumn.filterType (a range control) or needs a free-text search instead of a dropdown. */
+export const drilldownColumnOptionsSchema = z.record(z.string(), z.array(z.string()))
+export type DrilldownColumnOptions = z.infer<typeof drilldownColumnOptionsSchema>

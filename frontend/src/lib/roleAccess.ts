@@ -81,3 +81,26 @@ export function resolveQaLens(roles: string[]): { lens: KpiVisibilityLens; locke
   if (role === 'SUPERVISOR') return { lens: 'supervisor', locked: true }
   return { lens: 'supervisor', locked: true }
 }
+
+/** ADMIN's QA lens preview is driven by TopNav's own CXO/Leadership/Operations tabs (see
+ * DashboardPage), not a separate toggle - QA has no Analyst tier (unlike QC's Operations tab, which
+ * splits further into Analyst/Supervisor), so Operations maps straight to 'supervisor'. The CXO tab
+ * itself still splits further into CXO/Cluster Head (see SubNav's secondaryToggle, the same
+ * mechanism QC's Operations tab already uses for Analyst/Supervisor) - `cxoClusterHeadView` is
+ * that sub-choice, meaningful only when `tab === 'CXO'`. */
+export function qaLensForRoleTab(tab: RoleTab, cxoClusterHeadView: CxoClusterHeadView = 'cxo'): KpiVisibilityLens {
+  if (tab === 'CXO') return cxoClusterHeadView
+  if (tab === 'Leadership') return 'leadership'
+  return 'supervisor'
+}
+
+/** Shared display label for a lens value - used both by QaDashboardPage's read-only lens badge and
+ * by DashboardPage's CXO/Cluster Head and Analyst/Supervisor toggle option labels, so the wording
+ * stays in one place instead of being duplicated per call site. */
+export const LENS_LABEL: Record<KpiVisibilityLens, string> = {
+  cxo: 'CXO',
+  clusterHead: 'Cluster Head',
+  leadership: 'Leadership',
+  supervisor: 'Supervisor',
+  analyst: 'Analyst',
+}

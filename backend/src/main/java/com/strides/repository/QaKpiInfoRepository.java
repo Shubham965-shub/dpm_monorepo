@@ -13,7 +13,7 @@ import java.util.Optional;
 @ApplicationScoped
 public class QaKpiInfoRepository extends AbstractAggRepository<QaKpiInfoRow> {
 
-    private static final String SELECT_INFO = "SELECT kpi_id, source_system, summary FROM public.qa_kpi_info";
+    private static final String SELECT_INFO = "SELECT kpi_id, source_system, summary FROM qa.qa_kpi_info";
 
     public Optional<QaKpiInfoRow> findByKpiId(String kpiId) {
         return query(SELECT_INFO + " WHERE kpi_id = ?", QaKpiInfoRepository::mapRow, kpiId).stream().findFirst();

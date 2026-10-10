@@ -26,6 +26,11 @@ export interface KpiDefinition {
   label: string
   /** Full path under the domain's base, e.g. "invalid-oos-rate". */
   path: string
+  /** Per-KPI override of the domain's own `mock` (see KpiDomain.mock) - lets a domain cut over to a
+   * real backend one KPI at a time instead of all-or-nothing (e.g. qaKpiConfig.ts, where most QA
+   * KPIs now have a real agg table but a handful still don't). Falls back to the domain's `mock`
+   * when unset. */
+  mock?: boolean
   /** Empty = no filter beyond the shared site/grain/from/to. */
   extraFilters: ExtraFilter[]
   /** Sent on every fetch and not user-changeable - lets one endpoint back several cards, each pinned to one slice. */

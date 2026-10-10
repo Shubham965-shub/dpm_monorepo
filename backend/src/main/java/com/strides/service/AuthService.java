@@ -62,6 +62,29 @@ public class AuthService {
         return new LoginResult(accessToken, refreshToken.rawToken(), toPublic(user));
     }
 
+    /**
+     * Self-service password change - the caller is already authenticated (see AuthController), but
+     * still must prove they know the CURRENT password, same as any "change password" flow, since a
+     * stolen-but-still-valid access token shouldn't be enough on its own to lock the real owner out.
+     * Every other refresh token for this user is revoked (same invariant as UserAdminService's
+     * admin-triggered reset - see RefreshTokenService.revokeAllActiveForUser's own doc), but this
+     * session continues uninterrupted: a fresh access/refresh pair is issued in the same response,
+     * exactly like login(), rather than logging the user out immediately after they just typed a new
+     * password.
+     */
+    @Transactional
+    public LoginResult changePassword(User user, String currentPassword, String newPassword) {
+        if (!hasher.verify(currentPassword, user.getPasswordHash())) {
+            throw new NotAuthorizedException("Current password is incorrect", "Bearer");
+        }
+        user.setPasswordHash(hasher.hash(newPassword));
+        user.setUpdatedAt(OffsetDateTime.now());
+        refreshTokens.revokeAllActiveForUser(user.getId());
+        String accessToken = jwt.issue(user.getId().toString());
+        IssuedToken refreshToken = refreshTokens.issue(user);
+        return new LoginResult(accessToken, refreshToken.rawToken(), toPublic(user));
+    }
+
     /** Returns empty if the refresh token is missing/expired/already-used (see RefreshTokenService). */
     public Optional<RefreshResult> refresh(String rawRefreshToken) {
         return refreshTokens.rotate(rawRefreshToken)

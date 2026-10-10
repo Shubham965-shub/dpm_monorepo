@@ -1,12 +1,14 @@
 package com.strides.service;
 
 import com.strides.dto.DrilldownPage;
+import com.strides.dto.DrilldownSupport;
 import com.strides.dto.KpiCardResponse;
 import com.strides.repository.AggLimsBreakdownsFrequencyRepository;
 import com.strides.repository.AggLimsCalPmComplianceRepository;
 import com.strides.repository.AggLimsInstrumentFailureRateRepository;
 import com.strides.repository.AggLimsInstrumentUtilizationRepository;
 import com.strides.repository.DrilldownSpecs;
+import com.strides.repository.GenericDrilldownRepository;
 import com.strides.service.kpi.PeriodCombiner;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -123,28 +125,111 @@ public class InstrumentHealthService {
     /** Shared by dissolution/gc/hplc-utilization, instrument-availability, and instrument-downtime -
      * all 5 cards read the same fact_lims_instrument_utilization rows (see DrilldownSpecs). */
     public DrilldownPage<Map<String, Object>> getInstrumentUtilizationDrilldown(String site, String instGroup, LocalDate from,
-            LocalDate to, String q, String sortBy, String sortDir, int page, int pageSize) {
+            LocalDate to, String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange,
+            int page, int pageSize) {
         return genericDrilldownService.fetch(DrilldownSpecs.INSTRUMENT_UTILIZATION, site, from, to,
-                Map.of("instGroup", PeriodCombiner.parseSelection(instGroup)), q, sortBy, sortDir, page, pageSize);
+                Map.of("instGroup", PeriodCombiner.parseSelection(instGroup)), q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange), page, pageSize);
+    }
+
+    public Map<String, List<String>> getInstrumentUtilizationDrilldownColumnOptions(String site, String instGroup, LocalDate from, LocalDate to) {
+        return genericDrilldownService.fetchColumnOptions(DrilldownSpecs.INSTRUMENT_UTILIZATION, site, from, to,
+                Map.of("instGroup", PeriodCombiner.parseSelection(instGroup)));
+    }
+
+    /** CSV text for the drill-down table's Export button - see GenericDrilldownService.fetchAllForExport. */
+    public String getInstrumentUtilizationDrilldownExport(String site, String instGroup, LocalDate from, LocalDate to,
+            String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange) {
+        List<Map<String, Object>> rows = genericDrilldownService.fetchAllForExport(DrilldownSpecs.INSTRUMENT_UTILIZATION, site, from, to,
+                Map.of("instGroup", PeriodCombiner.parseSelection(instGroup)), q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange));
+        List<String> headers = DrilldownSpecs.INSTRUMENT_UTILIZATION.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
+        return DrilldownSupport.toCsv(headers, rows);
     }
 
     public DrilldownPage<Map<String, Object>> getPmAdherenceDrilldown(String site, LocalDate from, LocalDate to,
-            String q, String sortBy, String sortDir, int page, int pageSize) {
-        return genericDrilldownService.fetch(DrilldownSpecs.PM_ADHERENCE, site, from, to, Map.of(), q, sortBy, sortDir, page, pageSize);
+            String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.PM_ADHERENCE, site, from, to, Map.of(), q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange), page, pageSize);
+    }
+
+    public Map<String, List<String>> getPmAdherenceDrilldownColumnOptions(String site, LocalDate from, LocalDate to) {
+        return genericDrilldownService.fetchColumnOptions(DrilldownSpecs.PM_ADHERENCE, site, from, to, Map.of());
+    }
+
+    /** CSV text for the drill-down table's Export button - see GenericDrilldownService.fetchAllForExport. */
+    public String getPmAdherenceDrilldownExport(String site, LocalDate from, LocalDate to,
+            String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange) {
+        List<Map<String, Object>> rows = genericDrilldownService.fetchAllForExport(DrilldownSpecs.PM_ADHERENCE, site, from, to, Map.of(), q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange));
+        List<String> headers = DrilldownSpecs.PM_ADHERENCE.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
+        return DrilldownSupport.toCsv(headers, rows);
     }
 
     public DrilldownPage<Map<String, Object>> getBreakdownFrequencyDrilldown(String site, LocalDate from, LocalDate to,
-            String q, String sortBy, String sortDir, int page, int pageSize) {
-        return genericDrilldownService.fetch(DrilldownSpecs.BREAKDOWN_FREQUENCY, site, from, to, Map.of(), q, sortBy, sortDir, page, pageSize);
+            String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.BREAKDOWN_FREQUENCY, site, from, to, Map.of(), q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange), page, pageSize);
+    }
+
+    public Map<String, List<String>> getBreakdownFrequencyDrilldownColumnOptions(String site, LocalDate from, LocalDate to) {
+        return genericDrilldownService.fetchColumnOptions(DrilldownSpecs.BREAKDOWN_FREQUENCY, site, from, to, Map.of());
+    }
+
+    /** CSV text for the drill-down table's Export button - see GenericDrilldownService.fetchAllForExport. */
+    public String getBreakdownFrequencyDrilldownExport(String site, LocalDate from, LocalDate to,
+            String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange) {
+        List<Map<String, Object>> rows = genericDrilldownService.fetchAllForExport(DrilldownSpecs.BREAKDOWN_FREQUENCY, site, from, to, Map.of(), q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange));
+        List<String> headers = DrilldownSpecs.BREAKDOWN_FREQUENCY.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
+        return DrilldownSupport.toCsv(headers, rows);
     }
 
     public DrilldownPage<Map<String, Object>> getInstrumentFailureRateDrilldown(String site, LocalDate from, LocalDate to,
-            String q, String sortBy, String sortDir, int page, int pageSize) {
-        return genericDrilldownService.fetch(DrilldownSpecs.INSTRUMENT_FAILURE_RATE, site, from, to, Map.of(), q, sortBy, sortDir, page, pageSize);
+            String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.INSTRUMENT_FAILURE_RATE, site, from, to, Map.of(), q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange), page, pageSize);
+    }
+
+    public Map<String, List<String>> getInstrumentFailureRateDrilldownColumnOptions(String site, LocalDate from, LocalDate to) {
+        return genericDrilldownService.fetchColumnOptions(DrilldownSpecs.INSTRUMENT_FAILURE_RATE, site, from, to, Map.of());
+    }
+
+    /** CSV text for the drill-down table's Export button - see GenericDrilldownService.fetchAllForExport. */
+    public String getInstrumentFailureRateDrilldownExport(String site, LocalDate from, LocalDate to,
+            String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange) {
+        List<Map<String, Object>> rows = genericDrilldownService.fetchAllForExport(DrilldownSpecs.INSTRUMENT_FAILURE_RATE, site, from, to, Map.of(), q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange));
+        List<String> headers = DrilldownSpecs.INSTRUMENT_FAILURE_RATE.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
+        return DrilldownSupport.toCsv(headers, rows);
     }
 
     public DrilldownPage<Map<String, Object>> getCalibrationComplianceDrilldown(String site, LocalDate from, LocalDate to,
-            String q, String sortBy, String sortDir, int page, int pageSize) {
-        return genericDrilldownService.fetch(DrilldownSpecs.CALIBRATION_COMPLIANCE, site, from, to, Map.of(), q, sortBy, sortDir, page, pageSize);
+            String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.CALIBRATION_COMPLIANCE, site, from, to, Map.of(), q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange), page, pageSize);
+    }
+
+    public Map<String, List<String>> getCalibrationComplianceDrilldownColumnOptions(String site, LocalDate from, LocalDate to) {
+        return genericDrilldownService.fetchColumnOptions(DrilldownSpecs.CALIBRATION_COMPLIANCE, site, from, to, Map.of());
+    }
+
+    /** CSV text for the drill-down table's Export button - see GenericDrilldownService.fetchAllForExport. */
+    public String getCalibrationComplianceDrilldownExport(String site, LocalDate from, LocalDate to,
+            String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange) {
+        List<Map<String, Object>> rows = genericDrilldownService.fetchAllForExport(DrilldownSpecs.CALIBRATION_COMPLIANCE, site, from, to, Map.of(), q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange));
+        List<String> headers = DrilldownSpecs.CALIBRATION_COMPLIANCE.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
+        return DrilldownSupport.toCsv(headers, rows);
     }
 }

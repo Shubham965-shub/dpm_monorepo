@@ -4,10 +4,11 @@ import { Badge } from '@/components/ui/badge'
 import heliosLogo from '@/assets/helios-logo.svg'
 import stridesLogo from '@/assets/strides-logo.svg'
 import { useTheme } from '@/hooks/useTheme'
-import { cn, initials } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 import type { UserPublic } from '@/lib/authSchemas'
-import type { RoleTab, AnalystSupervisorView } from '@/lib/roleAccess'
+import type { RoleTab, KpiVisibilityLens } from '@/lib/roleAccess'
 import { FeedbackLauncher } from './FeedbackLauncher'
+import { ProfileMenu } from './ProfileMenu'
 
 /** A real vertical bar, not a text "|" glyph - matches InvestigationAI's header divider. */
 function NavDivider({ className }: { className?: string }) {
@@ -75,13 +76,7 @@ export function TopNav({
           ))
         )}
         <NavDivider />
-        <button
-          onClick={onLogout}
-          title={user.email}
-          className="flex size-7 items-center justify-center rounded-full bg-brand text-xs font-semibold"
-        >
-          {initials(user.fullName)}
-        </button>
+        <ProfileMenu user={user} onLogout={onLogout} />
       </nav>
     </header>
   )
@@ -89,36 +84,33 @@ export function TopNav({
 
 export type SubNavView = 'dashboard' | 'performance' | 'qa'
 
-const OPERATIONS_LENS_OPTIONS: { value: AnalystSupervisorView; label: string }[] = [
-  { value: 'analyst', label: 'Analyst' },
-  { value: 'supervisor', label: 'Supervisor' },
-]
-
-/** Only rendered inside the Operations role tab (see DashboardPage) - Analyst/Supervisor each
- * gate the KPI catalogue down to a different role-visibility list from the KPI Framework spec
- * (see SectionSummaryList's ANALYST_VISIBLE_KPI_IDS/SUPERVISOR_VISIBLE_KPI_IDS), not a "some
- * filter vs no filter" toggle - both are real, separately-scoped lists. `locked` (true for
- * SUPERVISOR/ANALYST - see resolveAnalystSupervisorView) renders the current value as plain text
- * instead of a switchable control, since those roles have no other list to switch to. */
-function AnalystSupervisorToggle({
+/** A sub-choice within whichever TopNav role tab is active - QC's Operations tab splits further
+ * into Analyst/Supervisor, QA's CXO tab splits further into CXO/Cluster Head (see
+ * qaLensForRoleTab). Both are real, separately-scoped KPI-visibility lists, not a "some filter vs
+ * no filter" toggle, so this is a generic two-(or-more)-option pill row rather than two bespoke
+ * components. `locked` (true for a real, non-ADMIN role already confined to one option - see
+ * resolveAnalystSupervisorView/resolveQaLens) renders the current value as plain text instead of a
+ * switchable control, since that role has no other option to switch to. */
+function SubNavLensToggle({
   value,
+  options,
   onChange,
   locked,
 }: {
-  value: AnalystSupervisorView
-  onChange: (value: AnalystSupervisorView) => void
+  value: KpiVisibilityLens
+  options: { value: KpiVisibilityLens; label: string }[]
+  onChange: (value: KpiVisibilityLens) => void
   locked: boolean
 }) {
   if (locked) {
+    const label = options.find((o) => o.value === value)?.label ?? value
     return (
-      <span className="rounded-md border border-input px-3 py-1 text-xs font-medium capitalize text-muted-foreground">
-        {value}
-      </span>
+      <span className="rounded-md border border-input px-3 py-1 text-xs font-medium text-muted-foreground">{label}</span>
     )
   }
   return (
     <div className="flex overflow-hidden rounded-md border border-input text-xs font-medium">
-      {OPERATIONS_LENS_OPTIONS.map((option) => (
+      {options.map((option) => (
         <button
           key={option.value}
           onClick={() => onChange(option.value)}
@@ -134,18 +126,22 @@ function AnalystSupervisorToggle({
 export function SubNav({
   view,
   onViewChange,
-  analystSupervisorView,
-  onAnalystSupervisorViewChange,
-  analystSupervisorLocked,
+  secondaryToggle,
   showDashboardTab = true,
   showQaTab = false,
 }: {
   view: SubNavView
   onViewChange: (view: SubNavView) => void
-  /** undefined = not in the Operations role tab - hides the toggle entirely rather than showing a meaningless default. */
-  analystSupervisorView?: AnalystSupervisorView
-  onAnalystSupervisorViewChange?: (value: AnalystSupervisorView) => void
-  analystSupervisorLocked?: boolean
+  /** undefined = the active role tab has no further sub-choice (e.g. CXO/Leadership on the QC
+   * dashboard) - hides the toggle entirely rather than showing a meaningless default. Set by
+   * DashboardPage to QC's Operations Analyst/Supervisor choice or QA's CXO Cluster-Head choice,
+   * whichever applies to the currently active tab/view (see SubNavLensToggle). */
+  secondaryToggle?: {
+    value: KpiVisibilityLens
+    options: { value: KpiVisibilityLens; label: string }[]
+    onChange: (value: KpiVisibilityLens) => void
+    locked: boolean
+  }
   /** True for ADMIN or a user whose departments include QC (see roleAccess.ts's
    * hasDepartmentAccess / DashboardPage) - hides the tab entirely for a QA-only user rather than
    * just blocking it if somehow navigated to. */
@@ -157,40 +153,41 @@ export function SubNav({
 }) {
   return (
     <div className="flex items-center justify-between border-b border-border px-6 py-2 md:px-10 lg:px-20">
+      {/* Both dashboards (QC, QA) sit together first, Performance last - keeps the two "pick a
+      dashboard" tabs adjacent instead of splitting them across Performance. */}
       <div className="flex items-center gap-4 text-sm">
         {showDashboardTab && (
           <button
             onClick={() => onViewChange('dashboard')}
             className={view === 'dashboard' ? 'font-semibold text-brand' : 'text-muted-foreground hover:text-foreground'}
           >
-            Dashboard
+            QC Dashboard
           </button>
         )}
-        {showDashboardTab && <NavDivider className="bg-border" />}
+        {showDashboardTab && showQaTab && <NavDivider className="bg-border" />}
+        {showQaTab && (
+          <button
+            onClick={() => onViewChange('qa')}
+            className={view === 'qa' ? 'font-semibold text-brand' : 'text-muted-foreground hover:text-foreground'}
+          >
+            QA Dashboard
+          </button>
+        )}
+        {(showDashboardTab || showQaTab) && <NavDivider className="bg-border" />}
         <button
           onClick={() => onViewChange('performance')}
           className={view === 'performance' ? 'font-semibold text-brand' : 'text-muted-foreground hover:text-foreground'}
         >
           Performance
         </button>
-        {showQaTab && (
-          <>
-            <NavDivider className="bg-border" />
-            <button
-              onClick={() => onViewChange('qa')}
-              className={view === 'qa' ? 'font-semibold text-brand' : 'text-muted-foreground hover:text-foreground'}
-            >
-              QA (Preview)
-            </button>
-          </>
-        )}
       </div>
       <div className="flex items-center gap-4">
-        {analystSupervisorView && onAnalystSupervisorViewChange && (
-          <AnalystSupervisorToggle
-            value={analystSupervisorView}
-            onChange={onAnalystSupervisorViewChange}
-            locked={analystSupervisorLocked ?? false}
+        {secondaryToggle && (
+          <SubNavLensToggle
+            value={secondaryToggle.value}
+            options={secondaryToggle.options}
+            onChange={secondaryToggle.onChange}
+            locked={secondaryToggle.locked}
           />
         )}
         {/* Not yet built (see KpiDetailModal's "Raise Concern" for the same disabled-but-visible convention). */}

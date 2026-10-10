@@ -36,6 +36,11 @@ export interface KpiMetrics {
   unit: string | null
   /** The primary series' band boundaries from the backend threshold config - null when unconfigured. */
   thresholds: KpiThresholds | null
+  /** The raw, already-fetched per-period rows this card's chart was built from (after
+   * filterRowsForKpi's reduction) - e.g. KpiDrilldownTable's "By period" tab reads these directly
+   * (one row per periodStart, each with its own status/numerator/denominator) instead of a second
+   * fetch, so the two can never disagree (see KpiDetailModal). */
+  rows: KpiCardResponse[]
 }
 
 // A threshold line can sit far from the real value's own range - left to Recharts' default
@@ -94,7 +99,7 @@ export function deriveKpiMetrics(kpiId: string, rows: KpiCardResponse[]): KpiMet
   const severity = severityFromStatus(latestRow?.status)
   const thresholds = primaryRows.findLast((row) => row.thresholds)?.thresholds ?? null
 
-  return { shownSeries, hiddenCount, chartData, latestValue, previousValue, severity, unit: primary?.unit ?? null, thresholds }
+  return { shownSeries, hiddenCount, chartData, latestValue, previousValue, severity, unit: primary?.unit ?? null, thresholds, rows: filteredRows }
 }
 
 export interface DomainTrendKpiResult extends KpiMetrics {

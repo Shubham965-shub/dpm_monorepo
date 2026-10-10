@@ -3,7 +3,7 @@ import { KPI_DOMAINS, type KpiDomain } from '@/lib/kpiConfig'
 import type { GlobalKpiFilters } from '@/hooks/useKpiData'
 import type { KpiVisibilityLens } from '@/lib/roleAccess'
 import { useDomainTrendKpis, tierCountsFromResults } from '@/hooks/useDomainTrendKpis'
-import { trendKpisForDomain, sumTierCounts, ZERO_TIER_COUNTS, type TierCounts } from './types'
+import { trendKpisForDomain, stackedShareNoThresholdCount, sumTierCounts, ZERO_TIER_COUNTS, type TierCounts } from './types'
 
 function tierCountsEqual(a: TierCounts, b: TierCounts): boolean {
   return a.critical === b.critical && a.warning === b.warning && a.onTrack === b.onTrack && a.noThreshold === b.noThreshold
@@ -27,7 +27,12 @@ function DomainTierCountProbe({
   onCounts: (domainKey: string, counts: TierCounts) => void
 }): null {
   const results = useDomainTrendKpis(domain, trendKpisForDomain(domain, visibleKpiIds), globalFilters, lens)
-  const counts = tierCountsFromResults(results)
+  // STACKED_SHARE_KPI_IDS members (e.g. priority-sample-compliance) are excluded from
+  // trendKpisForDomain above (they render via PriorityComplianceCard, not DomainSeverityBoard) but
+  // still have no threshold by design - folded into noThreshold here so the header's count includes
+  // them even though they were never fetched/evaluated for a real severity.
+  const counts = { ...tierCountsFromResults(results) }
+  counts.noThreshold += stackedShareNoThresholdCount(domain, visibleKpiIds)
   useEffect(() => {
     onCounts(domain.key, counts)
     // counts is a fresh object every render - depending on it directly would refire this every
