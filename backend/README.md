@@ -26,6 +26,9 @@ Required env vars (put them in a local, gitignored `.env` or `application-local.
 
 Connection pool sizing (`quarkus.datasource.jdbc.min-size`/`max-size`/`max-lifetime` in `application.properties`) is currently a **proposed starter value (2/10/30m)** — confirm/adjust for actual expected load before production use.
 
+### Data freshness: `public.notebook_run_log`
+`GET /api/data-freshness` (no department gate - every dashboard view shows it) reads `public.notebook_run_log`, a table the Fabric/Databricks pipeline itself writes to on every run (one row per notebook, upserted in place - confirmed live: `notebook_name`, `last_run_utc`, `last_run_ist`, `run_status`). `last_run_ist` is already IST wall-clock time as the pipeline stamps it, not a UTC value this backend converts - see `NotebookRunLogRepository`/`DataFreshnessService`. The service only looks at the most recent row with `run_status = 'Succeeded'` - "when was the data last updated" means the last run that actually completed, not merely the last attempt. This table isn't one of this app's own JPA-validated tables (see "Required schema" below) - it's owned and populated entirely by the pipeline, same as every `agg_*`/`fact_*` table; this backend only needs `SELECT` on it.
+
 ## Department scope (QC vs All)
 
 Ten KPIs expose a `departmentScope` query param (`QC | ALL`, default `ALL`, 400 on anything else - see `DepartmentScope.parse`): **investigation-closure-tat, repeat-failure-rate, human-error-rate, repeat-human-error-rate, human-error-severity, human-error-by-product, capa-aging-status, capa-recurrence-rate, capa-effectiveness, deviations, training-completion-rate**. `QC` = Quality Control's own rows; `ALL` = every department combined, QC included - never "everything except QC".

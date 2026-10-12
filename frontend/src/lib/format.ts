@@ -20,3 +20,21 @@ export function percentChange(current: number, previous: number): number | null 
   if (previous === 0) return null
   return ((current - previous) / Math.abs(previous)) * 100
 }
+
+const MONTH_ABBREVIATIONS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+/** Formats a backend "data freshness" timestamp (see dataFreshnessSchema) as "12 Oct 2026 at 7:20
+ * AM IST" - that string is already IST wall-clock time with no UTC offset attached (the pipeline's
+ * own stamp, not converted on read anywhere in this app), so its digits are parsed directly rather
+ * than through `Date`/`Intl`, which would reinterpret them in the browser's own timezone instead.
+ * null on a string this shape doesn't match, same as a missing value - a caller treats both as
+ * "nothing to show" rather than a malformed date. */
+export function formatLastUpdatedIst(isoLocalDateTime: string): string | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(isoLocalDateTime)
+  if (!match) return null
+  const [, year, month, day, hourStr, minute] = match
+  const hour24 = Number(hourStr)
+  const hour12 = hour24 % 12 === 0 ? 12 : hour24 % 12
+  const ampm = hour24 < 12 ? 'AM' : 'PM'
+  return `${Number(day)} ${MONTH_ABBREVIATIONS[Number(month) - 1]} ${year} at ${hour12}:${minute} ${ampm} IST`
+}

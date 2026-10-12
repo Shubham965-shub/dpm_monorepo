@@ -1,6 +1,8 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { TopNav, SubNav, type SubNavView } from './TopNav'
+import { useCoachTour } from './CoachMarks'
+import type { CoachScreenKey } from '@/lib/coachMarks'
 import {
   resolveRoleTab,
   resolveAnalystSupervisorView,
@@ -28,7 +30,7 @@ import { KPI_VISIBILITY } from '@/lib/kpiVisibility'
 import { getGrainDateRange, trailingDayRange } from '@/lib/kpiDateRange'
 import { pluralize } from '@/lib/utils'
 import { DomainTierCounts } from './DomainTierCounts'
-import { ZERO_TIER_COUNTS, type Severity, type TierCounts } from './types'
+import { ZERO_TIER_COUNTS, type SeverityFilter, type TierCounts } from './types'
 import type { GlobalKpiFilters } from '@/hooks/useKpiData'
 
 // Per-lens page title, matching the reference designs exactly (analyst/supervisor/cxo) - driven
@@ -126,11 +128,23 @@ export function DashboardPage() {
   // render would refire it (and the setState it causes) every render regardless of whether the
   // counts actually changed.
   const handleSeverityTotalsChange = useCallback((counts: { total: TierCounts }) => setSeverityTotals(counts.total), [])
-  // Which severity's badge (see SeverityBadgeSummary) is currently toggled on in the Operations
-  // view - null = no filter. Forwarded to SectionSummaryList as highlightSeverity, which force-
-  // expands every section containing a match and highlights those cards (see DomainSeverityBoard).
-  const [selectedSeverity, setSelectedSeverity] = useState<Severity | null>(null)
-  const toggleSelectedSeverity = (severity: Severity) => setSelectedSeverity((prev) => (prev === severity ? null : severity))
+  // Which badge (see SeverityBadgeSummary) is currently toggled on in the Operations view - null =
+  // no filter (every real-severity card shown, no-threshold cards hidden). Forwarded to
+  // SectionSummaryList as highlightSeverity, which force-expands every matching section and narrows
+  // its card list down to just that bucket (see DomainSeverityBoard).
+  const [selectedSeverity, setSelectedSeverity] = useState<SeverityFilter | null>(null)
+  const toggleSelectedSeverity = (filter: SeverityFilter) => setSelectedSeverity((prev) => (prev === filter ? null : filter))
+  // The QC dashboard's own `lens` here is never 'clusterHead' (see LENS_TITLE's own comment, above) -
+  // only QA's resolveQaLens produces that one - so this covers every lens DashboardPage itself can
+  // actually compute (spelled out, rather than excluding 'clusterHead', since `lens`'s inferred type
+  // already has no overlap with it here). null while on the QA/Performance view, which have no coach
+  // tour of their own (see CoachMarks.tsx) - requestTour/replay below are simply skipped there.
+  const coachScreenKey: CoachScreenKey | null =
+    view === 'dashboard' && (lens === 'cxo' || lens === 'leadership' || lens === 'analyst' || lens === 'supervisor') ? lens : null
+  const { requestTour, replay } = useCoachTour()
+  useEffect(() => {
+    if (coachScreenKey) requestTour(coachScreenKey)
+  }, [coachScreenKey, requestTour])
   if (!user) return null
 
   return (
@@ -141,6 +155,7 @@ export function DashboardPage() {
         activeRole={activeRole}
         onActiveRoleChange={setAdminActiveRole}
         locked={roleTabAccess.locked}
+        onReplayTour={coachScreenKey ? () => replay(coachScreenKey) : undefined}
       />
       <SubNav
         view={view}

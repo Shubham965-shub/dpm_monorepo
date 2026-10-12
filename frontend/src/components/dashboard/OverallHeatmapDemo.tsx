@@ -112,7 +112,7 @@ function Cell({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <button type="button" onClick={onClick} className="flex cursor-pointer items-center gap-0.5 text-left">
+        <button type="button" onClick={onClick} className="coach-heatmap-cell flex cursor-pointer items-center gap-0.5 text-left">
           <span className="size-1.5 rounded-full" style={{ backgroundColor: colorHex }} />
           <span className="text-sm font-semibold" style={{ color: colorHex }}>
             {formatCompactScore(value)}
@@ -314,7 +314,7 @@ export function OverallHeatmapDemo({
         <CardTitle className="flex items-center gap-2 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
           Overall Heatmap
         </CardTitle>
-        <CardAction className="flex items-center gap-2">
+        <CardAction className="coach-heatmap-controls flex items-center gap-2">
           <Button
             size="sm"
             variant={onlyReds ? 'default' : 'outline'}

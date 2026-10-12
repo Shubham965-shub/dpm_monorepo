@@ -8,7 +8,6 @@ import { generateMockSectionScore } from '@/lib/qaSectionScore'
 import { resolveQaLens, qaLensForRoleTab, type CxoClusterHeadView, type RoleTab } from '@/lib/roleAccess'
 import { SearchKpiBar } from './SearchKpiBar'
 import { SectionSummaryList } from './SectionSummaryList'
-import { DemoDataBadge } from './DemoDataBadge'
 import { QaScoreSummaryCard } from './QaScoreSummaryCard'
 
 // Fixed fallback grain for a KPI/lens pair with no cell in the kept rows (see qaDefaultGrainFor) -
@@ -20,10 +19,14 @@ const FALLBACK_GRAIN = 'monthly' as const
  * than admin-only - built from the same section/persona-visibility/default-grain structure as the
  * real QC dashboard (see SectionSummaryList), applied to the 55 buildable KPIs from
  * QA_KPI_Sheet_for_Front_End (61 rows minus 6 marked "Fix logic first"/"Needs clarification - hold"
- * - see qaKpiConfig.ts). Every KPI card and section score is demo data (qaKpiConfig.ts's `mock:
- * true`, mockKpiSeries.ts / qaSectionScore.ts) - no real QA agg_ / fact_ tables or thresholds exist
- * yet (see backend) - so there's no Overall Heatmap/Pending Actions here either, since those either
- * have no QA analogue or hold QC-specific mock copy that would be misleading relabeled QA.
+ * - see qaKpiConfig.ts). Most KPI cards now read real data from the `qa` Postgres schema
+ * (qaKpiConfig.ts's per-KPI `mock: false`) - only the KPIs still left on their domain's own `mock:
+ * true` default are still demo data, tagged individually on their own card (see SeverityKpiCard's
+ * isMockKpi), not blanketed across the whole page. The composite/section scores above the KPI list
+ * (QaScoreSummaryCard) stay demo regardless - qaSectionScore.ts's generateMockSectionScore is still
+ * the only score source, independent of any one KPI's own live/mock status. There's no Overall
+ * Heatmap/Pending Actions here either, since those either have no QA analogue or hold QC-specific
+ * mock copy that would be misleading relabeled QA.
  *
  * Lens resolution mirrors DashboardPage's own role→lens pattern (see resolveQaLens): a real CXO/
  * Cluster Head/HOD/Manager/Supervisor lands locked on their own lens. ADMIN previews freely, but
@@ -56,12 +59,9 @@ export function QaDashboardPage({
   return (
     <main className="flex flex-col gap-4 px-6 py-4 md:px-10 lg:px-20">
       <div>
-        <div className="flex items-center gap-2">
-          <h1 className="text-xl font-semibold">QA Dashboard</h1>
-          <DemoDataBadge title="Preview - demo data, not wired to a live QA data source yet" />
-        </div>
+        <h1 className="text-xl font-semibold">QA Dashboard</h1>
         <p className="text-sm text-muted-foreground">
-          {DEFAULT_SITE} · {pluralize(visibleKpiIds.size, 'KPI')} across {QA_DOMAINS.length} sections · every value below is synthetic
+          {DEFAULT_SITE} · {pluralize(visibleKpiIds.size, 'KPI')} across {QA_DOMAINS.length} sections
         </p>
       </div>
 

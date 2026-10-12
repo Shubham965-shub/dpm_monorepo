@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useEffect, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import {
@@ -25,6 +25,7 @@ import { KpiInfoDropdown } from '@/components/kpi/KpiInfoDropdown'
 import { GrainToggle } from '@/components/kpi/GrainToggle'
 import { PeriodRangePicker, type DateRange } from '@/components/kpi/PeriodRangePicker'
 import { useBackdropClose } from '@/hooks/useBackdropClose'
+import { useCoachTour } from './CoachMarks'
 import { SEVERITY_META, boundaryHex, boundaryLines, boundaryZones, severityMeta, type Severity } from './types'
 import { renderBoundaryOverlay } from './boundaryOverlay'
 import { KpiDrilldownTable } from './KpiDrilldownTable'
@@ -97,6 +98,14 @@ export function KpiDetailModal({
   extraParams: ExtraParams
   onClose: () => void
 }) {
+  const { requestTour } = useCoachTour()
+  // Fires once per mount, i.e. once per time this modal opens - the tour it drives (see
+  // coachMarks.ts's 'drill' family) is a one-time "first ever detail view" tour, not per-KPI.
+  useEffect(() => {
+    requestTour('drill')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const { chartData, shownSeries, latestValue, previousValue, unit, thresholds } = metrics
   const meta = severityMeta(severity)
   const deltaPct = previousValue != null && latestValue != null ? percentChange(latestValue, previousValue) : null
@@ -155,7 +164,7 @@ export function KpiDetailModal({
               </span>
             </div>
             <div className="mt-3 flex items-center gap-x-6">
-              <KpiInfoDropdown domain={domain} kpi={kpi} />
+              <KpiInfoDropdown domain={domain} kpi={kpi} className="coach-modal-info" />
               <span
                 className="shrink-0 text-sm font-bold tracking-wider whitespace-nowrap capitalize"
                 style={{ color: thresholds ? SEVERITY_META['in-control'].solidHex : undefined }}
@@ -170,7 +179,7 @@ export function KpiDetailModal({
           KPI with several filters (e.g. Deviations' 6) would spill its pill row out past the
           modal's own edge instead of wrapping onto a second line under the others. */}
           <div className="flex max-w-xs shrink-0 flex-col items-end gap-3">
-            <GrainToggle grain={grain} onChange={onGrainChange} activeHex={meta.solidHex} size="modal" />
+            <GrainToggle grain={grain} onChange={onGrainChange} activeHex={meta.solidHex} size="modal" className="coach-modal-grain" />
             <PeriodRangePicker
               key={grain}
               grain={grain}
@@ -203,7 +212,7 @@ export function KpiDetailModal({
 
         {/* Thresholds sit beside the chart (stacked under it on narrow screens), not below it. */}
         <div className="grid gap-4 p-6 md:grid-cols-[minmax(0,1fr)_14rem]">
-          <div className="h-80 w-full rounded-lg border border-border p-4">
+          <div className="coach-modal-chart h-80 w-full rounded-lg border border-border p-4">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData} margin={{ top: 8, right: 48, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />

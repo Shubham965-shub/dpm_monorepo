@@ -69,7 +69,7 @@ function renderInfoText(text: string) {
  * QA domains read qa_kpi_info (via /api/qa-kpi-info, see kpiConfig.ts's KpiDomain.infoBasePath) -
  * both tables, both rendered the same way here.
  */
-export function KpiInfoDropdown({ domain, kpi }: { domain: KpiDomain; kpi: KpiDefinition }) {
+export function KpiInfoDropdown({ domain, kpi, className }: { domain: KpiDomain; kpi: KpiDefinition; className?: string }) {
   // Kept apart so a click never undoes the hover: hovering shows it, clicking pins/unpins it.
   const [hovered, setHovered] = useState(false)
   const [pinned, setPinned] = useState(false)
@@ -80,7 +80,7 @@ export function KpiInfoDropdown({ domain, kpi }: { domain: KpiDomain; kpi: KpiDe
 
   return (
     <div
-      className="flex max-w-xl flex-col gap-2 border-b border-border pb-1"
+      className={cn('flex max-w-xl flex-col gap-2 border-b border-border pb-1', className)}
       // Mouse only: a touch tap fires emulated pointer events that would open and close it again.
       onPointerEnter={(e) => e.pointerType === 'mouse' && setHovered(true)}
       onPointerLeave={(e) => e.pointerType === 'mouse' && setHovered(false)}
