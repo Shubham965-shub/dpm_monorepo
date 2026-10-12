@@ -24,6 +24,7 @@ import { GrainToggle } from '@/components/kpi/GrainToggle'
 import { KpiLineTooltip } from '@/components/kpi/KpiLineTooltip'
 import { boundaryHex, boundaryLines, boundaryZones, kpiAnchorId, severityMeta, type Severity } from './types'
 import { renderBoundaryOverlay } from './boundaryOverlay'
+import { DemoDataBadge } from './DemoDataBadge'
 import { KpiDetailModal } from './KpiDetailModal'
 import { LegendEntry } from './LegendEntry'
 
@@ -53,8 +54,6 @@ export function SeverityKpiCard({
   result,
   lens,
   onLiveSeverityChange,
-  highlighted = false,
-  dimmed = false,
 }: {
   domain: KpiDomain
   globalFilters: GlobalKpiFilters
@@ -70,20 +69,16 @@ export function SeverityKpiCard({
    * "All root causes" reading, and Root Cause (Consolidated)'s heatmap must always match whichever
    * severity is actually on screen, not that stale default. */
   onLiveSeverityChange?: (severity: Severity | null) => void
-  /** True while this card's severity matches DashboardPage's selectedSeverity (see
-   * SeverityBadgeSummary) - an extra ring on top of the card's own severity colouring, since every
-   * card in the same tier already shares that colouring regardless of selection. */
-  highlighted?: boolean
-  /** True while a selectedSeverity is active and this card's severity does NOT match it - fades the
-   * card so the highlighted ones actually stand out, rather than just adding a ring nobody notices
-   * next to a full-strength neighbour. */
-  dimmed?: boolean
 }) {
   const { grain, setGrain, cardFilters, dateRange, setDateRange, clearDateRange, isGrainOverridden } = useCardGrain(result.kpi.id, lens, globalFilters)
   const [viewMode, setViewMode] = useState<ViewMode>('line')
   const [detailOpen, setDetailOpen] = useState(false)
 
   const { kpi, isLoading, isError } = result
+  // A KPI can cut over to a real backend table on its own (see KpiDefinition.mock's doc comment in
+  // kpiConfig.ts) - only the KPIs still left on the domain's own mock default get tagged, so a card
+  // never gets mislabeled "demo data" once it's actually reading real rows.
+  const isMockKpi = kpi.mock ?? domain.mock
   const filters = useExtraFilters(domain, kpi, cardFilters, detailOpen)
   const { extraStates, setExtraState, extraParams, optionsFor, filterOptionsLoading } = filters
   // Untouched filters match the board-level `result` fetch - only count them as "overridden" once
@@ -238,19 +233,21 @@ export function SeverityKpiCard({
   return (
     <div
       id={kpiAnchorId(kpi.id)}
-      className={cn('flex flex-col gap-2 rounded-xl border-t border-r border-b p-3 transition-opacity', dimmed && 'opacity-40')}
+      className="flex flex-col gap-2 rounded-xl border-t border-r border-b p-3"
       style={{
         backgroundColor: meta.cardBg,
         borderColor: meta.solidHex,
         borderLeftWidth: 3,
         borderLeftColor: meta.solidHex,
-        boxShadow: highlighted ? `0 0 0 3px ${meta.solidHex}` : undefined,
       }}
     >
       <div className="flex items-start justify-between gap-2">
         <div>
           {/* Always two lines tall, so a one-line title's chart starts level with a wrapped one's. */}
-          <h3 className="line-clamp-2 min-h-[2lh] text-xl font-semibold text-gray-700">{kpi.label}</h3>
+          <div className="flex flex-wrap items-start gap-1.5">
+            <h3 className="line-clamp-2 min-h-[2lh] text-xl font-semibold text-gray-700">{kpi.label}</h3>
+            {isMockKpi && <DemoDataBadge title="Demo data - no real backend table for this KPI yet" />}
+          </div>
           {isRootCause && rootCauseEffectiveKpiId && (
             <p className="text-muted-foreground text-[9px]">
               {rootCauseOptions.find((o) => o.kpiId === rootCauseEffectiveKpiId)?.dimension ?? rootCauseEffectiveKpiId}
@@ -288,7 +285,11 @@ export function SeverityKpiCard({
               </p>
             )}
           </div>
-          <button className="text-muted-foreground hover:text-foreground" onClick={() => setDetailOpen(true)} title="Expand view">
+          <button
+            className="coach-kpi-expand text-muted-foreground hover:text-foreground"
+            onClick={() => setDetailOpen(true)}
+            title="Expand view"
+          >
             <Maximize2 className="size-3.5" />
           </button>
         </div>

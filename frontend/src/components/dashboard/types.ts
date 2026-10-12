@@ -49,6 +49,12 @@ export interface HeatmapRow {
 
 export type Severity = Exclude<RagStatus, 'no-data'>
 
+/** What SeverityBadgeSummary's badges (and the filter they drive - see DashboardPage's
+ * selectedSeverity) can select: one of the 3 real severities, or 'no-threshold' for a KPI with no
+ * configured threshold at all - not a Severity itself (it has no card colouring of its own, see
+ * severityMeta(null)), but still a selectable filter bucket the same way the other 3 are. */
+export type SeverityFilter = Severity | 'no-threshold'
+
 // Worst first, best last - shared by DomainSeverityBoard's tier bands and QcScoreCard's
 // worst-to-best section ordering, so "worst" means the same thing everywhere in the app.
 export const SEVERITY_ORDER: Severity[] = ['action', 'alert', 'in-control']
@@ -279,11 +285,17 @@ export interface TierCounts {
 
 export const ZERO_TIER_COUNTS: TierCounts = { critical: 0, warning: 0, onTrack: 0, noThreshold: 0 }
 
-/** Maps a Severity onto its own field of a TierCounts - shared by SeverityBadgeSummary's clickable
- * badges and SectionSummaryList's per-section "does this section contain the selected severity"
- * check (see DashboardPage's selectedSeverity), so both read the same count the same way. */
-export function tierCountForSeverity(counts: TierCounts, severity: Severity): number {
-  return severity === 'action' ? counts.critical : severity === 'alert' ? counts.warning : counts.onTrack
+/** Maps a SeverityFilter onto its own field of a TierCounts - shared by SeverityBadgeSummary's
+ * clickable badges and SectionSummaryList's per-section "does this section contain the selected
+ * filter" check (see DashboardPage's selectedSeverity), so both read the same count the same way. */
+export function tierCountForSeverity(counts: TierCounts, filter: SeverityFilter): number {
+  return filter === 'action'
+    ? counts.critical
+    : filter === 'alert'
+      ? counts.warning
+      : filter === 'in-control'
+        ? counts.onTrack
+        : counts.noThreshold
 }
 
 export function sumTierCounts(a: TierCounts, b: TierCounts): TierCounts {

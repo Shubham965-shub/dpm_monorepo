@@ -1,5 +1,6 @@
-import { forwardRef, useImperativeHandle, useState, type CSSProperties, type ReactNode } from 'react'
+import { forwardRef, useCallback, useImperativeHandle, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { DomainTierCounts } from './DomainTierCounts'
+import { useCoachTour } from './CoachMarks'
 import { cn } from '@/lib/utils'
 import { useFavoriteSections } from '@/hooks/useFavoriteSections'
 import { KPI_DOMAINS, type KpiDefinition, type KpiDomain } from '@/lib/kpiConfig'
@@ -24,6 +25,7 @@ import {
   tierCountForSeverity,
   ZERO_TIER_COUNTS,
   type Severity,
+  type SeverityFilter,
   type TierCounts,
 } from './types'
 
@@ -54,6 +56,7 @@ function SectionBlock({
   domain,
   trendKpis,
   stackedKpis,
+  stackedNoThresholdCount,
   columnKpis,
   rankingKpis,
   companions,
@@ -74,7 +77,13 @@ function SectionBlock({
   onToggle: () => void
   domain: KpiDomain | undefined
   trendKpis: KpiDefinition[]
+  /** Already narrowed to the currently selected filter (see highlightSeverity) - only rendered as
+   * cards when that filter is 'no-threshold', same as a real trend KPI's own no-threshold band. */
   stackedKpis: KpiDefinition[]
+  /** The section's TRUE stacked-share count, unaffected by highlightSeverity - fed into
+   * DomainSeverityBoard's own header count (extraNoThreshold) so that number never changes just
+   * because the selected filter currently hides those cards. */
+  stackedNoThresholdCount: number
   columnKpis: KpiDefinition[]
   rankingKpis: KpiDefinition[]
   companions: Map<string, (severity: Severity | null) => ReactNode>
@@ -84,8 +93,8 @@ function SectionBlock({
   /** See kpiConfig.ts's KpiDomain.scored / SectionSummaryBar's own `scored` prop. */
   scored: boolean
   /** DashboardPage's own selectedSeverity (see SeverityBadgeSummary) - forwarded to
-   * DomainSeverityBoard for its highlight/dim styling. */
-  highlightSeverity: Severity | null
+   * DomainSeverityBoard, which uses it to filter which cards render (see that file). */
+  highlightSeverity: SeverityFilter | null
 }) {
   // Not useState(initialTierCounts): that only reads its argument on this component's very first
   // render. DomainTierCounts' probes (a separate, independent useDomainTrendKpis fetch per domain)
@@ -133,21 +142,14 @@ function SectionBlock({
               lens={lens}
               companions={companions}
               onTierCounts={setLiveTierCounts}
-              extraNoThreshold={stackedKpis.length}
+              extraNoThreshold={stackedNoThresholdCount}
               highlightSeverity={highlightSeverity}
             />
           )}
           {stackedKpis.length > 0 && (
             <div className="flex flex-col gap-3 p-4">
               {stackedKpis.map((kpi) => (
-                <PriorityComplianceCard
-                  key={kpi.id}
-                  domain={domain}
-                  kpi={kpi}
-                  globalFilters={globalFilters}
-                  lens={lens}
-                  dimmed={highlightSeverity != null}
-                />
+                <PriorityComplianceCard key={kpi.id} domain={domain} kpi={kpi} globalFilters={globalFilters} lens={lens} />
               ))}
             </div>
           )}
@@ -191,11 +193,13 @@ export const SectionSummaryList = forwardRef<
     dateRangeOverride?: { from: string; to: string }
     searchQuery: string
     lens: KpiVisibilityLens
-    /** DashboardPage's own selectedSeverity (see SeverityBadgeSummary) - every section containing a
-     * KPI at this severity force-expands (same mechanism a live search already uses) and that
-     * section's matching cards highlight, via DomainSeverityBoard. Omitted (or null) outside the
-     * Operations view, which is the only place SeverityBadgeSummary renders. */
-    highlightSeverity?: Severity | null
+    /** DashboardPage's own selectedSeverity (see SeverityBadgeSummary) - a real filter, not just a
+     * highlight: a section with no KPI at this filter's bucket disappears entirely, and every
+     * section that does force-expands (same mechanism a live search already uses) showing only its
+     * matching cards (see DomainSeverityBoard's own visibleGroups). null (nothing selected) shows
+     * every real-severity card and hides no-threshold ones - see that file's own default. Omitted
+     * (or null) outside the Operations view, which is the only place SeverityBadgeSummary renders. */
+    highlightSeverity?: SeverityFilter | null
     /** Defaults to KPI_DOMAINS (QC). A domain carrying `mock: true` (see qaKpiConfig.ts) has no real
      * backend yet - its KPI data comes from generateMockKpiSeries instead (see useKpiData.ts). */
     domains?: KpiDomain[]
@@ -216,6 +220,7 @@ export const SectionSummaryList = forwardRef<
   // prior useHeatmapData-backed version.
   const allSections = domains.map((d) => ({ key: d.key, title: d.label }))
   const { favorites, toggleFavorite } = useFavoriteSections()
+  const { requestTour } = useCoachTour()
   const filteredSections = section === 'all' ? allSections : allSections.filter((s) => s.key === section)
   const isScored = (sectionKey: string) => domains.find((d) => d.key === sectionKey)?.scored ?? true
   // Favorited sections render first within the scored group (stable otherwise, so non-favorited
@@ -228,19 +233,49 @@ export const SectionSummaryList = forwardRef<
     return scoredRank !== 0 ? scoredRank : Number(favorites.has(b.key)) - Number(favorites.has(a.key))
   })
   // Lazy initializer, not a hardcoded literal: the first domain in whichever `domains` this instance
-  // was given (QC's 'lab-performance', or a QA preview's first section) starts expanded.
-  const [expandedKey, setExpandedKey] = useState<string | null>(() => domains[0]?.key ?? null)
+  // was given (QC's 'lab-performance', or a QA preview's first section) starts expanded - only a
+  // placeholder default until every section's real tier counts are in (see handleTierCounts below),
+  // so the page doesn't render fully collapsed while that data is still loading.
+  const [expandedKeys, setExpandedKeys] = useState<Set<string>>(() => new Set(domains[0] ? [domains[0].key] : []))
   const [tierCounts, setTierCounts] = useState<{ bySection: Record<string, TierCounts>; total: TierCounts }>({
     bySection: {},
     total: ZERO_TIER_COUNTS,
   })
+  // Once every section has reported its real tier counts (DomainTierCounts' own probes, which run
+  // regardless of expand state - see that file), replace the positional "first section open" default
+  // with every section that actually has a critical KPI expanded (plural - unlike the old single-
+  // accordion default, more than one section can genuinely need attention at once) and collapse the
+  // rest. Fires once per mount (hasAutoExpandedRef), not on every tierCounts update - a user's own
+  // manual toggle afterward must never be overridden by a later refetch reporting the same counts
+  // again. A reload with no critical KPIs anywhere just keeps the positional default rather than
+  // collapsing everything down to nothing useful to look at.
+  //
+  // Done here, inside DomainTierCounts' own onChange callback, rather than a useEffect watching
+  // tierCounts - the counts already arrive via that child's own effect, so reacting to them with
+  // another derived effect on this component's side would just be a second render cascading off the
+  // first for no reason.
+  const hasAutoExpandedRef = useRef(false)
+  // A stable reference, not a plain inline function - DomainTierCounts' own effect that invokes this
+  // depends on it (see that file's onChange dep array), so a new identity every render would retrigger
+  // that effect every render too, regardless of whether the counts actually changed.
+  const handleTierCounts = useCallback(
+    (counts: { bySection: Record<string, TierCounts>; total: TierCounts }) => {
+      setTierCounts(counts)
+      if (hasAutoExpandedRef.current) return
+      if (Object.keys(counts.bySection).length < domains.length) return
+      hasAutoExpandedRef.current = true
+      const criticalKeys = domains.filter((d) => (counts.bySection[d.key]?.critical ?? 0) > 0).map((d) => d.key)
+      if (criticalKeys.length > 0) setExpandedKeys(new Set(criticalKeys))
+    },
+    [domains],
+  )
   useImperativeHandle(ref, () => ({
     scrollToKpi(kpiId, sectionKey) {
-      setExpandedKey(sectionKey)
-      // A single requestAnimationFrame after setExpandedKey isn't reliably enough: the section's
+      setExpandedKeys((prev) => (prev.has(sectionKey) ? prev : new Set(prev).add(sectionKey)))
+      // A single requestAnimationFrame after setExpandedKeys isn't reliably enough: the section's
       // own layout is still settling a frame or two later (Recharts' ResponsiveContainer measures
       // via ResizeObserver post-mount, and the browser's own scroll anchoring - compensating for
-      // content above the fold changing height as the accordion opens - can fight a scrollIntoView
+      // content above the fold changing height as the section opens - can fight a scrollIntoView
       // issued too early, landing on the section instead of the specific card). Poll across frames
       // instead, up to a small budget, and scroll only once the card is actually there.
       const id = kpiAnchorId(kpiId)
@@ -260,10 +295,11 @@ export const SectionSummaryList = forwardRef<
   const query = searchQuery.trim().toLowerCase()
   const isSearching = query.length > 0
   // The top Section filter picking one domain should actually open it, not just narrow the list
-  // down to a single still-collapsed bar - overrides expandedKey while a filter is active rather
-  // than syncing it via an effect. A live search takes priority over both: every section with a
-  // matching KPI expands at once (not just one, like the accordion default).
-  const effectiveExpandedKey = section === 'all' ? expandedKey : section
+  // down to a single still-collapsed bar - the filtered list only ever contains that one section
+  // anyway (see `filteredSections` above), so it's always the "expanded" one while a filter is
+  // active, independent of expandedKeys. A live search takes priority over both: every section with
+  // a matching KPI expands at once.
+  const isExpanded = (sectionKey: string) => (section === 'all' ? expandedKeys.has(sectionKey) : true)
 
   // Trailing window sized to the top Timeline filter's grain (see kpiDateRange.ts's
   // getGrainDateRange). The Performance tab's KpiFilterBar is a separate, user-adjustable filter
@@ -301,6 +337,16 @@ export const SectionSummaryList = forwardRef<
           rankingKpis = rankingKpis.filter((kpi) => kpi.label.toLowerCase().includes(query))
           columnKpis = columnKpis.filter((kpi) => kpi.label.toLowerCase().includes(query))
         }
+        // extraNoThreshold (below, fed into DomainSeverityBoard's header count) reads stackedKpis
+        // BEFORE this narrowing - the header's own "no threshold" number must stay the true total
+        // regardless of which bucket is currently selected, same as every other tier's count there.
+        const stackedKpisForCount = stackedKpis
+        // A stacked-share KPI has no threshold by design (stackedShareNoThresholdCount) - it only
+        // ever belongs in the 'no-threshold' bucket, so it shows there (same as DomainSeverityBoard's
+        // own no-threshold band) and is hidden everywhere else: the default view (nothing selected,
+        // same as a real trend KPI's no-threshold card - see DomainSeverityBoard) and every other
+        // selected severity, which it can never match.
+        if (highlightSeverity !== 'no-threshold') stackedKpis = []
         // Always paired with its host (see HEATMAP_COMPANION_HOST_ID) - not independently
         // searchable/rendered, so it isn't part of the search filter or hasMatch above. A function
         // (not a plain node) so DomainSeverityBoard can pass the host's own live severity through -
@@ -332,12 +378,16 @@ export const SectionSummaryList = forwardRef<
         // suppressed while actively searching, same as before, since a scored section whose KPIs
         // don't match the search text is just noise then, not a structural guarantee.
         const alwaysShowSection = domain?.scored !== undefined && !isSearching
-        if (!hasMatch && !alwaysShowSection) return null
-        // A selected severity (see SeverityBadgeSummary) force-expands every section containing a
-        // match, same as a live search does - otherwise a highlighted card could sit inside a
-        // collapsed section the user never opened.
+        // A selected severity (see SeverityBadgeSummary) is a real filter now - a section with no
+        // KPI at that severity disappears entirely (same as a search with no match), not just
+        // failing to auto-expand, and this overrides alwaysShowSection too (a "scored" section with
+        // nothing at the selected severity is still nothing to show for that filter).
         const matchesHighlight = highlightSeverity != null && tierCountForSeverity({ critical, warning, onTrack, noThreshold }, highlightSeverity) > 0
-        const expanded = isSearching || matchesHighlight ? true : effectiveExpandedKey === sec.key
+        const hiddenBySeverityFilter = highlightSeverity != null && !matchesHighlight
+        if ((!hasMatch && !alwaysShowSection) || hiddenBySeverityFilter) return null
+        // matchesHighlight force-expands a section containing a match, same as a live search does -
+        // otherwise a highlighted card could sit inside a collapsed section the user never opened.
+        const expanded = isSearching || matchesHighlight ? true : isExpanded(sec.key)
 
         return (
           <SectionBlock
@@ -354,11 +404,24 @@ export const SectionSummaryList = forwardRef<
             starred={favorites.has(sec.key)}
             onToggleStar={() => toggleFavorite(sec.key)}
             expanded={expanded}
-            onToggle={() => setExpandedKey((k) => (k === sec.key ? null : sec.key))}
+            onToggle={() =>
+              setExpandedKeys((prev) => {
+                const next = new Set(prev)
+                if (next.has(sec.key)) next.delete(sec.key)
+                else {
+                  next.add(sec.key)
+                  // Fires the 'cards' coach tour the first time any section is ever opened (see
+                  // coachMarks.ts) - a no-op once that tour has already run (see useCoachTour).
+                  requestTour('cards')
+                }
+                return next
+              })
+            }
             scored={isScored(sec.key)}
             domain={domain}
             trendKpis={trendKpis}
             stackedKpis={stackedKpis}
+            stackedNoThresholdCount={stackedKpisForCount.length}
             columnKpis={columnKpis}
             rankingKpis={rankingKpis}
             companions={companions}
@@ -372,7 +435,7 @@ export const SectionSummaryList = forwardRef<
 
   return (
     <div className="flex flex-col gap-3">
-      <DomainTierCounts lens={lens} globalFilters={globalFilters} visibleKpiIds={visibleKpiIds} onChange={setTierCounts} domains={domains} />
+      <DomainTierCounts lens={lens} globalFilters={globalFilters} visibleKpiIds={visibleKpiIds} onChange={handleTierCounts} domains={domains} />
       {rows}
       {isSearching && rows.every((r) => r == null) && (
         <p className="text-muted-foreground px-2 py-6 text-center text-sm">

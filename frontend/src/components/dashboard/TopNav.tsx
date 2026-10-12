@@ -1,4 +1,4 @@
-import { Sun, Moon, Bell } from 'lucide-react'
+import { Sun, Moon, Bell, Compass } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import heliosLogo from '@/assets/helios-logo.svg'
@@ -7,6 +7,7 @@ import { useTheme } from '@/hooks/useTheme'
 import { cn } from '@/lib/utils'
 import type { UserPublic } from '@/lib/authSchemas'
 import type { RoleTab, KpiVisibilityLens } from '@/lib/roleAccess'
+import { DataFreshnessLabel } from './DataFreshnessLabel'
 import { FeedbackLauncher } from './FeedbackLauncher'
 import { ProfileMenu } from './ProfileMenu'
 
@@ -30,6 +31,7 @@ export function TopNav({
   activeRole,
   onActiveRoleChange,
   locked,
+  onReplayTour,
 }: {
   user: UserPublic
   onLogout: () => void
@@ -38,6 +40,10 @@ export function TopNav({
   /** True for every role except ADMIN (see resolveRoleTab) - renders activeRole as plain text
    * instead of a switchable pill row, since the user has no other tab to switch to anyway. */
   locked: boolean
+  /** Re-runs the guided tour for whichever screen is currently showing (see CoachMarks.tsx) -
+   * undefined on a view with no coach tour of its own (QA/Performance), which hides the button
+   * rather than wiring it to a no-op. */
+  onReplayTour?: () => void
 }) {
   const { theme, toggleTheme } = useTheme()
 
@@ -51,6 +57,17 @@ export function TopNav({
       </div>
       <nav className="flex items-center gap-6 text-sm">
         <FeedbackLauncher />
+        {onReplayTour && (
+          <button
+            type="button"
+            onClick={onReplayTour}
+            title="Replay the guided tour for this screen"
+            className="flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-sm font-medium text-white hover:bg-white/20"
+          >
+            <Compass className="size-4" />
+            Replay tour
+          </button>
+        )}
         <button
           onClick={toggleTheme}
           title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
@@ -182,6 +199,7 @@ export function SubNav({
         </button>
       </div>
       <div className="flex items-center gap-4">
+        <DataFreshnessLabel />
         {secondaryToggle && (
           <SubNavLensToggle
             value={secondaryToggle.value}

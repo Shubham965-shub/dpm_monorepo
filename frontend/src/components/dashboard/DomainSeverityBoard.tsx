@@ -4,7 +4,7 @@ import type { KpiDomain, KpiDefinition } from '@/lib/kpiConfig'
 import type { GlobalKpiFilters } from '@/hooks/useKpiData'
 import type { KpiVisibilityLens } from '@/lib/roleAccess'
 import { useDomainTrendKpis, type DomainTrendKpiResult } from '@/hooks/useDomainTrendKpis'
-import { KPI_CARD_GRID_CLASS, SEVERITY_META, SEVERITY_ORDER, type Severity } from './types'
+import { KPI_CARD_GRID_CLASS, SEVERITY_ORDER, severityMeta, type Severity, type SeverityFilter } from './types'
 import { SeverityKpiCard } from './SeverityKpiCard'
 
 /** A KPI's own card, plus its companion (if any) tracking this card's LIVE on-screen severity - not
@@ -22,8 +22,6 @@ function TrendResult({
   lens,
   companion,
   onLiveSeverityChange,
-  highlighted,
-  dimmed,
 }: {
   result: DomainTrendKpiResult
   domain: KpiDomain
@@ -31,8 +29,6 @@ function TrendResult({
   lens: KpiVisibilityLens
   companion?: (severity: Severity | null) => ReactNode
   onLiveSeverityChange: (kpiId: string, severity: Severity | null) => void
-  highlighted: boolean
-  dimmed: boolean
 }) {
   const [liveSeverity, setLiveSeverity] = useState<Severity | null>(result.severity)
   const kpiId = result.kpi.id
@@ -51,8 +47,6 @@ function TrendResult({
         result={result}
         lens={lens}
         onLiveSeverityChange={handleLiveSeverityChange}
-        highlighted={highlighted}
-        dimmed={dimmed}
       />
       {companion?.(liveSeverity)}
     </Fragment>
@@ -105,10 +99,13 @@ export function DomainSeverityBoard({
    * they still have no threshold by design, so the caller folds their count in here rather than the
    * header silently dropping them once a section expands. */
   extraNoThreshold?: number
-  /** DashboardPage's own selectedSeverity (see SeverityBadgeSummary) - every card whose live
-   * severity matches gets a highlight ring, every other card dims, so the selected tier stands out
-   * across every section at once, not just within whichever band it already sorts into here. */
-  highlightSeverity?: Severity | null
+  /** DashboardPage's own selectedSeverity (see SeverityBadgeSummary) - a real filter on which cards
+   * render below: null (nothing selected) shows every real-severity card and hides the no-threshold
+   * band; a real severity shows only that tier; 'no-threshold' shows only the no-threshold band. The
+   * header counts reported via onTierCounts are NOT affected by this - they always report the
+   * section's true totals, same as a badge's own number never changing just because its cards are
+   * currently hidden. */
+  highlightSeverity?: SeverityFilter | null
 }) {
   const results = useDomainTrendKpis(domain, kpis, globalFilters, lens)
   // Seeded once from the board-level fetch, then kept current per-KPI by each card's own
@@ -127,6 +124,10 @@ export function DomainSeverityBoard({
   const effectiveSeverity = (r: DomainTrendKpiResult): Severity | null =>
     Object.hasOwn(liveSeverities, r.kpi.id) ? liveSeverities[r.kpi.id] : r.severity
 
+  // Ground truth for the header badge (onTierCounts below) - always the section's true breakdown,
+  // regardless of highlightSeverity (see that prop's own doc comment). Still reflects a live search,
+  // same as before: `kpis` (and so `results`) already arrives pre-narrowed by SectionSummaryList's
+  // own label filter in that case.
   const pending = results.filter((r) => effectiveSeverity(r) == null)
   const tierCounts = {
     critical: results.filter((r) => effectiveSeverity(r) === 'action').length,
@@ -152,21 +153,26 @@ export function DomainSeverityBoard({
         lens={lens}
         companion={companions?.get(r.kpi.id)}
         onLiveSeverityChange={reportLiveSeverity}
-        highlighted={highlightSeverity != null && effectiveSeverity(r) === highlightSeverity}
-        dimmed={highlightSeverity != null && effectiveSeverity(r) !== highlightSeverity}
       />
     )
   }
 
+  // Which band(s) render below: nothing selected shows every real severity (not the no-threshold
+  // band - see highlightSeverity's own doc comment); a selected filter shows only its own single
+  // bucket, 'no-threshold' mapping to the null-severity band exactly like the header's own
+  // tierCountForSeverity does for its count.
+  const visibleGroups: (Severity | null)[] =
+    highlightSeverity == null ? SEVERITY_ORDER : [highlightSeverity === 'no-threshold' ? null : highlightSeverity]
+
   return (
     <div className="flex flex-col">
-      {SEVERITY_ORDER.map((severity) => {
+      {visibleGroups.map((severity) => {
         const tier = results.filter((r) => effectiveSeverity(r) === severity)
         if (tier.length === 0) return null
-        const meta = SEVERITY_META[severity]
+        const meta = severityMeta(severity)
 
         return (
-          <div key={severity} style={{ backgroundColor: meta.bandBg }}>
+          <div key={severity ?? 'no-threshold'} style={{ backgroundColor: meta.bandBg }}>
             <div className="flex items-center gap-2 border-l-4 px-5 py-2" style={{ borderColor: meta.solidHex }}>
               <span className="size-2 rounded-full" style={{ backgroundColor: meta.solidHex }} />
               <span className="text-[11px] font-black tracking-wide uppercase" style={{ color: meta.solidHex }}>
@@ -180,11 +186,6 @@ export function DomainSeverityBoard({
           </div>
         )
       })}
-      {pending.length > 0 && (
-        <div className={TIER_GRID_CLASS}>
-          {pending.map(renderResult)}
-        </div>
-      )}
     </div>
   )
 }

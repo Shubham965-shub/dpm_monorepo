@@ -40,7 +40,7 @@ export function FiltersPopoverButton({
           type="button"
           title={activeCount > 0 ? `${activeCount} filter${activeCount === 1 ? '' : 's'} applied` : undefined}
           className={cn(
-            'flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-medium',
+            'coach-kpi-filter flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-medium',
             open || activeCount > 0 ? 'border-input bg-muted text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground',
             activeCount > 0 && 'font-semibold',
           )}

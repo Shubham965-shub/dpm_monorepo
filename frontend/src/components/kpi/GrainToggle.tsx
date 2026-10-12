@@ -16,6 +16,7 @@ export function GrainToggle({
   activeHex,
   borderHex,
   size = 'card',
+  className,
 }: {
   grain: Grain
   onChange: (grain: Grain) => void
@@ -24,10 +25,11 @@ export function GrainToggle({
   /** Card size only; the modal uses the input border. */
   borderHex?: string
   size?: 'card' | 'modal'
+  className?: string
 }) {
   return (
     <div
-      className={cn('flex overflow-hidden rounded-md border', size === 'modal' && 'border-input')}
+      className={cn('flex overflow-hidden rounded-md border', size === 'modal' && 'border-input', className)}
       style={size === 'card' ? { borderColor: borderHex } : undefined}
     >
       {GRAIN_OPTIONS.map((g) => (

@@ -65,7 +65,7 @@ export function SectionSummaryBar({
             onClick={onToggleStar}
             aria-label={starred ? `Unfavorite ${title}` : `Favorite ${title}`}
             aria-pressed={starred}
-            className="flex shrink-0 items-center justify-center"
+            className="coach-section-star flex shrink-0 items-center justify-center"
           >
             <Star className={cn('size-4', starred ? 'fill-emerald-400 text-emerald-400' : 'text-white/60')} />
           </button>
@@ -106,7 +106,7 @@ export function SectionSummaryBar({
         <button
           onClick={onToggle}
           aria-label={expanded ? `Collapse ${title}` : `Expand ${title}`}
-          className="flex size-7 shrink-0 items-center justify-center rounded-full bg-white/15 hover:bg-white/25"
+          className="coach-section-chevron flex size-7 shrink-0 items-center justify-center rounded-full bg-white/15 hover:bg-white/25"
         >
           <ChevronDown className={cn('size-4 transition-transform', expanded && 'rotate-180')} />
         </button>
