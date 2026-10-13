@@ -6,8 +6,8 @@ import { cn, pluralize } from '@/lib/utils'
 import { useHeatmapData, type HeatmapWindow } from '@/hooks/useHeatmapData'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import type { Grain } from '@/lib/kpiSchemas'
+import type { KpiDomain } from '@/lib/kpiConfig'
 import { severityMeta, formatScore, formatCompactScore, type HeatmapRow, type RagStatus } from './types'
-import type { SectionFilterValue } from './FilterBar'
 
 export interface HeatmapRangeOption {
   label: string
@@ -87,6 +87,13 @@ const SECTION_PALETTE: Record<string, { bg: string; border: string }> = {
   'instrument-health': { bg: 'rgba(255,200,162,0.15)', border: '#ffc8a2' },
   qms: { bg: 'rgba(255,224,178,0.15)', border: '#ffe0b2' },
   'people-performance': { bg: 'rgba(186,225,255,0.15)', border: '#bae1ff' },
+  // QA's own 5 sections (qaKpiConfig.ts) - distinct from QC's 4 above so the two never collide if
+  // ever shown on the same page, same "one color per section" rule as QC's own palette.
+  'qa-batch-disposition': { bg: 'rgba(186,255,201,0.15)', border: '#baffc9' },
+  'qa-quality-event': { bg: 'rgba(255,223,186,0.15)', border: '#ffdfba' },
+  'qa-compliance-audit': { bg: 'rgba(201,201,255,0.15)', border: '#c9c9ff' },
+  'qa-people-performance': { bg: 'rgba(224,187,255,0.15)', border: '#e0bbff' },
+  'qa-cross-functional': { bg: 'rgba(217,217,217,0.15)', border: '#d9d9d9' },
 }
 const ROWS_PER_CHUNK = 4
 const DEFAULT_FILTER_MARKER_CLASS = 'border-foreground/50'
@@ -265,9 +272,13 @@ export function OverallHeatmapDemo({
   rangeOptions = DEFAULT_RANGE_OPTIONS,
   visibleKpiIds,
   onKpiClick,
+  domains,
 }: {
   site: string
-  section: SectionFilterValue
+  /** 'all' or one domain's own `key` - a plain string, not the QC-only SectionFilterValue union
+   * (same generalization as SectionSummaryList's own `section` prop), since `domains` below can be
+   * any KpiDomain[], including qaKpiConfig.ts's QA section keys. */
+  section: 'all' | string
   /** CXO/unfiltered's monthly 3M/4M/5M pill by default; Leadership passes its own weekly set (see
    * LEADERSHIP_HEATMAP_RANGES in DashboardPage). */
   rangeOptions?: HeatmapRangeOption[]
@@ -281,11 +292,14 @@ export function OverallHeatmapDemo({
    * below - see DashboardPage's wiring to SectionSummaryList's scrollToKpi. Omitted only if a
    * caller has no section list to scroll (none do today). */
   onKpiClick?: (kpiId: string, sectionKey: string) => void
+  /** Defaults to KPI_DOMAINS (QC) inside useHeatmapData - QaDashboardPage passes QA_DOMAINS instead,
+   * same "which domain set" prop useHeatmapData/SectionSummaryList already take. */
+  domains?: KpiDomain[]
 }) {
   const [onlyReds, setOnlyReds] = useState(false)
   const [selectedRange, setSelectedRange] = useState<HeatmapRangeOption>(rangeOptions[0] ?? DEFAULT_RANGE_OPTIONS[0])
   const [legendExpanded, setLegendExpanded] = useState(false)
-  const { sections: allSections, isLoading, isError } = useHeatmapData(site, selectedRange.window)
+  const { sections: allSections, isLoading, isError } = useHeatmapData(site, selectedRange.window, domains)
   const sections = section === 'all' ? allSections : allSections.filter((s) => s.key === section)
   const visibleSections = sections
     .map((s) => ({

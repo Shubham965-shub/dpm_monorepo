@@ -11,14 +11,16 @@ import {
 } from '@/lib/kpiDateRange'
 import { seriesKeyFor } from '@/lib/kpiRowName'
 import { severityFromStatus, type HeatmapCell, type HeatmapRow } from '@/components/dashboard/types'
-import type { SectionKey } from '@/components/dashboard/mockData'
 import { toChartData } from '@/components/kpi/KpiChartCard'
 import { filterRowsForKpi } from './useDomainTrendKpis'
 import { buildKpiQueryString } from './useKpiData'
 import { defaultFilterSummaries } from '@/lib/filterLabels'
 
 export interface HeatmapSectionData {
-  key: SectionKey
+  /** A domain's own `key` (see KpiConfig.KpiDomain) - a plain string, not the QC-only SectionKey
+   * union (see useFavoriteSections.ts's own precedent for this exact generalization), since
+   * `domains` below can be any KpiDomain[], including qaKpiConfig.ts's QA section keys. */
+  key: string
   title: string
   rows: HeatmapRow[]
 }
@@ -101,8 +103,13 @@ function primaryValueRow(kpiId: string, rows: KpiCardResponse[]): KpiCardRespons
 }
 
 // A snapshot KPI ("every open record as of today") has no month-by-month history to heat-map.
+// A still-mock KPI (kpi.mock ?? domain.mock - same resolution SeverityKpiCard's own isMockKpi uses)
+// has no real backend table at all yet (see qaKpiConfig.ts's own header comment for QA's 5) - this
+// hook only ever issues a real GET, so querying one would just 404 and fail the whole heatmap's
+// isError (every KPI here shares one combined loading/error state - see the component below).
+// QC's own KPI_DOMAINS never sets `mock` on anything, so this is a no-op there.
 function heatmapKpis(domain: KpiDomain): KpiDefinition[] {
-  return domain.kpis.filter((kpi) => !kpi.snapshot)
+  return domain.kpis.filter((kpi) => !kpi.snapshot && !(kpi.mock ?? domain.mock))
 }
 
 // human-error-severity, rci-beyond-timeline: a period with zero qualifying incidents comes back with
@@ -130,7 +137,9 @@ interface HeatmapRequest {
   periodKey?: string
 }
 
-export function useHeatmapData(site: string, window: HeatmapWindow) {
+/** domains defaults to KPI_DOMAINS (QC) - OverallHeatmapDemo passes qaKpiConfig.ts's QA_DOMAINS
+ * instead for the QA dashboard's own heatmap (same KpiDomain[] shape, see kpiConfig.ts). */
+export function useHeatmapData(site: string, window: HeatmapWindow, domains: KpiDomain[] = KPI_DOMAINS) {
   const { periods, from, to, grain, bucketKeyFor } = resolveWindow(window)
 
   // chartType:'bar' KPIs (CAPA Aging Status, Human Error by Product, Product-wise Failure) sum
@@ -138,7 +147,7 @@ export function useHeatmapData(site: string, window: HeatmapWindow) {
   // [from,to] request can't show a period-by-period breakdown (every row comes back tagged with
   // today's date, confirmed live), so each one gets a separate narrow [periodStart, periodEnd]
   // request per period column instead of the one wide-range request every other KPI uses.
-  const requests: HeatmapRequest[] = KPI_DOMAINS.flatMap((domain) =>
+  const requests: HeatmapRequest[] = domains.flatMap((domain) =>
     heatmapKpis(domain).flatMap((kpi) =>
       kpi.chartType === 'bar'
         ? periods.map((p) => ({ domain, kpi, from: p.from, to: p.to, periodKey: p.key }))
@@ -171,13 +180,13 @@ export function useHeatmapData(site: string, window: HeatmapWindow) {
     }
   })
 
-  const sections: HeatmapSectionData[] = KPI_DOMAINS.map((domain) => ({
-    key: domain.key as SectionKey,
+  const sections: HeatmapSectionData[] = domains.map((domain) => ({
+    key: domain.key,
     title: domain.label,
     rows: [],
   }))
 
-  for (const domain of KPI_DOMAINS) {
+  for (const domain of domains) {
     for (const kpi of heatmapKpis(domain)) {
       let cells: HeatmapCell[]
       if (kpi.chartType === 'bar') {

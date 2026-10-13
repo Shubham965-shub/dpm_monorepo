@@ -163,28 +163,21 @@ public class KpiThresholdService {
     /**
      * selectedValues: filter name (a snapshot filter_N_name, e.g. site_name) -> the values the user
      * picked for that slicer; empty when nothing (or "select all") is picked.
-     *
-     * A card whose kpiId this catalogue doesn't recognize at all is returned UNCHANGED, not
-     * recoloured to null - KpiThresholdResponseFilter chains this with QaKpiThresholdService's own
-     * applyTo over the same list, and each only recognizes its own catalogue's ids (see that
-     * filter's own doc comment); only a recognized-but-unmapped series (resolveLimits/limits()
-     * returning empty - e.g. a KPI genuinely missing a snapshot row) still clears to null below.
      */
     public List<KpiCardResponse> applyTo(List<KpiCardResponse> cards, Function<String, List<String>> selectedValues) {
         LocalDate today = LocalDate.now(clock);
         Defaults loaded = defaults;
         Map<SeriesKey, Optional<KpiThresholds>> limitsPerSeries = new HashMap<>();
         return cards.stream()
-                .map(card -> catalogue.findKpiIdForSeries(card.kpiId())
-                        .map(kpiId -> {
-                            KpiThresholds limits = limitsPerSeries.computeIfAbsent(
+                .map(card -> {
+                    KpiThresholds limits = catalogue.findKpiIdForSeries(card.kpiId())
+                            .flatMap(kpiId -> limitsPerSeries.computeIfAbsent(
                                     new SeriesKey(kpiId, card.grain(), card.unit()),
-                                    key -> resolveLimits(key, selectedValues, loaded))
-                                    .orElse(null);
-                            return card.withThresholdStatus(KpiThresholdEvaluator.statusFor(card.value(), limits), limits,
-                                    PeriodProgress.isInProgress(card.grain(), card.periodStart(), today));
-                        })
-                        .orElse(card))
+                                    key -> resolveLimits(key, selectedValues, loaded)))
+                            .orElse(null);
+                    return card.withThresholdStatus(KpiThresholdEvaluator.statusFor(card.value(), limits), limits,
+                            PeriodProgress.isInProgress(card.grain(), card.periodStart(), today));
+                })
                 .toList();
     }
 
