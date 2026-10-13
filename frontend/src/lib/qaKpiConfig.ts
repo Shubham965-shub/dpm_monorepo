@@ -3,19 +3,27 @@ import type { KpiDomain } from './kpiConfig'
 /**
  * QA's 5 KPI Framework sections per QA_KPI_Sheet_for_Front_End - 55 of its 61 rows (6 marked
  * "Fix logic first" / "Needs clarification - hold" are excluded until their logic is confirmed;
- * see the sheet for those 6). Every domain here still defaults to `mock: true`, but 49 of the 55
- * KPIs now set their own `mock: false` (see KpiDefinition.mock in kpiConfig.ts) to read real data -
- * most from the `qa` Postgres schema per DPM_QA_Data_Layer_Handover.md, several others (confirmed
- * live against information_schema on 2026-10-12, cross-referenced with the "QA_Data_Table_per_KPI"
- * fact-table sheet) from a `public.agg_tw_*`/`agg_lims_*`/`agg_cw_*` table instead, where that
- * turned out to be the only real source - see backend/.../repository/QaKpiSpecs.java for the full
- * per-KPI query shape, which schema each one reads, and its caveats. The remaining 6 KPIs with no
- * `mock: false` here have no real table yet, no confident mapping to one, or (2 of them) a real
- * table that can't represent what the KPI's own name claims (see QaKpiSpecs.java's own header
- * comment for exactly which and why) - all 6 still fall through to the domain's own `mock: true`
- * via generateMockKpiSeries (see useKpiData.ts). `scored: false` on Cross-Functional Context only -
- * see qaSectionScore.ts and SectionSummaryBar's `scored` prop: that section carries no score, no
- * points change, no status chips and no star, and is excluded from the section-score roll-up.
+ * see the sheet for those 6), plus one row (Closure of Open Change Controls) now split into two
+ * KPIs (-l4/-l5 - see below), for 56 total. Every domain here still defaults to `mock: true`, but
+ * 51 of the 56 KPIs now set their own `mock: false` (see KpiDefinition.mock in kpiConfig.ts) to
+ * read real data - most from the `qa` Postgres schema per DPM_QA_Data_Layer_Handover.md, several
+ * others (confirmed live against information_schema on 2026-10-12, cross-referenced with the
+ * "QA_Data_Table_per_KPI" fact-table sheet) from a `public.agg_tw_*`/`agg_lims_*`/`agg_cw_*` table
+ * instead, where that turned out to be the only real source - see backend/.../repository/
+ * QaKpiSpecs.java for the full per-KPI query shape, which schema each one reads, and its caveats.
+ * The remaining 5 KPIs with no `mock: false` here have no real table yet, or no confident mapping
+ * to one (see QaKpiSpecs.java's own header comment for exactly which and why) - all 5 still fall
+ * through to the domain's own `mock: true` via generateMockKpiSeries (see useKpiData.ts).
+ *
+ * `qa-closure-of-open-change-controls-l4`/`-l5`: the original single combined KPI (`...-open-due-
+ * date-alerts`) was replaced (2026-10-13) with two KPIs, one per closure level, since the DPM QA -
+ * KPI Thresholds Hand-off doc only defines a real threshold per level (`KPI-QA-042A`/`-042B`), never
+ * for a combined figure - see QaKpiSpecs.CLOSURE_OPEN_CCS_L4/L5's own comment.
+ *
+ * `scored: false` on Cross-Functional Context only - see SectionSummaryBar's `scored` prop: that
+ * section carries no score, no points change, no status chips and no star, and is excluded from the
+ * section-score roll-up (QaScoreService's own `sources` list already applies the same exclusion
+ * server-side - see backend/README.md's "QA score" section).
  *
  * `infoBasePath` - each KPI's Info-dropdown text lives in the real `qa_kpi_info` Postgres table
  * (separate from QC's own `qc_kpi_info`), fetched via GET /api/qa-kpi-info/card/{id} - see
@@ -27,10 +35,13 @@ import type { KpiDomain } from './kpiConfig'
  * time snapshots rather than trends - left as trend cards for now rather than guessing; flag for
  * a follow-up once chart-type guidance exists for this sheet.
  *
- * Breakdown dimensions (each row's own 'Can be broken down by' line) are deliberately omitted:
- * the sheet's own rule is to only expose a breakdown the app already holds from a real aggregate
- * table, and none exists yet for these 55 KPIs - so every `extraFilters` here is empty, and the
- * stripped line is left out of qa_kpi_info's seeded text too.
+ * Breakdown dimensions (each row's own 'Can be broken down by' line): 29 KPIs now carry a real
+ * `extraFilters` entry, wired to a confirmed-live column via the backend's QaKpiFilterColumns
+ * registry (GET /api/qa/{kpiPath}/filter-options) - see that file's own header comment for exactly
+ * which KPIs were excluded and why (missing columns, a bespoke non-extraFilters-ready repository
+ * path, or a resp_dept_slice literal already baked into the spec's own numerator/denominator). Every
+ * other KPI here still has an empty `extraFilters`, same as before. The stripped 'Can be broken
+ * down by' line is still left out of qa_kpi_info's seeded text either way.
  */
 export const QA_DOMAINS: KpiDomain[] = [
   {
@@ -42,18 +53,18 @@ export const QA_DOMAINS: KpiDomain[] = [
     mock: true,
     infoBasePath: '/api/qa-kpi-info',
     kpis: [
-      { id: 'qa-right-first-time-rft', label: 'Right First Time (RFT)', path: 'qa-right-first-time-rft', extraFilters: [], mock: false, drilldownPath: 'qa-right-first-time-rft/drilldown' },
-      { id: 'qa-batch-reject', label: '% Batch Reject', path: 'qa-batch-reject', extraFilters: [], mock: false, drilldownPath: 'qa-batch-reject/drilldown' },
-      { id: 'qa-semi-finished-goods-release-delays', label: 'Semi-Finished Goods Release Delays', path: 'qa-semi-finished-goods-release-delays', extraFilters: [], mock: false, drilldownPath: 'qa-semi-finished-goods-release-delays/drilldown' },
-      { id: 'qa-batches-with-error-on-incoming-inspection', label: '% Batches with Error on Incoming Inspection', path: 'qa-batches-with-error-on-incoming-inspection', extraFilters: [], mock: false, drilldownPath: 'qa-batches-with-error-on-incoming-inspection/drilldown' },
-      { id: 'qa-sla-ip-in-process-sample-turnaround', label: 'SLA - IP (in-process sample turnaround)', path: 'qa-sla-ip-in-process-sample-turnaround', extraFilters: [], mock: false, drilldownPath: 'qa-sla-ip-in-process-sample-turnaround/drilldown' },
-      { id: 'qa-qa-sampling-on-time', label: 'QA Sampling On-Time', path: 'qa-qa-sampling-on-time', extraFilters: [], mock: false, drilldownPath: 'qa-qa-sampling-on-time/drilldown' },
+      { id: 'qa-right-first-time-rft', label: 'Right First Time (RFT)', path: 'qa-right-first-time-rft', extraFilters: [{ kind: 'multiSelect', param: 'materialType' }, { kind: 'multiSelect', param: 'sapDisposition' }], mock: false, drilldownPath: 'qa-right-first-time-rft/drilldown' },
+      { id: 'qa-batch-reject', label: '% Batch Reject', path: 'qa-batch-reject', extraFilters: [{ kind: 'multiSelect', param: 'materialType' }], mock: false, drilldownPath: 'qa-batch-reject/drilldown' },
+      { id: 'qa-semi-finished-goods-release-delays', label: 'Semi-Finished Goods Release Delays', path: 'qa-semi-finished-goods-release-delays', extraFilters: [{ kind: 'multiSelect', param: 'storageLocation' }], mock: false, drilldownPath: 'qa-semi-finished-goods-release-delays/drilldown' },
+      { id: 'qa-batches-with-error-on-incoming-inspection', label: '% Batches with Error on Incoming Inspection', path: 'qa-batches-with-error-on-incoming-inspection', extraFilters: [{ kind: 'multiSelect', param: 'sourceSystem' }], mock: false, drilldownPath: 'qa-batches-with-error-on-incoming-inspection/drilldown' },
+      { id: 'qa-sla-ip-in-process-sample-turnaround', label: 'SLA - IP (in-process sample turnaround)', path: 'qa-sla-ip-in-process-sample-turnaround', extraFilters: [{ kind: 'multiSelect', param: 'batchCategory' }], mock: false, drilldownPath: 'qa-sla-ip-in-process-sample-turnaround/drilldown' },
+      { id: 'qa-qa-sampling-on-time', label: 'QA Sampling On-Time', path: 'qa-qa-sampling-on-time', extraFilters: [{ kind: 'multiSelect', param: 'sampleType' }], mock: false, drilldownPath: 'qa-qa-sampling-on-time/drilldown' },
       { id: 'qa-in-process-cv-sample-qa-approval-pending', label: 'In-Process / CV Sample QA Approval Pending', path: 'qa-in-process-cv-sample-qa-approval-pending', extraFilters: [], mock: false, drilldownPath: 'qa-in-process-cv-sample-qa-approval-pending/drilldown' },
-      { id: 'qa-cqa-adherence-for-in-process-parameters', label: 'CQA Adherence for In-Process Parameters', path: 'qa-cqa-adherence-for-in-process-parameters', extraFilters: [], mock: false, drilldownPath: 'qa-cqa-adherence-for-in-process-parameters/drilldown' },
+      { id: 'qa-cqa-adherence-for-in-process-parameters', label: 'CQA Adherence for In-Process Parameters', path: 'qa-cqa-adherence-for-in-process-parameters', extraFilters: [{ kind: 'multiSelect', param: 'grade' }, { kind: 'multiSelect', param: 'specKind' }], mock: false, drilldownPath: 'qa-cqa-adherence-for-in-process-parameters/drilldown' },
       { id: 'qa-line-clearance-tat', label: 'Line Clearance TAT', path: 'qa-line-clearance-tat', extraFilters: [], mock: false, drilldownPath: 'qa-line-clearance-tat/drilldown' },
-      { id: 'qa-receipt-back-of-all-issued-bmrbprs', label: 'Receipt Back of All Issued BMR/BPRs', path: 'qa-receipt-back-of-all-issued-bmrbprs', extraFilters: [], mock: false, drilldownPath: 'qa-receipt-back-of-all-issued-bmrbprs/drilldown' },
-      { id: 'qa-undispensed-bmrbpr-beyond-3060-days-from-issuance', label: 'Undispensed BMR/BPR Beyond 30/60 Days from Issuance', path: 'qa-undispensed-bmrbpr-beyond-3060-days-from-issuance', extraFilters: [], mock: false, drilldownPath: 'qa-undispensed-bmrbpr-beyond-3060-days-from-issuance/drilldown' },
-      { id: 'qa-success-rate-of-validation-batches', label: 'Success Rate of Validation Batches', path: 'qa-success-rate-of-validation-batches', extraFilters: [], mock: false, drilldownPath: 'qa-success-rate-of-validation-batches/drilldown' },
+      { id: 'qa-receipt-back-of-all-issued-bmrbprs', label: 'Receipt Back of All Issued BMR/BPRs', path: 'qa-receipt-back-of-all-issued-bmrbprs', extraFilters: [{ kind: 'multiSelect', param: 'bmrBpr' }], mock: false, drilldownPath: 'qa-receipt-back-of-all-issued-bmrbprs/drilldown' },
+      { id: 'qa-undispensed-bmrbpr-beyond-3060-days-from-issuance', label: 'Undispensed BMR/BPR Beyond 30/60 Days from Issuance', path: 'qa-undispensed-bmrbpr-beyond-3060-days-from-issuance', extraFilters: [{ kind: 'multiSelect', param: 'bmrBpr' }], mock: false, drilldownPath: 'qa-undispensed-bmrbpr-beyond-3060-days-from-issuance/drilldown' },
+      { id: 'qa-success-rate-of-validation-batches', label: 'Success Rate of Validation Batches', path: 'qa-success-rate-of-validation-batches', extraFilters: [{ kind: 'multiSelect', param: 'materialType' }], mock: false, drilldownPath: 'qa-success-rate-of-validation-batches/drilldown' },
     ],
   },
   {
@@ -65,13 +76,13 @@ export const QA_DOMAINS: KpiDomain[] = [
     mock: true,
     infoBasePath: '/api/qa-kpi-info',
     kpis: [
-      { id: 'qa-open-critical-deviations', label: 'Open Critical Deviations', path: 'qa-open-critical-deviations', extraFilters: [], mock: false },
+      { id: 'qa-open-critical-deviations', label: 'Open Critical Deviations', path: 'qa-open-critical-deviations', extraFilters: [{ kind: 'multiSelect', param: 'respDept' }, { kind: 'multiSelect', param: 'level' }], mock: false },
       { id: 'qa-repeat-deviations', label: 'Repeat Deviations %', path: 'qa-repeat-deviations', extraFilters: [], mock: false },
       { id: 'qa-deviations-per-1000-batches-shopfloor', label: 'Deviations per 1000 Batches - Shopfloor', path: 'qa-deviations-per-1000-batches-shopfloor', extraFilters: [], mock: false, drilldownPath: 'qa-deviations-per-1000-batches-shopfloor/drilldown' },
       { id: 'qa-deviations-per-1000-batches-human', label: 'Deviations per 1000 Batches - Human', path: 'qa-deviations-per-1000-batches-human', extraFilters: [] },
       { id: 'qa-deviations-per-1000-tests-qc', label: 'Deviations per 1000 Tests - QC', path: 'qa-deviations-per-1000-tests-qc', extraFilters: [] },
       { id: 'qa-procedural-error-deviations', label: 'Procedural Error Deviations', path: 'qa-procedural-error-deviations', extraFilters: [], mock: false },
-      { id: 'qa-equipment-error-deviations', label: 'Equipment Error Deviations', path: 'qa-equipment-error-deviations', extraFilters: [], mock: false },
+      { id: 'qa-equipment-error-deviations', label: 'Equipment Error Deviations', path: 'qa-equipment-error-deviations', extraFilters: [{ kind: 'multiSelect', param: 'respDept' }], mock: false },
       { id: 'qa-instrument-error-deviations', label: 'Instrument Error Deviations', path: 'qa-instrument-error-deviations', extraFilters: [], mock: false, drilldownPath: 'qa-instrument-error-deviations/drilldown' },
       { id: 'qa-deviations-due-to-suppliers-materials-1000-batches', label: 'Deviations due to Suppliers & Materials / 1000 Batches', path: 'qa-deviations-due-to-suppliers-materials-1000-batches', extraFilters: [] },
       { id: 'qa-deviation-aging-major-minor', label: 'Deviation Aging (Major / Minor)', path: 'qa-deviation-aging-major-minor', extraFilters: [], mock: false },
@@ -81,18 +92,19 @@ export const QA_DOMAINS: KpiDomain[] = [
       { id: 'qa-valid-oos-per-1000-tests', label: 'Valid OOS per 1000 Tests', path: 'qa-valid-oos-per-1000-tests', extraFilters: [], mock: false },
       { id: 'qa-analyst-error-ioos', label: 'Analyst Error iOOS', path: 'qa-analyst-error-ioos', extraFilters: [], mock: false },
       { id: 'qa-procedural-error-ioos', label: 'Procedural Error iOOS', path: 'qa-procedural-error-ioos', extraFilters: [], mock: false },
-      { id: 'qa-stability-testing-pending', label: 'Stability Testing Pending', path: 'qa-stability-testing-pending', extraFilters: [], mock: false, drilldownPath: 'qa-stability-testing-pending/drilldown' },
+      { id: 'qa-stability-testing-pending', label: 'Stability Testing Pending', path: 'qa-stability-testing-pending', extraFilters: [{ kind: 'multiSelect', param: 'location' }, { kind: 'multiSelect', param: 'sampleType' }], mock: false, drilldownPath: 'qa-stability-testing-pending/drilldown' },
       { id: 'qa-overdue-investigation-crossing-30-days', label: '% Overdue Investigation (crossing 30 days)', path: 'qa-overdue-investigation-crossing-30-days', extraFilters: [] },
-      { id: 'qa-q-events-closure-time', label: 'Q Events Closure Time', path: 'qa-q-events-closure-time', extraFilters: [], mock: false, drilldownPath: 'qa-q-events-closure-time/drilldown' },
-      { id: 'qa-repeat-quality-event-rate', label: 'Repeat Quality Event Rate', path: 'qa-repeat-quality-event-rate', extraFilters: [], mock: false },
-      { id: 'qa-self-reporting-of-quality-events', label: 'Self-Reporting of Quality Events', path: 'qa-self-reporting-of-quality-events', extraFilters: [], mock: false, drilldownPath: 'qa-self-reporting-of-quality-events/drilldown' },
+      { id: 'qa-q-events-closure-time', label: 'Q Events Closure Time', path: 'qa-q-events-closure-time', extraFilters: [{ kind: 'multiSelect', param: 'eventType' }], mock: false, drilldownPath: 'qa-q-events-closure-time/drilldown' },
+      { id: 'qa-repeat-quality-event-rate', label: 'Repeat Quality Event Rate', path: 'qa-repeat-quality-event-rate', extraFilters: [{ kind: 'multiSelect', param: 'recordType' }], mock: false },
+      { id: 'qa-self-reporting-of-quality-events', label: 'Self-Reporting of Quality Events', path: 'qa-self-reporting-of-quality-events', extraFilters: [{ kind: 'multiSelect', param: 'respDept' }], mock: false, drilldownPath: 'qa-self-reporting-of-quality-events/drilldown' },
       { id: 'qa-capa-recurrence-rate', label: 'CAPA Recurrence Rate', path: 'qa-capa-recurrence-rate', extraFilters: [], mock: false },
       { id: 'qa-capa-effectiveness-verification-pass-rate', label: 'CAPA Effectiveness Verification Pass Rate', path: 'qa-capa-effectiveness-verification-pass-rate', extraFilters: [], mock: false },
       { id: 'qa-capa-approval-within-sla-no-extension', label: 'CAPA Approval within SLA (no extension)', path: 'qa-capa-approval-within-sla-no-extension', extraFilters: [], mock: false, drilldownPath: 'qa-capa-approval-within-sla-no-extension/drilldown' },
-      { id: 'qa-change-control-approval-internal-external-within-sla', label: 'Change Control Approval (Internal / External) within SLA', path: 'qa-change-control-approval-internal-external-within-sla', extraFilters: [], mock: false, drilldownPath: 'qa-change-control-approval-internal-external-within-sla/drilldown' },
-      { id: 'qa-closure-of-open-change-controls-open-due-date-alerts', label: 'Closure of Open Change Controls (open + due-date alerts)', path: 'qa-closure-of-open-change-controls-open-due-date-alerts', extraFilters: [] },
-      { id: 'qa-open-new-equipment-facility-modification-ccs', label: 'Open New Equipment & Facility Modification CCs', path: 'qa-open-new-equipment-facility-modification-ccs', extraFilters: [], mock: false, drilldownPath: 'qa-open-new-equipment-facility-modification-ccs/drilldown' },
-      { id: 'qa-overdue-qms-records', label: 'Overdue QMS Records', path: 'qa-overdue-qms-records', extraFilters: [], mock: false, drilldownPath: 'qa-overdue-qms-records/drilldown' },
+      { id: 'qa-change-control-approval-internal-external-within-sla', label: 'Change Control Approval (Internal / External) within SLA', path: 'qa-change-control-approval-internal-external-within-sla', extraFilters: [{ kind: 'multiSelect', param: 'ccApprovalType' }], mock: false, drilldownPath: 'qa-change-control-approval-internal-external-within-sla/drilldown' },
+      { id: 'qa-closure-of-open-change-controls-l4', label: 'Closure of Open Change Controls - L4', path: 'qa-closure-of-open-change-controls-l4', extraFilters: [{ kind: 'multiSelect', param: 'ccApprovalType' }], mock: false },
+      { id: 'qa-closure-of-open-change-controls-l5', label: 'Closure of Open Change Controls - L5', path: 'qa-closure-of-open-change-controls-l5', extraFilters: [{ kind: 'multiSelect', param: 'ccApprovalType' }], mock: false },
+      { id: 'qa-open-new-equipment-facility-modification-ccs', label: 'Open New Equipment & Facility Modification CCs', path: 'qa-open-new-equipment-facility-modification-ccs', extraFilters: [{ kind: 'multiSelect', param: 'agingBucket' }], mock: false, drilldownPath: 'qa-open-new-equipment-facility-modification-ccs/drilldown' },
+      { id: 'qa-overdue-qms-records', label: 'Overdue QMS Records', path: 'qa-overdue-qms-records', extraFilters: [{ kind: 'multiSelect', param: 'eventType' }, { kind: 'multiSelect', param: 'escalationLevel' }], mock: false, drilldownPath: 'qa-overdue-qms-records/drilldown' },
     ],
   },
   {
@@ -107,15 +119,15 @@ export const QA_DOMAINS: KpiDomain[] = [
       { id: 'qa-reg-customer-audit-success-rate', label: 'Reg / Customer Audit Success Rate', path: 'qa-reg-customer-audit-success-rate', extraFilters: [], mock: false, drilldownPath: 'qa-reg-customer-audit-success-rate/drilldown' },
       { id: 'qa-internal-audit-observation-severity', label: 'Internal Audit Observation Severity', path: 'qa-internal-audit-observation-severity', extraFilters: [], mock: false, drilldownPath: 'qa-internal-audit-observation-severity/drilldown' },
       { id: 'qa-internal-audit-on-time-actions', label: 'Internal Audit On-Time Actions', path: 'qa-internal-audit-on-time-actions', extraFilters: [], mock: false, drilldownPath: 'qa-internal-audit-on-time-actions/drilldown' },
-      { id: 'qa-audit-internal-external-critical-observations', label: 'Audit (Internal / External) Critical Observations', path: 'qa-audit-internal-external-critical-observations', extraFilters: [], mock: false, drilldownPath: 'qa-audit-internal-external-critical-observations/drilldown' },
-      { id: 'qa-observations-open', label: 'Observations Open', path: 'qa-observations-open', extraFilters: [], mock: false, drilldownPath: 'qa-observations-open/drilldown' },
-      { id: 'qa-adherence-with-regulatory-guidance-monograph', label: 'Adherence with Regulatory Guidance / Monograph', path: 'qa-adherence-with-regulatory-guidance-monograph', extraFilters: [], mock: false, drilldownPath: 'qa-adherence-with-regulatory-guidance-monograph/drilldown' },
-      { id: 'qa-vendor-blocking-due-to-quality-issue', label: 'Vendor Blocking due to Quality Issue', path: 'qa-vendor-blocking-due-to-quality-issue', extraFilters: [], mock: false },
+      { id: 'qa-audit-internal-external-critical-observations', label: 'Audit (Internal / External) Critical Observations', path: 'qa-audit-internal-external-critical-observations', extraFilters: [{ kind: 'multiSelect', param: 'observationCategory' }], mock: false, drilldownPath: 'qa-audit-internal-external-critical-observations/drilldown' },
+      { id: 'qa-observations-open', label: 'Observations Open', path: 'qa-observations-open', extraFilters: [{ kind: 'multiSelect', param: 'recordType' }], mock: false, drilldownPath: 'qa-observations-open/drilldown' },
+      { id: 'qa-adherence-with-regulatory-guidance-monograph', label: 'Adherence with Regulatory Guidance / Monograph', path: 'qa-adherence-with-regulatory-guidance-monograph', extraFilters: [{ kind: 'multiSelect', param: 'ccCategory' }], mock: false, drilldownPath: 'qa-adherence-with-regulatory-guidance-monograph/drilldown' },
+      { id: 'qa-vendor-blocking-due-to-quality-issue', label: 'Vendor Blocking due to Quality Issue', path: 'qa-vendor-blocking-due-to-quality-issue', extraFilters: [{ kind: 'multiSelect', param: 'blockCategory' }], mock: false },
       { id: 'qa-product-complaint-criticality', label: 'Product Complaint Criticality', path: 'qa-product-complaint-criticality', extraFilters: [], mock: false, drilldownPath: 'qa-product-complaint-criticality/drilldown' },
-      { id: 'qa-repeat-complaints', label: '% Repeat Complaints', path: 'qa-repeat-complaints', extraFilters: [], mock: false, drilldownPath: 'qa-repeat-complaints/drilldown' },
+      { id: 'qa-repeat-complaints', label: '% Repeat Complaints', path: 'qa-repeat-complaints', extraFilters: [{ kind: 'multiSelect', param: 'initialClassification' }, { kind: 'multiSelect', param: 'finalClassification' }], mock: false, drilldownPath: 'qa-repeat-complaints/drilldown' },
       { id: 'qa-market-complaints-cn-tracking-ack-investigation-closure', label: 'Market Complaints & CN Tracking (ack / investigation / closure)', path: 'qa-market-complaints-cn-tracking-ack-investigation-closure', extraFilters: [], mock: false, drilldownPath: 'qa-market-complaints-cn-tracking-ack-investigation-closure/drilldown' },
-      { id: 'qa-recall-event-density', label: 'Recall Event Density', path: 'qa-recall-event-density', extraFilters: [], mock: false, drilldownPath: 'qa-recall-event-density/drilldown' },
-      { id: 'qa-far-alert-event-density', label: 'FAR (Alert) Event Density', path: 'qa-far-alert-event-density', extraFilters: [], mock: false, drilldownPath: 'qa-far-alert-event-density/drilldown' },
+      { id: 'qa-recall-event-density', label: 'Recall Event Density', path: 'qa-recall-event-density', extraFilters: [{ kind: 'multiSelect', param: 'recallType' }, { kind: 'multiSelect', param: 'classification' }], mock: false, drilldownPath: 'qa-recall-event-density/drilldown' },
+      { id: 'qa-far-alert-event-density', label: 'FAR (Alert) Event Density', path: 'qa-far-alert-event-density', extraFilters: [{ kind: 'multiSelect', param: 'initiatedThrough' }], mock: false, drilldownPath: 'qa-far-alert-event-density/drilldown' },
     ],
   },
   {
@@ -127,7 +139,7 @@ export const QA_DOMAINS: KpiDomain[] = [
     mock: true,
     infoBasePath: '/api/qa-kpi-info',
     kpis: [
-      { id: 'qa-training-completion', label: 'Training Completion', path: 'qa-training-completion', extraFilters: [], mock: false },
+      { id: 'qa-training-completion', label: 'Training Completion', path: 'qa-training-completion', extraFilters: [{ kind: 'multiSelect', param: 'department' }, { kind: 'multiSelect', param: 'trainingType' }], mock: false },
     ],
   },
   {

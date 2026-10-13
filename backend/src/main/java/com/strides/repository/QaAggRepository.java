@@ -77,6 +77,18 @@ public class QaAggRepository extends AbstractAggRepository<PeriodTotal> {
     }
 
     /**
+     * Distinct values for one of a KPI's extra filter columns (see QaKpiFilterColumns), cross-
+     * filtered by whatever else is currently selected on the same card - `selected` is keyed by
+     * column name (same shape findTotals' own extraFilters takes), and `without` excludes the
+     * column being queried from its own dropdown, same as every other filterOptions method in this
+     * codebase (see AggLimsTurnAroundTimeRepository.filterOptions).
+     */
+    public List<String> distinctValuesFor(QaKpiSpec spec, String column, String site, String grain,
+            LocalDate from, LocalDate to, Map<String, Set<String>> selected) {
+        return distinctValues(qualify(spec.table()), spec.siteColumn(), column, site, grain, from, to, without(selected, column));
+    }
+
+    /**
      * One row per period, with numerator/denominator already summed under their own (optionally
      * different) conditions - see QaKpiSpec's own doc comment for why a CASE WHEN per side (not a
      * shared WHERE) is needed for the handful of KPIs with an asymmetric numerator-only filter.

@@ -23,10 +23,13 @@ package com.strides.repository;
  *   total-investigations column - there's no way to turn that into the real percentage this KPI's
  *   own name promises, so showing a raw count mislabeled "%" would be actively wrong, not just
  *   approximate. Left mock per explicit product decision (2026-10-12) rather than relabeling the card.
- * - closure-of-open-change-controls-open-due-date-alerts: qa.agg_tw_cc_approval_within_sla has
- *   open_records/pending_records by closure_level, but no due-date-alert flag at all - the "due-date
- *   alerts" half of this KPI's own definition isn't representable from it. Left mock per explicit
- *   product decision (2026-10-12) rather than a partial match.
+ *
+ * closure-of-open-change-controls-open-due-date-alerts (the original single combined KPI) was
+ * replaced by two KPIs, one per closure level - CLOSURE_OPEN_CCS_L4/L5 below - per explicit product
+ * decision (2026-10-13): the hand-off doc's own thresholds (KPI-QA-042A/042B) are defined per level,
+ * not for a combined figure, so a single card could never be scored either way. cc_approval_type
+ * (Internal/External) is a true partition on this table (no "All" row - confirmed live) and isn't
+ * exposed as a filter by this app, so each spec leaves it unconstrained and sums both automatically.
  *
  * instrument-error-deviations: the doc's own catalogue lists qa.agg_tw_instrument_error_deviations,
  * but that table does NOT exist live (confirmed) - only 41 of the doc's ~42 qa tables actually
@@ -112,6 +115,15 @@ public final class QaKpiSpecs {
     public static final QaKpiSpec DEVIATION_AGING = QaKpiSpec.average(
             "agg_tw_deviations_aging", "site", "sum_aging_days", "aging_rows", "days");
 
+    // CAVEAT (2026-10-12, DPM QA - KPI Thresholds Hand-off doc): that doc's own KPI ID map skips
+    // this KPI entirely (KPI-QA-014, a numbering gap) and says why: "No Power BI measure exists yet"
+    // for Repeat Deviations - Power BI is this app's stated source of truth for every KPI value, so
+    // nothing has signed off on record_type = 'Deviation' on this table as the right definition.
+    // Product decision (2026-10-12): keep this interim reading rather than reverting to mock, but
+    // treat its value as unofficial until a real Power BI measure lands - it may need to change once
+    // one does. It will never get a threshold/RAG status either way: QaKpiThresholdConfigRepository
+    // deliberately has no entry for this KPI, matching the hand-off doc's own "no row by design".
+    //
     // No qa.* table for this - public.agg_tw_repeat_failure_rate (built for QC) is the real source,
     // sliced by record_type ('Deviation'/'OOS') and resp_dept_slice (an "All" aggregate row alongside
     // one row per department - see the slice-column double-count footgun this file's other specs
@@ -206,6 +218,14 @@ public final class QaKpiSpecs {
     // cc_approval_type values, so only cc_approval_state is filtered, not type.
     public static final QaKpiSpec CC_APPROVAL_WITHIN_SLA = QaKpiSpec.countWhere(
             "agg_tw_cc_approval_within_sla", "site", "cc_records", "cc_approval_state = 'Within SLA'", "change controls");
+
+    // Same table as CC_APPROVAL_WITHIN_SLA, filtered to one closure_level each - see this file's own
+    // header comment for why this KPI is now two cards instead of one.
+    public static final QaKpiSpec CLOSURE_OPEN_CCS_L4 = QaKpiSpec.countWhere(
+            "agg_tw_cc_approval_within_sla", "site", "open_records", "closure_level = 'L4'", "change controls");
+
+    public static final QaKpiSpec CLOSURE_OPEN_CCS_L5 = QaKpiSpec.countWhere(
+            "agg_tw_cc_approval_within_sla", "site", "open_records", "closure_level = 'L5'", "change controls");
 
     public static final QaKpiSpec OPEN_NEW_EQUIPMENT_FACILITY_MOD_CCS = QaKpiSpec.count(
             "agg_tw_open_new_equipment_facility_modification_cc", "site_name", "cc_count", "change controls");

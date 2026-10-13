@@ -17,6 +17,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.function.Function;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
@@ -166,33 +170,58 @@ public class QcScoreService {
     /**
      * Stage 1. A graph with no threshold values at this grain is skipped before its API is even
      * called, and one whose rows come back without thresholds (e.g. no limits for this site) is
-     * dropped - neither is calculated or shown.
+     * dropped - neither is calculated or shown. Every graph's own fetch is independent and
+     * read-only, so they run concurrently on virtual threads instead of one at a time - a sequential
+     * loop over ~35 KPIs at ~70ms each took ~2.3s; this bounds it to roughly the slowest single
+     * fetch (plus whatever queuing the datasource's own connection pool size still imposes - see
+     * backend/README.md's connection-pool note).
      */
     private List<FetchedGraph> fetchGraphsWithThresholds(String site, String grain, LocalDate from, LocalDate to,
             Function<String, List<String>> selectedValues) {
-        List<FetchedGraph> graphs = new ArrayList<>();
-        for (KpiSource source : sources) {
-            if (!thresholds.hasThresholds(source.seriesId(), grain)) {
-                continue;
+        List<KpiSource> due = sources.stream().filter(source -> thresholds.hasThresholds(source.seriesId(), grain)).toList();
+        try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            List<Future<FetchedGraph>> futures = due.stream()
+                    .map(source -> executor.submit(() -> fetchGraph(source, site, grain, from, to, selectedValues)))
+                    .toList();
+            List<FetchedGraph> graphs = new ArrayList<>();
+            for (Future<FetchedGraph> future : futures) {
+                try {
+                    FetchedGraph graph = future.get();
+                    if (graph != null) {
+                        graphs.add(graph);
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException("Interrupted while fetching QC score graphs", e);
+                } catch (ExecutionException e) {
+                    // fetchGraph itself only ever returns null or a result (its own AggQueryException
+                    // is caught inside it) - anything surfacing here is unexpected, worth logging
+                    // loudly rather than silently dropping the graph like a normal fetch failure.
+                    LOG.error("QC score: unexpected failure fetching a graph", e.getCause());
+                }
             }
-            List<KpiCardResponse> rows;
-            try {
-                List<KpiCardResponse> fetched = thresholds.applyTo(source.fetch().fetch(site, grain, from, to), selectedValues);
-                String seriesId = source.pickSeries().apply(fetched);
-                rows = fetched.stream()
-                        .filter(row -> row.kpiId().equals(seriesId) && row.thresholds() != null)
-                        .sorted(Comparator.comparing(KpiCardResponse::periodStart))
-                        .toList();
-            } catch (AggQueryException e) {
-                // One graph's broken feed must not blank the whole QC score - it's left out, like missing data.
-                LOG.warnf(e, "QC score: could not load %s - excluded", source.seriesId());
-                continue;
-            }
-            if (!rows.isEmpty()) {
-                graphs.add(new FetchedGraph(source, rows));
-            }
+            return graphs;
         }
-        return graphs;
+    }
+
+    /** One graph's own fetch + threshold stamping + row filtering - see fetchGraphsWithThresholds
+     * for why this runs on its own virtual thread. Returns null (not an empty list) when there's
+     * nothing to score, so the caller can filter nulls in one pass. */
+    private FetchedGraph fetchGraph(KpiSource source, String site, String grain, LocalDate from, LocalDate to,
+            Function<String, List<String>> selectedValues) {
+        try {
+            List<KpiCardResponse> fetched = thresholds.applyTo(source.fetch().fetch(site, grain, from, to), selectedValues);
+            String seriesId = source.pickSeries().apply(fetched);
+            List<KpiCardResponse> rows = fetched.stream()
+                    .filter(row -> row.kpiId().equals(seriesId) && row.thresholds() != null)
+                    .sorted(Comparator.comparing(KpiCardResponse::periodStart))
+                    .toList();
+            return rows.isEmpty() ? null : new FetchedGraph(source, rows);
+        } catch (AggQueryException e) {
+            // One graph's broken feed must not blank the whole QC score - it's left out, like missing data.
+            LOG.warnf(e, "QC score: could not load %s - excluded", source.seriesId());
+            return null;
+        }
     }
 
     /** Stage 2: the latest period's score (and the one before, for "vs prev") against the graph's own thresholds. */

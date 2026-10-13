@@ -3,6 +3,7 @@ package com.strides.controller;
 import com.strides.dto.KpiCardResponse;
 import com.strides.dto.KpiParams;
 import com.strides.service.KpiThresholdService;
+import com.strides.service.QaKpiThresholdService;
 import com.strides.service.kpi.PeriodCombiner;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.container.ContainerRequestContext;
@@ -18,6 +19,11 @@ import java.util.function.Function;
  * Stamps threshold status onto every KPI endpoint's rows in one place, instead of in each of the
  * ~40 KPI service methods - here rather than in the service layer because the limits depend on
  * the request's slicer state, which only the HTTP layer sees. Any other response passes through.
+ *
+ * Runs QC's KpiThresholdService then QA's QaKpiThresholdService over the same list - each only
+ * recognizes its own catalogue's kpi_ids (KpiThresholdConfigRepository vs
+ * QaKpiThresholdConfigRepository), so a QA card is untouched by the first pass and a QC card by the
+ * second; both reuse this same slicerSelection resolution either way.
  */
 @Provider
 public class KpiThresholdResponseFilter implements ContainerResponseFilter {
@@ -34,12 +40,16 @@ public class KpiThresholdResponseFilter implements ContainerResponseFilter {
     @Inject
     KpiThresholdService thresholds;
 
+    @Inject
+    QaKpiThresholdService qaThresholds;
+
     @Override
     public void filter(ContainerRequestContext request, ContainerResponseContext response) {
         if (response.getEntity() instanceof List<?> rows && !rows.isEmpty() && rows.get(0) instanceof KpiCardResponse) {
             @SuppressWarnings("unchecked")
             List<KpiCardResponse> cards = (List<KpiCardResponse>) rows;
-            response.setEntity(thresholds.applyTo(cards, slicerSelection(request.getUriInfo().getQueryParameters())));
+            Function<String, List<String>> selection = slicerSelection(request.getUriInfo().getQueryParameters());
+            response.setEntity(qaThresholds.applyTo(thresholds.applyTo(cards, selection), selection));
         }
     }
 
