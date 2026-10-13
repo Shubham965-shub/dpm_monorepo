@@ -3,15 +3,19 @@ import type { KpiDomain } from './kpiConfig'
 /**
  * QA's 5 KPI Framework sections per QA_KPI_Sheet_for_Front_End - 55 of its 61 rows (6 marked
  * "Fix logic first" / "Needs clarification - hold" are excluded until their logic is confirmed;
- * see the sheet for those 6). Every domain here still defaults to `mock: true`, but most KPIs now
- * set their own `mock: false` (see KpiDefinition.mock in kpiConfig.ts) to read real data from the
- * `qa` Postgres schema (and, for 2 of them, `public.agg_tw_deviations`) per
- * DPM_QA_Data_Layer_Handover.md - see backend/.../repository/QaKpiSpecs.java for the full per-KPI
- * query and its caveats. A KPI with no `mock: false` here has no real table yet (or no confident
- * mapping to one) and still falls through to the domain's own `mock: true` via generateMockKpiSeries
- * (see useKpiData.ts). `scored: false` on Cross-Functional Context only - see qaSectionScore.ts
- * and SectionSummaryBar's `scored` prop: that section carries no score, no points change, no
- * status chips and no star, and is excluded from the section-score roll-up.
+ * see the sheet for those 6). Every domain here still defaults to `mock: true`, but 49 of the 55
+ * KPIs now set their own `mock: false` (see KpiDefinition.mock in kpiConfig.ts) to read real data -
+ * most from the `qa` Postgres schema per DPM_QA_Data_Layer_Handover.md, several others (confirmed
+ * live against information_schema on 2026-10-12, cross-referenced with the "QA_Data_Table_per_KPI"
+ * fact-table sheet) from a `public.agg_tw_*`/`agg_lims_*`/`agg_cw_*` table instead, where that
+ * turned out to be the only real source - see backend/.../repository/QaKpiSpecs.java for the full
+ * per-KPI query shape, which schema each one reads, and its caveats. The remaining 6 KPIs with no
+ * `mock: false` here have no real table yet, no confident mapping to one, or (2 of them) a real
+ * table that can't represent what the KPI's own name claims (see QaKpiSpecs.java's own header
+ * comment for exactly which and why) - all 6 still fall through to the domain's own `mock: true`
+ * via generateMockKpiSeries (see useKpiData.ts). `scored: false` on Cross-Functional Context only -
+ * see qaSectionScore.ts and SectionSummaryBar's `scored` prop: that section carries no score, no
+ * points change, no status chips and no star, and is excluded from the section-score roll-up.
  *
  * `infoBasePath` - each KPI's Info-dropdown text lives in the real `qa_kpi_info` Postgres table
  * (separate from QC's own `qc_kpi_info`), fetched via GET /api/qa-kpi-info/card/{id} - see
@@ -62,7 +66,7 @@ export const QA_DOMAINS: KpiDomain[] = [
     infoBasePath: '/api/qa-kpi-info',
     kpis: [
       { id: 'qa-open-critical-deviations', label: 'Open Critical Deviations', path: 'qa-open-critical-deviations', extraFilters: [], mock: false },
-      { id: 'qa-repeat-deviations', label: 'Repeat Deviations %', path: 'qa-repeat-deviations', extraFilters: [] },
+      { id: 'qa-repeat-deviations', label: 'Repeat Deviations %', path: 'qa-repeat-deviations', extraFilters: [], mock: false },
       { id: 'qa-deviations-per-1000-batches-shopfloor', label: 'Deviations per 1000 Batches - Shopfloor', path: 'qa-deviations-per-1000-batches-shopfloor', extraFilters: [], mock: false, drilldownPath: 'qa-deviations-per-1000-batches-shopfloor/drilldown' },
       { id: 'qa-deviations-per-1000-batches-human', label: 'Deviations per 1000 Batches - Human', path: 'qa-deviations-per-1000-batches-human', extraFilters: [] },
       { id: 'qa-deviations-per-1000-tests-qc', label: 'Deviations per 1000 Tests - QC', path: 'qa-deviations-per-1000-tests-qc', extraFilters: [] },
@@ -72,18 +76,18 @@ export const QA_DOMAINS: KpiDomain[] = [
       { id: 'qa-deviations-due-to-suppliers-materials-1000-batches', label: 'Deviations due to Suppliers & Materials / 1000 Batches', path: 'qa-deviations-due-to-suppliers-materials-1000-batches', extraFilters: [] },
       { id: 'qa-deviation-aging-major-minor', label: 'Deviation Aging (Major / Minor)', path: 'qa-deviation-aging-major-minor', extraFilters: [], mock: false },
       { id: 'qa-oos-due-to-suppliers-materials-1000-batches', label: 'OOS due to Suppliers & Materials / 1000 Batches', path: 'qa-oos-due-to-suppliers-materials-1000-batches', extraFilters: [] },
-      { id: 'qa-oos-logged', label: 'OOS Logged', path: 'qa-oos-logged', extraFilters: [] },
-      { id: 'qa-confirmed-oos-logged', label: 'Confirmed OOS Logged', path: 'qa-confirmed-oos-logged', extraFilters: [] },
-      { id: 'qa-valid-oos-per-1000-tests', label: 'Valid OOS per 1000 Tests', path: 'qa-valid-oos-per-1000-tests', extraFilters: [] },
+      { id: 'qa-oos-logged', label: 'OOS Logged', path: 'qa-oos-logged', extraFilters: [], mock: false },
+      { id: 'qa-confirmed-oos-logged', label: 'Confirmed OOS Logged', path: 'qa-confirmed-oos-logged', extraFilters: [], mock: false },
+      { id: 'qa-valid-oos-per-1000-tests', label: 'Valid OOS per 1000 Tests', path: 'qa-valid-oos-per-1000-tests', extraFilters: [], mock: false },
       { id: 'qa-analyst-error-ioos', label: 'Analyst Error iOOS', path: 'qa-analyst-error-ioos', extraFilters: [], mock: false },
       { id: 'qa-procedural-error-ioos', label: 'Procedural Error iOOS', path: 'qa-procedural-error-ioos', extraFilters: [], mock: false },
       { id: 'qa-stability-testing-pending', label: 'Stability Testing Pending', path: 'qa-stability-testing-pending', extraFilters: [], mock: false, drilldownPath: 'qa-stability-testing-pending/drilldown' },
       { id: 'qa-overdue-investigation-crossing-30-days', label: '% Overdue Investigation (crossing 30 days)', path: 'qa-overdue-investigation-crossing-30-days', extraFilters: [] },
       { id: 'qa-q-events-closure-time', label: 'Q Events Closure Time', path: 'qa-q-events-closure-time', extraFilters: [], mock: false, drilldownPath: 'qa-q-events-closure-time/drilldown' },
-      { id: 'qa-repeat-quality-event-rate', label: 'Repeat Quality Event Rate', path: 'qa-repeat-quality-event-rate', extraFilters: [] },
+      { id: 'qa-repeat-quality-event-rate', label: 'Repeat Quality Event Rate', path: 'qa-repeat-quality-event-rate', extraFilters: [], mock: false },
       { id: 'qa-self-reporting-of-quality-events', label: 'Self-Reporting of Quality Events', path: 'qa-self-reporting-of-quality-events', extraFilters: [], mock: false, drilldownPath: 'qa-self-reporting-of-quality-events/drilldown' },
-      { id: 'qa-capa-recurrence-rate', label: 'CAPA Recurrence Rate', path: 'qa-capa-recurrence-rate', extraFilters: [] },
-      { id: 'qa-capa-effectiveness-verification-pass-rate', label: 'CAPA Effectiveness Verification Pass Rate', path: 'qa-capa-effectiveness-verification-pass-rate', extraFilters: [] },
+      { id: 'qa-capa-recurrence-rate', label: 'CAPA Recurrence Rate', path: 'qa-capa-recurrence-rate', extraFilters: [], mock: false },
+      { id: 'qa-capa-effectiveness-verification-pass-rate', label: 'CAPA Effectiveness Verification Pass Rate', path: 'qa-capa-effectiveness-verification-pass-rate', extraFilters: [], mock: false },
       { id: 'qa-capa-approval-within-sla-no-extension', label: 'CAPA Approval within SLA (no extension)', path: 'qa-capa-approval-within-sla-no-extension', extraFilters: [], mock: false, drilldownPath: 'qa-capa-approval-within-sla-no-extension/drilldown' },
       { id: 'qa-change-control-approval-internal-external-within-sla', label: 'Change Control Approval (Internal / External) within SLA', path: 'qa-change-control-approval-internal-external-within-sla', extraFilters: [], mock: false, drilldownPath: 'qa-change-control-approval-internal-external-within-sla/drilldown' },
       { id: 'qa-closure-of-open-change-controls-open-due-date-alerts', label: 'Closure of Open Change Controls (open + due-date alerts)', path: 'qa-closure-of-open-change-controls-open-due-date-alerts', extraFilters: [] },
@@ -123,7 +127,7 @@ export const QA_DOMAINS: KpiDomain[] = [
     mock: true,
     infoBasePath: '/api/qa-kpi-info',
     kpis: [
-      { id: 'qa-training-completion', label: 'Training Completion', path: 'qa-training-completion', extraFilters: [] },
+      { id: 'qa-training-completion', label: 'Training Completion', path: 'qa-training-completion', extraFilters: [], mock: false },
     ],
   },
   {
@@ -136,7 +140,7 @@ export const QA_DOMAINS: KpiDomain[] = [
     infoBasePath: '/api/qa-kpi-info',
     scored: false,
     kpis: [
-      { id: 'qa-breakdown-time-lims-instruments', label: 'Breakdown Time - LIMS Instruments', path: 'qa-breakdown-time-lims-instruments', extraFilters: [] },
+      { id: 'qa-breakdown-time-lims-instruments', label: 'Breakdown Time - LIMS Instruments', path: 'qa-breakdown-time-lims-instruments', extraFilters: [], mock: false },
       { id: 'qa-plan-vs-actual-pm-calibration-engineering', label: 'Plan vs Actual - PM & Calibration (Engineering)', path: 'qa-plan-vs-actual-pm-calibration-engineering', extraFilters: [], mock: false, drilldownPath: 'qa-plan-vs-actual-pm-calibration-engineering/drilldown' },
     ],
   },

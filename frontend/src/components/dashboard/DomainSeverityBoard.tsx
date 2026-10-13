@@ -78,7 +78,7 @@ export function DomainSeverityBoard({
   companions,
   onTierCounts,
   extraNoThreshold = 0,
-  highlightSeverity = null,
+  highlightSeverity,
 }: {
   domain: KpiDomain
   kpis: KpiDefinition[]
@@ -99,12 +99,16 @@ export function DomainSeverityBoard({
    * they still have no threshold by design, so the caller folds their count in here rather than the
    * header silently dropping them once a section expands. */
   extraNoThreshold?: number
-  /** DashboardPage's own selectedSeverity (see SeverityBadgeSummary) - a real filter on which cards
-   * render below: null (nothing selected) shows every real-severity card and hides the no-threshold
-   * band; a real severity shows only that tier; 'no-threshold' shows only the no-threshold band. The
-   * header counts reported via onTierCounts are NOT affected by this - they always report the
-   * section's true totals, same as a badge's own number never changing just because its cards are
-   * currently hidden. */
+  /** DashboardPage's own selectedSeverity (see SeverityBadgeSummary) - three real states, not two:
+   * `undefined` (prop omitted entirely) means this page has no SeverityBadgeSummary at all - no
+   * control exists to ever reveal a hidden band, so every tier shows, no-threshold included (QA's
+   * dashboard, where every KPI has no threshold by design - hiding that band here would hide 100%
+   * of every section with no way to undo it; also QC's CXO/Leadership views, which have never shown
+   * this badge). `null` means the control exists but nothing is currently selected (QC's Operations
+   * view) - every real-severity card shows, no-threshold hidden until that badge is clicked. A real
+   * severity or 'no-threshold' narrows to just that one bucket either way. The header counts
+   * reported via onTierCounts are NOT affected by any of this - they always report the section's
+   * true totals, same as a badge's own number never changing just because its cards are hidden. */
   highlightSeverity?: SeverityFilter | null
 }) {
   const results = useDomainTrendKpis(domain, kpis, globalFilters, lens)
@@ -157,12 +161,17 @@ export function DomainSeverityBoard({
     )
   }
 
-  // Which band(s) render below: nothing selected shows every real severity (not the no-threshold
-  // band - see highlightSeverity's own doc comment); a selected filter shows only its own single
-  // bucket, 'no-threshold' mapping to the null-severity band exactly like the header's own
-  // tierCountForSeverity does for its count.
+  // Which band(s) render below - see highlightSeverity's own doc comment for the 3-state meaning:
+  // no filter control on this page at all (undefined) shows every band including no-threshold;
+  // a control exists but nothing's selected (null) hides no-threshold until that badge is clicked;
+  // a selected filter shows only its own single bucket, 'no-threshold' mapping to the null-severity
+  // band exactly like the header's own tierCountForSeverity does for its count.
   const visibleGroups: (Severity | null)[] =
-    highlightSeverity == null ? SEVERITY_ORDER : [highlightSeverity === 'no-threshold' ? null : highlightSeverity]
+    highlightSeverity === undefined
+      ? [...SEVERITY_ORDER, null]
+      : highlightSeverity == null
+        ? SEVERITY_ORDER
+        : [highlightSeverity === 'no-threshold' ? null : highlightSeverity]
 
   return (
     <div className="flex flex-col">

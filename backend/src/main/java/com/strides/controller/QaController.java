@@ -130,6 +130,13 @@ public class QaController {
     }
 
     @GET
+    @Path("/qa-breakdown-time-lims-instruments")
+    public List<KpiCardResponse> breakdownTimeLimsInstruments(@BeanParam KpiParams.DateRange p) {
+        return fetch(QaKpiSpecs.BREAKDOWN_TIME_LIMS_INSTRUMENTS, "qa-breakdown-time-lims-instruments",
+                "Breakdown Time - LIMS Instruments", p);
+    }
+
+    @GET
     @Path("/qa-vendor-blocking-due-to-quality-issue")
     public List<KpiCardResponse> vendorBlockingQualityIssue(@BeanParam KpiParams.DateRange p) {
         return fetch(QaKpiSpecs.VENDOR_BLOCKING_QUALITY_ISSUE, "qa-vendor-blocking-due-to-quality-issue",
@@ -159,6 +166,18 @@ public class QaController {
     @Path("/qa-open-critical-deviations")
     public List<KpiCardResponse> openCriticalDeviations(@BeanParam KpiParams.DateRange p) {
         return fetch(QaKpiSpecs.OPEN_CRITICAL_DEVIATIONS, "qa-open-critical-deviations", "Open Critical Deviations", p);
+    }
+
+    @GET
+    @Path("/qa-repeat-deviations")
+    public List<KpiCardResponse> repeatDeviations(@BeanParam KpiParams.DateRange p) {
+        return fetch(QaKpiSpecs.REPEAT_DEVIATIONS, "qa-repeat-deviations", "Repeat Deviations %", p);
+    }
+
+    @GET
+    @Path("/qa-repeat-quality-event-rate")
+    public List<KpiCardResponse> repeatQualityEventRate(@BeanParam KpiParams.DateRange p) {
+        return fetch(QaKpiSpecs.REPEAT_QUALITY_EVENT_RATE, "qa-repeat-quality-event-rate", "Repeat Quality Event Rate", p);
     }
 
     @GET
@@ -207,10 +226,41 @@ public class QaController {
     }
 
     @GET
+    @Path("/qa-oos-logged")
+    public List<KpiCardResponse> oosLogged(@BeanParam KpiParams.DateRange p) {
+        return fetch(QaKpiSpecs.OOS_LOGGED, "qa-oos-logged", "OOS Logged", p);
+    }
+
+    @GET
+    @Path("/qa-confirmed-oos-logged")
+    public List<KpiCardResponse> confirmedOosLogged(@BeanParam KpiParams.DateRange p) {
+        return fetch(QaKpiSpecs.CONFIRMED_OOS_LOGGED, "qa-confirmed-oos-logged", "Confirmed OOS Logged", p);
+    }
+
+    @GET
+    @Path("/qa-valid-oos-per-1000-tests")
+    public List<KpiCardResponse> validOosPer1000Tests(@BeanParam KpiParams.DateRange p) {
+        return fetch(QaKpiSpecs.VALID_OOS_PER_1000_TESTS, "qa-valid-oos-per-1000-tests", "Valid OOS per 1000 Tests", p);
+    }
+
+    @GET
     @Path("/qa-capa-approval-within-sla-no-extension")
     public List<KpiCardResponse> capaApprovalWithinSla(@BeanParam KpiParams.DateRange p) {
         return fetch(QaKpiSpecs.CAPA_APPROVAL_WITHIN_SLA, "qa-capa-approval-within-sla-no-extension",
                 "CAPA Approval within SLA (no extension)", p);
+    }
+
+    @GET
+    @Path("/qa-capa-recurrence-rate")
+    public List<KpiCardResponse> capaRecurrenceRate(@BeanParam KpiParams.DateRange p) {
+        return fetch(QaKpiSpecs.CAPA_RECURRENCE_RATE, "qa-capa-recurrence-rate", "CAPA Recurrence Rate", p);
+    }
+
+    @GET
+    @Path("/qa-capa-effectiveness-verification-pass-rate")
+    public List<KpiCardResponse> capaEffectivenessVerificationPassRate(@BeanParam KpiParams.DateRange p) {
+        return fetch(QaKpiSpecs.CAPA_EFFECTIVENESS_VERIFICATION_PASS_RATE, "qa-capa-effectiveness-verification-pass-rate",
+                "CAPA Effectiveness Verification Pass Rate", p);
     }
 
     @GET
@@ -304,6 +354,12 @@ public class QaController {
     @Path("/qa-far-alert-event-density")
     public List<KpiCardResponse> farAlertEventDensity(@BeanParam KpiParams.DateRange p) {
         return fetch(QaKpiSpecs.FAR_ALERT_EVENT_DENSITY, "qa-far-alert-event-density", "FAR (Alert) Event Density", p);
+    }
+
+    @GET
+    @Path("/qa-training-completion")
+    public List<KpiCardResponse> trainingCompletion(@BeanParam KpiParams.DateRange p) {
+        return fetch(QaKpiSpecs.TRAINING_COMPLETION, "qa-training-completion", "Training Completion", p);
     }
 
     // ---- Record-level drill-down endpoints for the KPIs with a real qa.fact_* table ----
