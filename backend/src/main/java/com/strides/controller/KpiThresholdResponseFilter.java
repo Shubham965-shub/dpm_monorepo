@@ -3,6 +3,7 @@ package com.strides.controller;
 import com.strides.dto.KpiCardResponse;
 import com.strides.dto.KpiParams;
 import com.strides.service.KpiThresholdService;
+import com.strides.service.QaKpiThresholdService;
 import com.strides.service.kpi.PeriodCombiner;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.container.ContainerRequestContext;
@@ -18,6 +19,17 @@ import java.util.function.Function;
  * Stamps threshold status onto every KPI endpoint's rows in one place, instead of in each of the
  * ~40 KPI service methods - here rather than in the service layer because the limits depend on
  * the request's slicer state, which only the HTTP layer sees. Any other response passes through.
+ *
+ * Routes to QC's KpiThresholdService or QA's QaKpiThresholdService based on the first row's own
+ * kpiId prefix - never both over the same list. A single response is always homogeneous (one
+ * controller, one domain), and each service's own applyTo deliberately recolours EVERY card it's
+ * given to null when its catalogue has no entry for that series (see KpiThresholdServiceTest's own
+ * "flags the current period in progress even on unlinked series" case - a real, intentional
+ * behavior for a same-domain KPI missing a snapshot row). Chaining both passes over the same list
+ * used to silently wipe out whichever pass ran first's real status, once the second pass's "no
+ * catalogue entry" branch ran over cards that were never its own domain to begin with - every QA
+ * kpiId is "qa-"-prefixed (see qaKpiConfig.ts's/QaKpiSpecs' own doc comments), so that prefix is a
+ * reliable, already-established signal for which catalogue actually owns a given response.
  */
 @Provider
 public class KpiThresholdResponseFilter implements ContainerResponseFilter {
@@ -34,12 +46,21 @@ public class KpiThresholdResponseFilter implements ContainerResponseFilter {
     @Inject
     KpiThresholdService thresholds;
 
+    @Inject
+    QaKpiThresholdService qaThresholds;
+
+    /** Every QA kpi_id is prefixed this way (see qaKpiConfig.ts's own doc comment) - QC's never are. */
+    private static final String QA_KPI_ID_PREFIX = "qa-";
+
     @Override
     public void filter(ContainerRequestContext request, ContainerResponseContext response) {
-        if (response.getEntity() instanceof List<?> rows && !rows.isEmpty() && rows.get(0) instanceof KpiCardResponse) {
+        if (response.getEntity() instanceof List<?> rows && !rows.isEmpty() && rows.get(0) instanceof KpiCardResponse first) {
             @SuppressWarnings("unchecked")
             List<KpiCardResponse> cards = (List<KpiCardResponse>) rows;
-            response.setEntity(thresholds.applyTo(cards, slicerSelection(request.getUriInfo().getQueryParameters())));
+            Function<String, List<String>> selection = slicerSelection(request.getUriInfo().getQueryParameters());
+            response.setEntity(first.kpiId().startsWith(QA_KPI_ID_PREFIX)
+                    ? qaThresholds.applyTo(cards, selection)
+                    : thresholds.applyTo(cards, selection));
         }
     }
 
