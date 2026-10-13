@@ -171,21 +171,28 @@ public class QaKpiThresholdService {
      * KpiThresholdResponseFilter's own query-param resolution - QA's filter column names (site,
      * site_name, material_type, resp_dept, ...) resolve through that same generic camelCase mapping,
      * no QA-specific aliasing needed.
+     *
+     * A card whose kpiId this catalogue doesn't recognize at all is returned UNCHANGED, not
+     * recoloured to null - this runs chained after KpiThresholdService's own applyTo over the same
+     * list (see KpiThresholdResponseFilter), so a QC card reaching here already has its real status
+     * from that first pass; only a recognized-but-unmapped QA series (resolveLimits/limits()
+     * returning empty - e.g. Repeat Deviations' deliberate no-catalogue-entry) still clears to null.
      */
     public List<KpiCardResponse> applyTo(List<KpiCardResponse> cards, Function<String, List<String>> selectedValues) {
         LocalDate today = LocalDate.now(clock);
         Defaults loaded = defaults;
         Map<SeriesKey, Optional<KpiThresholds>> limitsPerSeries = new HashMap<>();
         return cards.stream()
-                .map(card -> {
-                    KpiThresholds limits = catalogue.findKpiIdForSeries(card.kpiId())
-                            .flatMap(kpiId -> limitsPerSeries.computeIfAbsent(
+                .map(card -> catalogue.findKpiIdForSeries(card.kpiId())
+                        .map(kpiId -> {
+                            KpiThresholds limits = limitsPerSeries.computeIfAbsent(
                                     new SeriesKey(kpiId, card.grain(), card.unit()),
-                                    key -> resolveLimits(key, selectedValues, loaded)))
-                            .orElse(null);
-                    return card.withThresholdStatus(KpiThresholdEvaluator.statusFor(card.value(), limits), limits,
-                            PeriodProgress.isInProgress(card.grain(), card.periodStart(), today));
-                })
+                                    key -> resolveLimits(key, selectedValues, loaded))
+                                    .orElse(null);
+                            return card.withThresholdStatus(KpiThresholdEvaluator.statusFor(card.value(), limits), limits,
+                                    PeriodProgress.isInProgress(card.grain(), card.periodStart(), today));
+                        })
+                        .orElse(card))
                 .toList();
     }
 
