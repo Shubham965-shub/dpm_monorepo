@@ -89,6 +89,25 @@ class QaKpiThresholdServiceTest {
     }
 
     @Test
+    void aSiteWithNoOwnThresholdRowFallsBackToTheAllSitesRow() {
+        linkRftSeries(rftRow("monthly", FRESH));
+        QaKpiThresholdRow allSitesRow = new QaKpiThresholdRow(RFT, "monthly", RFT_FILTER_NAMES, slots(null, null, null),
+                "higher_is_better", 0.70, 0.80, null, null, null, FRESH);
+        // KRSG has no row of its own (confirmed live for a different real KPI - see
+        // QaKpiFilterColumns' own doc comment) - only the exact lookup fails; the "All sites" row
+        // still has its own real limits.
+        when(snapshots.findLimits(RFT, "monthly", slots("KRSG", null, null))).thenReturn(Optional.empty());
+        when(snapshots.findLimits(RFT, "monthly", slots(null, null, null))).thenReturn(Optional.of(allSitesRow));
+
+        Function<String, List<String>> siteOnlySelected = filterName -> "site".equals(filterName) ? List.of("KRSG") : List.of();
+        KpiCardResponse result = service.applyTo(List.of(rftCard(LocalDate.of(2026, 9, 1), "75")), siteOnlySelected).get(0);
+
+        assertEquals(KpiStatus.AMBER, result.status());
+        assertEquals(0, new BigDecimal("70.0").compareTo(result.thresholds().redLow()));
+        assertEquals(0, new BigDecimal("80.0").compareTo(result.thresholds().greenLow()));
+    }
+
+    @Test
     void aKpiWithNoCatalogueMappingStaysUncoloured() {
         when(catalogue.findKpiIdForSeries("qa-repeat-deviations")).thenReturn(Optional.empty());
         when(snapshots.findAllDefaults()).thenReturn(List.of());

@@ -19,6 +19,7 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -201,12 +202,39 @@ public class QaKpiThresholdService {
         boolean multiSelectHint = selections.stream().anyMatch(Selection::multiple);
         Optional<QaKpiThresholdRow> limits = filterValues.stream().allMatch(value -> value == null)
                 ? Optional.ofNullable(loaded.rows().get(new DefaultsKey(series.kpiId(), series.grain())))
-                : limits(new LimitsKey(series.kpiId(), series.grain(), filterValues));
+                : limitsWithSiteFallback(series.kpiId(), series.grain(), anyRow.filterNames(), filterValues);
         return limits
                 .map(row -> {
                     alertIfStale(row);
                     return toThresholds(row, series.unit(), multiSelectHint);
                 });
+    }
+
+    /**
+     * A specific site's own threshold row doesn't always exist (confirmed live: KPI-QA-052 /
+     * Adherence with Regulatory Guidance / Monograph has only "All sites" rows, no per-site
+     * breakdown) - per the hand-off doc, that falls back to the "All sites" row rather than leaving
+     * the card with no threshold at all, the same way an unpicked filter slot already resolves to
+     * "All". Only the site slot gets this fallback (always filter_1 - "site" or "site_name",
+     * confirmed live across every QA kpi_id) - every other selected filter dimension is left as
+     * picked, so e.g. a material_type selection isn't silently dropped along with the site.
+     */
+    private Optional<QaKpiThresholdRow> limitsWithSiteFallback(String kpiId, String grain, List<String> filterNames,
+            List<String> filterValues) {
+        Optional<QaKpiThresholdRow> exact = limits(new LimitsKey(kpiId, grain, filterValues));
+        if (exact.isPresent()) {
+            return exact;
+        }
+        int siteSlot = filterNames.indexOf("site");
+        if (siteSlot < 0) {
+            siteSlot = filterNames.indexOf("site_name");
+        }
+        if (siteSlot < 0 || filterValues.get(siteSlot) == null) {
+            return Optional.empty();
+        }
+        List<String> allSites = new ArrayList<>(filterValues);
+        allSites.set(siteSlot, null);
+        return limits(new LimitsKey(kpiId, grain, allSites));
     }
 
     private Optional<QaKpiThresholdRow> limits(LimitsKey key) {
