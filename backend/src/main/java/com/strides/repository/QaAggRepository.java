@@ -25,8 +25,13 @@ import java.util.regex.Pattern;
 @ApplicationScoped
 public class QaAggRepository extends AbstractAggRepository<PeriodTotal> {
 
+    // Every existing QaKpiSpec passes a bare table name (implicitly `qa.*`) - a spec whose own real
+    // table lives in `public` instead (several KPIs' only real source turned out to be a `public.
+    // agg_tw_*` table already built for QC, not a `qa.*` one) passes it already schema-qualified,
+    // so this only adds the default prefix when one isn't already there, rather than forcing every
+    // existing spec to repeat "qa." for no behavioral change.
     private static String qualify(String table) {
-        return "qa." + table;
+        return table.contains(".") ? table : "qa." + table;
     }
 
     /**

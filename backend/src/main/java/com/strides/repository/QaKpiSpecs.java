@@ -1,30 +1,39 @@
 package com.strides.repository;
 
 /**
- * One QaKpiSpec per QA KPI with a real `qa.*` aggregate table today (confirmed live against
- * information_schema - 41 tables exist), transcribed from DPM_QA_Data_Layer_Handover.md's own
- * catalogue (2026-10-09, Ankur). kpi_id strings match the existing frontend qaKpiConfig.ts ids
- * exactly, so wiring a KPI here is a one-line flip there (mock: true -&gt; mock: false - see
- * KpiDefinition.mock).
+ * One QaKpiSpec per QA KPI with a real aggregate table today - most read a `qa.*` table (confirmed
+ * live against information_schema - 41 tables exist), transcribed from
+ * DPM_QA_Data_Layer_Handover.md's own catalogue (2026-10-09, Ankur); a handful read a `public.
+ * agg_tw_*`/`agg_lims_*`/`agg_cw_*` table instead (see the "QA_Data_Table_per_KPI" fact-table sheet
+ * cross-referenced against live `information_schema` on 2026-10-12) - those pass their table name
+ * already schema-qualified (QaAggRepository.qualify only adds "qa." when one isn't already there).
+ * kpi_id strings match the existing frontend qaKpiConfig.ts ids exactly, so wiring a KPI here is a
+ * one-line flip there (mock: true -&gt; mock: false - see KpiDefinition.mock).
  *
- * Several frontend QA KPI ids have no row in the handover doc and no matching live table
- * (oos-logged family, deviations-per-1000-tests-qc, deviations-due-to-suppliers-materials,
- * repeat-quality-event-rate, overdue-investigation-crossing-30-days, capa-recurrence-rate,
- * capa-effectiveness-verification-pass-rate, repeat-deviations, training-completion,
- * breakdown-time-lims-instruments) - those stay on mock data until a real table exists for them;
- * not an oversight, there is nothing to query yet.
+ * Several frontend QA KPI ids still have no real table, confirmed live as of 2026-10-12 (not an
+ * oversight - there is genuinely nothing to query yet):
+ * - deviations-per-1000-tests-qc, deviations-due-to-suppliers-materials-1000-batches,
+ *   oos-due-to-suppliers-materials-1000-batches: no table combines the right numerator with a
+ *   batch/test denominator - the closest candidates (agg_tw_deviations, agg_tw_oos_trend) have no
+ *   batch-count or QC-test-count column to divide by.
+ * - deviations-per-1000-batches-human: agg_tw_human_error_rate looked like a match by name, but its
+ *   own denominator is test_count, not a batch count - it's the real source for "Human Error Index"
+ *   (a different, not-yet-added KPI from the same fact-table sheet), not this one.
+ * - overdue-investigation-crossing-30-days: agg_tw_rci_beyond_timeline has only overdue_count, no
+ *   total-investigations column - there's no way to turn that into the real percentage this KPI's
+ *   own name promises, so showing a raw count mislabeled "%" would be actively wrong, not just
+ *   approximate. Left mock per explicit product decision (2026-10-12) rather than relabeling the card.
+ * - closure-of-open-change-controls-open-due-date-alerts: qa.agg_tw_cc_approval_within_sla has
+ *   open_records/pending_records by closure_level, but no due-date-alert flag at all - the "due-date
+ *   alerts" half of this KPI's own definition isn't representable from it. Left mock per explicit
+ *   product decision (2026-10-12) rather than a partial match.
  *
  * instrument-error-deviations: the doc's own catalogue lists qa.agg_tw_instrument_error_deviations,
  * but that table does NOT exist live (confirmed) - only 41 of the doc's ~42 qa tables actually
  * exist. Per the doc's own "Known issues" section, the fallback read is public.agg_tw_deviations
  * with root_cause_bucket = 'By Instrument' (anchored on open_date_ist) - that KPI is wired directly
- * in QaController instead of through this registry, since it reads `public`, not `qa`.
- *
- * qa-closure-of-open-change-controls-open-due-date-alerts and
- * qa-deviations-per-1000-batches-human have no row in this registry either - the doc's own
- * "Closure of change controls (L4/L5)" entry doesn't match what that frontend KPI's name describes
- * (open + due-date alerts, not closure level), and there is no "deviations per 1000 batches - human"
- * row in the doc at all - both stay mock rather than force a guessed mapping.
+ * in QaController instead of through this registry, since AggTwDeviationsRepository's own dedup
+ * logic (see findProceduralErrorDeviationTotals) doesn't apply to a single-bucket filter like this one.
  */
 public final class QaKpiSpecs {
 
@@ -103,6 +112,26 @@ public final class QaKpiSpecs {
     public static final QaKpiSpec DEVIATION_AGING = QaKpiSpec.average(
             "agg_tw_deviations_aging", "site", "sum_aging_days", "aging_rows", "days");
 
+    // No qa.* table for this - public.agg_tw_repeat_failure_rate (built for QC) is the real source,
+    // sliced by record_type ('Deviation'/'OOS') and resp_dept_slice (an "All" aggregate row alongside
+    // one row per department - see the slice-column double-count footgun this file's other specs
+    // already guard against). Filtered to record_type = 'Deviation' so this doesn't overlap
+    // REPEAT_QUALITY_EVENT_RATE below.
+    public static final QaKpiSpec REPEAT_DEVIATIONS = new QaKpiSpec(
+            "public.agg_tw_repeat_failure_rate", "site", "recurring_count",
+            "record_type = 'Deviation' AND resp_dept_slice = 'All'",
+            "record_count", "record_type = 'Deviation' AND resp_dept_slice = 'All'", 100, "%");
+
+    // Same table as REPEAT_DEVIATIONS, deliberately NOT filtered to one record_type - "quality
+    // event" here means Deviation and OOS combined (both are quality-event record types on this
+    // table; record_type itself is a true partition with no "All" row, so leaving it unfiltered
+    // sums both via a plain SUM, same as every other true-partition column in this codebase).
+    // Product decision (2026-10-12): combine rather than pick one, since Repeat Deviations above
+    // already covers the Deviation-only reading.
+    public static final QaKpiSpec REPEAT_QUALITY_EVENT_RATE = new QaKpiSpec(
+            "public.agg_tw_repeat_failure_rate", "site", "recurring_count", "resp_dept_slice = 'All'",
+            "record_count", "resp_dept_slice = 'All'", 100, "%");
+
     // "Open Critical Deviations" (original Excel KPI) - currently-open deviations classified
     // Critical at open - open_count where initial_classification='Critical'. Distinct from the
     // doc's own "Critical deviations (initial)" KQI, which additionally restricts resp_dept to the
@@ -130,6 +159,21 @@ public final class QaKpiSpecs {
     public static final QaKpiSpec PROCEDURAL_ERROR_IOOS = QaKpiSpec.ratio(
             "agg_tw_procedural_error_ioos", "site_name", "oos_count", "test_count_commercial", 1000, "per 1000 tests");
 
+    // No qa.* table for this - public.agg_tw_oos_trend (built for QC) is the real source.
+    // root_cause_bucket is a true partition here (no "All" row - confirmed live), so a plain count
+    // with no filter already sums every bucket correctly.
+    public static final QaKpiSpec OOS_LOGGED = QaKpiSpec.count("public.agg_tw_oos_trend", "site", "oos_count", "OOS");
+
+    // No qa.* table for either of these - public.agg_tw_valid_oos_rate (built for QC) is the real
+    // source for both, sliced by product_type_slice (which DOES carry an "All" aggregate row
+    // alongside Commercial/Exhibit/Cleaning Validation/Process Validation - confirmed live).
+    public static final QaKpiSpec CONFIRMED_OOS_LOGGED = QaKpiSpec.countWhere(
+            "public.agg_tw_valid_oos_rate", "site_name", "oos_count", "product_type_slice = 'All'", "OOS");
+
+    public static final QaKpiSpec VALID_OOS_PER_1000_TESTS = new QaKpiSpec(
+            "public.agg_tw_valid_oos_rate", "site_name", "oos_count", "product_type_slice = 'All'",
+            "test_count", "product_type_slice = 'All'", 1000, "per 1000 tests");
+
     // Doc: "capa_count where 'Within SLA' / capa_count_in_scope" - a Ratio, not a plain count (an
     // earlier draft of this spec wrongly used countWhere). resp_dept_slice='All' is required on BOTH
     // sides - the table also carries one row per department plus an 'All' aggregate row (confirmed
@@ -142,6 +186,20 @@ public final class QaKpiSpecs {
             "agg_tw_capa_approval_within_sla", "site", "capa_count",
             "approval_sla_status = 'within SLA' AND resp_dept_slice = 'All'",
             "capa_count_in_scope", "resp_dept_slice = 'All'", 100, "%");
+
+    // No qa.* table for this - public.agg_tw_capa_recurrence_rate (built for QC) is the real source,
+    // same resp_dept_slice "All" guard as every other *_slice column here.
+    public static final QaKpiSpec CAPA_RECURRENCE_RATE = new QaKpiSpec(
+            "public.agg_tw_capa_recurrence_rate", "site", "recurring_count", "resp_dept_slice = 'All'",
+            "capa_count", "resp_dept_slice = 'All'", 100, "%");
+
+    // No qa.* table for this - public.agg_tw_capa_effectiveness (built for QC) is the real source.
+    // originated_from (CAPA / Change Control) is a true partition with no "All" row, so leaving it
+    // unfiltered sums both origins; resp_dept_slice DOES carry an "All" row and must be pinned on
+    // both sides, same guard as CAPA_APPROVAL_WITHIN_SLA above.
+    public static final QaKpiSpec CAPA_EFFECTIVENESS_VERIFICATION_PASS_RATE = new QaKpiSpec(
+            "public.agg_tw_capa_effectiveness", "site", "passing_count", "resp_dept_slice = 'All'",
+            "record_count", "resp_dept_slice = 'All'", 100, "%");
 
     // Doc: "cc_records, filter cc_approval_state" - the frontend KPI
     // (qa-change-control-approval-internal-external-within-sla) is a single combined card for both
@@ -200,7 +258,26 @@ public final class QaKpiSpecs {
     public static final QaKpiSpec FAR_ALERT_EVENT_DENSITY = QaKpiSpec.count(
             "agg_tw_far_event_density", "site", "far_event_count", "events");
 
+    // ---- People Performance ----
+
+    // No qa.* table for this - public.agg_cw_training_completion_rate (built for QC) is the real
+    // source. assignment_status is a true partition (Completed Late / Completed On Time / No Due
+    // Date / Overdue - no "All" row), so the denominator sums every status unfiltered; department
+    // and training_type are also true partitions here (no "All" row either), so leaving both
+    // unfiltered correctly sums across every one rather than needing a slice guard.
+    public static final QaKpiSpec TRAINING_COMPLETION = QaKpiSpec.ratioNumeratorWhere(
+            "public.agg_cw_training_completion_rate", "site", "assignment_count",
+            "assignment_status IN ('Completed Late', 'Completed On Time')", "assignment_count", 100, "%");
+
     // ---- Cross-Functional / Engineering ----
 
     public static final QaKpiSpec PLAN_VS_ACTUAL_PM_CALIBRATION_ENGINEERING = PM_CALIBRATION_PLAN_VS_ACTUAL;
+
+    // No qa.* table for this - public.agg_lims_instrument_failure_rate (built for QC) is the real
+    // source. "Breakdown Time" per the frontend KPI's own name is a duration, not the rate/frequency
+    // the table's own headline columns (failure_rate, breakdown_frequency on the sibling
+    // agg_lims_breakdowns_frequency table) compute - breakdown_hours is the literal time-based column
+    // that actually matches what this KPI claims to show.
+    public static final QaKpiSpec BREAKDOWN_TIME_LIMS_INSTRUMENTS = QaKpiSpec.count(
+            "public.agg_lims_instrument_failure_rate", "site_name", "breakdown_hours", "hours");
 }

@@ -93,8 +93,10 @@ function SectionBlock({
   /** See kpiConfig.ts's KpiDomain.scored / SectionSummaryBar's own `scored` prop. */
   scored: boolean
   /** DashboardPage's own selectedSeverity (see SeverityBadgeSummary) - forwarded to
-   * DomainSeverityBoard, which uses it to filter which cards render (see that file). */
-  highlightSeverity: SeverityFilter | null
+   * DomainSeverityBoard, which uses it to filter which cards render (see that file's own doc
+   * comment for the undefined/null/value 3-state meaning - undefined here specifically means this
+   * page has no SeverityBadgeSummary at all, see this component's own highlightSeverity prop). */
+  highlightSeverity: SeverityFilter | null | undefined
 }) {
   // Not useState(initialTierCounts): that only reads its argument on this component's very first
   // render. DomainTierCounts' probes (a separate, independent useDomainTrendKpis fetch per domain)
@@ -196,9 +198,13 @@ export const SectionSummaryList = forwardRef<
     /** DashboardPage's own selectedSeverity (see SeverityBadgeSummary) - a real filter, not just a
      * highlight: a section with no KPI at this filter's bucket disappears entirely, and every
      * section that does force-expands (same mechanism a live search already uses) showing only its
-     * matching cards (see DomainSeverityBoard's own visibleGroups). null (nothing selected) shows
-     * every real-severity card and hides no-threshold ones - see that file's own default. Omitted
-     * (or null) outside the Operations view, which is the only place SeverityBadgeSummary renders. */
+     * matching cards (see DomainSeverityBoard's own visibleGroups). Omitted entirely outside the
+     * Operations view (the only place SeverityBadgeSummary renders) - left undefined there, NOT
+     * defaulted to null, since DomainSeverityBoard's own 3-state meaning treats those two
+     * differently: undefined means no filter control exists at all, so every card shows including
+     * no-threshold ones (critical for QA, where every KPI has no threshold by design - defaulting
+     * this to null once hid 100% of every QA section with no badge to ever reveal them again); null
+     * means the control exists but nothing's picked, hiding no-threshold until that badge is clicked. */
     highlightSeverity?: SeverityFilter | null
     /** Defaults to KPI_DOMAINS (QC). A domain carrying `mock: true` (see qaKpiConfig.ts) has no real
      * backend yet - its KPI data comes from generateMockKpiSeries instead (see useKpiData.ts). */
@@ -209,7 +215,7 @@ export const SectionSummaryList = forwardRef<
     sectionScores?: (sectionKey: string) => { score: number | null; previousScore: number | null } | undefined
   }
 >(function SectionSummaryList(
-  { site, section, grain, dateRangeOverride, searchQuery, lens, highlightSeverity = null, domains = KPI_DOMAINS, sectionScores },
+  { site, section, grain, dateRangeOverride, searchQuery, lens, highlightSeverity, domains = KPI_DOMAINS, sectionScores },
   ref,
 ) {
   const visibleKpiIds = KPI_VISIBILITY[lens]
@@ -341,12 +347,13 @@ export const SectionSummaryList = forwardRef<
         // BEFORE this narrowing - the header's own "no threshold" number must stay the true total
         // regardless of which bucket is currently selected, same as every other tier's count there.
         const stackedKpisForCount = stackedKpis
-        // A stacked-share KPI has no threshold by design (stackedShareNoThresholdCount) - it only
-        // ever belongs in the 'no-threshold' bucket, so it shows there (same as DomainSeverityBoard's
-        // own no-threshold band) and is hidden everywhere else: the default view (nothing selected,
-        // same as a real trend KPI's no-threshold card - see DomainSeverityBoard) and every other
-        // selected severity, which it can never match.
-        if (highlightSeverity !== 'no-threshold') stackedKpis = []
+        // A stacked-share KPI has no threshold by design (stackedShareNoThresholdCount) - same
+        // 3-state meaning as DomainSeverityBoard's own highlightSeverity: undefined (no filter
+        // control on this page at all) always shows it, same as every no-threshold card there in
+        // that case; null (a control exists, nothing selected) or any severity OTHER than
+        // 'no-threshold' hides it, since it can never match a real severity and the no-threshold
+        // band itself is hidden by default whenever that control exists.
+        if (highlightSeverity !== undefined && highlightSeverity !== 'no-threshold') stackedKpis = []
         // Always paired with its host (see HEATMAP_COMPANION_HOST_ID) - not independently
         // searchable/rendered, so it isn't part of the search filter or hasMatch above. A function
         // (not a plain node) so DomainSeverityBoard can pass the host's own live severity through -
