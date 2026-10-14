@@ -18,6 +18,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -48,7 +49,12 @@ public class QaScoreService {
         List<KpiCardResponse> fetch(String site, String grain, LocalDate from, LocalDate to);
     }
 
-    private record KpiSource(String sectionId, String seriesId, KpiFetch fetch) {
+    /** pinnedSelection: slicer values this source always fetches with, overriding the page's own (a limit that only fits one filter value). */
+    private record KpiSource(String sectionId, String seriesId, KpiFetch fetch, Map<String, List<String>> pinnedSelection) {
+
+        KpiSource(String sectionId, String seriesId, KpiFetch fetch) {
+            this(sectionId, seriesId, fetch, Map.of());
+        }
     }
 
     @Inject
@@ -80,13 +86,11 @@ public class QaScoreService {
                 new KpiSource(batchDisposition, "qa-right-first-time-rft",
                         (s, g, f, t) -> kpis.fetch(QaKpiSpecs.RIGHT_FIRST_TIME, "qa-right-first-time-rft", "Right First Time (RFT)", s, g, f, t)),
                 new KpiSource(batchDisposition, "qa-batch-reject",
-                        (s, g, f, t) -> kpis.fetch(QaKpiSpecs.BATCH_REJECT, "qa-batch-reject", "% Batch Reject", s, g, f, t)),
+                        (s, g, f, t) -> kpis.fetch(QaKpiSpecs.BATCH_REJECT, "qa-batch-reject", "Lot Acceptance Rate", s, g, f, t)),
                 new KpiSource(batchDisposition, "qa-semi-finished-goods-release-delays",
                         (s, g, f, t) -> kpis.fetch(QaKpiSpecs.SFG_RELEASE_DELAYS, "qa-semi-finished-goods-release-delays", "Semi-Finished Goods Release Delays", s, g, f, t)),
                 new KpiSource(batchDisposition, "qa-batches-with-error-on-incoming-inspection",
                         (s, g, f, t) -> kpis.fetch(QaKpiSpecs.BATCHES_ERROR_INCOMING_INSPECTION, "qa-batches-with-error-on-incoming-inspection", "% Batches with Error on Incoming Inspection", s, g, f, t)),
-                new KpiSource(batchDisposition, "qa-sla-ip-in-process-sample-turnaround",
-                        (s, g, f, t) -> kpis.fetch(QaKpiSpecs.SLA_IP, "qa-sla-ip-in-process-sample-turnaround", "SLA - IP (in-process sample turnaround)", s, g, f, t)),
                 new KpiSource(batchDisposition, "qa-qa-sampling-on-time",
                         (s, g, f, t) -> kpis.fetch(QaKpiSpecs.QA_SAMPLING_ONTIME, "qa-qa-sampling-on-time", "QA Sampling On-Time", s, g, f, t)),
                 new KpiSource(batchDisposition, "qa-in-process-cv-sample-qa-approval-pending",
@@ -113,18 +117,8 @@ public class QaScoreService {
                         (s, g, f, t) -> kpis.fetchInstrumentErrorDeviations("qa-instrument-error-deviations", "Instrument Error Deviations", s, g, f, t)),
                 new KpiSource(qualityEvent, "qa-deviation-aging-major-minor",
                         (s, g, f, t) -> kpis.fetch(QaKpiSpecs.DEVIATION_AGING, "qa-deviation-aging-major-minor", "Deviation Aging (Major / Minor)", s, g, f, t)),
-                new KpiSource(qualityEvent, "qa-oos-logged",
-                        (s, g, f, t) -> kpis.fetch(QaKpiSpecs.OOS_LOGGED, "qa-oos-logged", "OOS Logged", s, g, f, t)),
-                new KpiSource(qualityEvent, "qa-confirmed-oos-logged",
-                        (s, g, f, t) -> kpis.fetch(QaKpiSpecs.CONFIRMED_OOS_LOGGED, "qa-confirmed-oos-logged", "Confirmed OOS Logged", s, g, f, t)),
                 new KpiSource(qualityEvent, "qa-valid-oos-per-1000-tests",
                         (s, g, f, t) -> kpis.fetch(QaKpiSpecs.VALID_OOS_PER_1000_TESTS, "qa-valid-oos-per-1000-tests", "Valid OOS per 1000 Tests", s, g, f, t)),
-                new KpiSource(qualityEvent, "qa-analyst-error-ioos",
-                        (s, g, f, t) -> kpis.fetch(QaKpiSpecs.ANALYST_ERROR_IOOS, "qa-analyst-error-ioos", "Analyst Error iOOS", s, g, f, t)),
-                new KpiSource(qualityEvent, "qa-procedural-error-ioos",
-                        (s, g, f, t) -> kpis.fetch(QaKpiSpecs.PROCEDURAL_ERROR_IOOS, "qa-procedural-error-ioos", "Procedural Error iOOS", s, g, f, t)),
-                new KpiSource(qualityEvent, "qa-stability-testing-pending",
-                        (s, g, f, t) -> kpis.fetch(QaKpiSpecs.STABILITY_TESTING_PENDING, "qa-stability-testing-pending", "Stability Testing Pending", s, g, f, t)),
                 new KpiSource(qualityEvent, "qa-q-events-closure-time",
                         (s, g, f, t) -> kpis.fetch(QaKpiSpecs.Q_EVENTS_CLOSURE_TIME, "qa-q-events-closure-time", "Q Events Closure Time", s, g, f, t)),
                 new KpiSource(qualityEvent, "qa-repeat-quality-event-rate",
@@ -135,16 +129,17 @@ public class QaScoreService {
                         (s, g, f, t) -> kpis.fetch(QaKpiSpecs.CAPA_RECURRENCE_RATE, "qa-capa-recurrence-rate", "CAPA Recurrence Rate", s, g, f, t)),
                 new KpiSource(qualityEvent, "qa-capa-effectiveness-verification-pass-rate",
                         (s, g, f, t) -> kpis.fetch(QaKpiSpecs.CAPA_EFFECTIVENESS_VERIFICATION_PASS_RATE, "qa-capa-effectiveness-verification-pass-rate", "CAPA Effectiveness Verification Pass Rate", s, g, f, t)),
+                new KpiSource(qualityEvent, "qa-average-time-to-implement-capa",
+                        (s, g, f, t) -> kpis.fetch(QaKpiSpecs.CAPA_IMPLEMENT_TIME, "qa-average-time-to-implement-capa", "Average Time to Implement CAPA", s, g, f, t,
+                                Map.of(QaKpiSpecs.CAPA_IMPLEMENT_DEPT_COLUMN, QaKpiSpecs.CAPA_IMPLEMENT_DEPT_ALL), Map.of())),
                 new KpiSource(qualityEvent, "qa-capa-approval-within-sla-no-extension",
                         (s, g, f, t) -> kpis.fetch(QaKpiSpecs.CAPA_APPROVAL_WITHIN_SLA, "qa-capa-approval-within-sla-no-extension", "CAPA Approval within SLA (no extension)", s, g, f, t)),
                 new KpiSource(qualityEvent, "qa-change-control-approval-internal-external-within-sla",
                         (s, g, f, t) -> kpis.fetch(QaKpiSpecs.CC_APPROVAL_WITHIN_SLA, "qa-change-control-approval-internal-external-within-sla", "Change Control Approval (Internal / External) within SLA", s, g, f, t)),
-                new KpiSource(qualityEvent, "qa-closure-of-open-change-controls-l4",
-                        (s, g, f, t) -> kpis.fetch(QaKpiSpecs.CLOSURE_OPEN_CCS_L4, "qa-closure-of-open-change-controls-l4", "Closure of Open Change Controls - L4", s, g, f, t)),
-                new KpiSource(qualityEvent, "qa-closure-of-open-change-controls-l5",
-                        (s, g, f, t) -> kpis.fetch(QaKpiSpecs.CLOSURE_OPEN_CCS_L5, "qa-closure-of-open-change-controls-l5", "Closure of Open Change Controls - L5", s, g, f, t)),
-                new KpiSource(qualityEvent, "qa-open-new-equipment-facility-modification-ccs",
-                        (s, g, f, t) -> kpis.fetch(QaKpiSpecs.OPEN_NEW_EQUIPMENT_FACILITY_MOD_CCS, "qa-open-new-equipment-facility-modification-ccs", "Open New Equipment & Facility Modification CCs", s, g, f, t)),
+                new KpiSource(qualityEvent, "qa-closure-of-open-change-controls",
+                        (s, g, f, t) -> kpis.fetch(QaKpiSpecs.CLOSURE_OPEN_CCS, "qa-closure-of-open-change-controls", "Closure of Open Change Controls", s, g, f, t, Map.of(),
+                                Map.of("closure_level", Set.of("L5"))),
+                        Map.of("closure_level", List.of("L5"))),
                 new KpiSource(qualityEvent, "qa-overdue-qms-records",
                         (s, g, f, t) -> kpis.fetch(QaKpiSpecs.OVERDUE_QMS_RECORDS, "qa-overdue-qms-records", "Overdue QMS Records", s, g, f, t)),
 
@@ -152,15 +147,13 @@ public class QaScoreService {
                 new KpiSource(complianceAudit, "qa-reg-customer-audit-success-rate",
                         (s, g, f, t) -> kpis.fetch(QaKpiSpecs.REG_CUSTOMER_AUDIT_SUCCESS_RATE, "qa-reg-customer-audit-success-rate", "Reg / Customer Audit Success Rate", s, g, f, t)),
                 new KpiSource(complianceAudit, "qa-internal-audit-observation-severity",
-                        (s, g, f, t) -> kpis.fetch(QaKpiSpecs.INTERNAL_AUDIT_OBSERVATION_SEVERITY, "qa-internal-audit-observation-severity", "Internal Audit Observation Severity", s, g, f, t)),
+                        (s, g, f, t) -> kpis.fetchWithCategoryBreakdown(QaKpiSpecs.INTERNAL_AUDIT_OBSERVATION_SEVERITY, "qa-internal-audit-observation-severity", "Internal Audit Observation Severity", "severity", s, g, f, t)),
                 new KpiSource(complianceAudit, "qa-internal-audit-on-time-actions",
                         (s, g, f, t) -> kpis.fetch(QaKpiSpecs.INTERNAL_AUDIT_ONTIME_ACTIONS, "qa-internal-audit-on-time-actions", "Internal Audit On-Time Actions", s, g, f, t)),
                 new KpiSource(complianceAudit, "qa-audit-internal-external-critical-observations",
                         (s, g, f, t) -> kpis.fetch(QaKpiSpecs.AUDIT_CRITICAL_OBSERVATIONS, "qa-audit-internal-external-critical-observations", "Audit (Internal / External) Critical Observations", s, g, f, t)),
                 new KpiSource(complianceAudit, "qa-observations-open",
                         (s, g, f, t) -> kpis.fetch(QaKpiSpecs.OBSERVATIONS_OPEN, "qa-observations-open", "Observations Open", s, g, f, t)),
-                new KpiSource(complianceAudit, "qa-adherence-with-regulatory-guidance-monograph",
-                        (s, g, f, t) -> kpis.fetch(QaKpiSpecs.ADHERENCE_REGULATORY_GUIDANCE_MONOGRAPH, "qa-adherence-with-regulatory-guidance-monograph", "Adherence with Regulatory Guidance / Monograph", s, g, f, t)),
                 new KpiSource(complianceAudit, "qa-vendor-blocking-due-to-quality-issue",
                         (s, g, f, t) -> kpis.fetch(QaKpiSpecs.VENDOR_BLOCKING_QUALITY_ISSUE, "qa-vendor-blocking-due-to-quality-issue", "Vendor Blocking due to Quality Issue", s, g, f, t)),
                 new KpiSource(complianceAudit, "qa-product-complaint-criticality",
@@ -176,7 +169,8 @@ public class QaScoreService {
 
                 // ---- People Performance ----
                 new KpiSource(peoplePerformance, "qa-training-completion",
-                        (s, g, f, t) -> kpis.fetch(QaKpiSpecs.TRAINING_COMPLETION, "qa-training-completion", "Training Completion", s, g, f, t)));
+                        (s, g, f, t) -> kpis.fetch(QaKpiSpecs.TRAINING_COMPLETION, "qa-training-completion", "Training Completion", s, g, f, t,
+                                Map.of(QaKpiSpecs.TRAINING_DEPARTMENT_COLUMN, QaKpiSpecs.TRAINING_DEPARTMENT_QA), Map.of())));
     }
 
     private record FetchedGraph(KpiSource source, List<KpiCardResponse> rows) {
@@ -242,7 +236,8 @@ public class QaScoreService {
     private FetchedGraph fetchGraph(KpiSource source, String site, String grain, LocalDate from, LocalDate to,
             Function<String, List<String>> selectedValues) {
         try {
-            List<KpiCardResponse> fetched = thresholds.applyTo(source.fetch().fetch(site, grain, from, to), selectedValues);
+            List<KpiCardResponse> fetched = thresholds.applyTo(source.fetch().fetch(site, grain, from, to),
+                    name -> source.pinnedSelection().getOrDefault(name, selectedValues.apply(name)));
             List<KpiCardResponse> rows = fetched.stream()
                     .filter(row -> row.kpiId().equals(source.seriesId()) && row.thresholds() != null)
                     .sorted(Comparator.comparing(KpiCardResponse::periodStart))

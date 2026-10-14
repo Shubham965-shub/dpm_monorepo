@@ -5,7 +5,11 @@ import com.strides.model.PeriodSum;
 import com.strides.model.PeriodTotal;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.time.LocalDate;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -72,6 +76,17 @@ public final class PeriodCombiner {
                             BigDecimal.valueOf(t.numerator()), BigDecimal.valueOf(t.denominator()), numeratorLabel, denominatorLabel);
                 })
                 .toList();
+    }
+
+    /** Same as the 4-arg fromSums, but a period in [from, to] with no row reads as 0 instead of being absent. */
+    public static List<KpiCardResponse> fromSums(List<PeriodSum> sums, String kpiId, String name, String unit,
+            String grain, LocalDate from, LocalDate to) {
+        Set<LocalDate> present = new HashSet<>();
+        sums.forEach(s -> present.add(s.periodStart()));
+        List<PeriodSum> filled = new ArrayList<>(sums);
+        PeriodGaps.missingStarts(grain, from, to, present).forEach(start -> filled.add(new PeriodSum(start, grain, 0)));
+        filled.sort(Comparator.comparing(PeriodSum::periodStart));
+        return fromSums(filled, kpiId, name, unit);
     }
 
     /** Plain-count KPIs (no numerator/denominator ratio). */

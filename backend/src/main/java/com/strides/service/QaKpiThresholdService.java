@@ -180,6 +180,7 @@ public class QaKpiThresholdService {
         return cards.stream()
                 .map(card -> {
                     KpiThresholds limits = catalogue.findKpiIdForSeries(card.kpiId())
+                            .filter(kpiId -> selectionFits(card.kpiId(), selectedValues))
                             .flatMap(kpiId -> limitsPerSeries.computeIfAbsent(
                                     new SeriesKey(kpiId, card.grain(), card.unit()),
                                     key -> resolveLimits(key, selectedValues, loaded)))
@@ -188,6 +189,13 @@ public class QaKpiThresholdService {
                             PeriodProgress.isInProgress(card.grain(), card.periodStart(), today));
                 })
                 .toList();
+    }
+
+    /** False when the threshold id only covers one filter value and something else (or nothing) is selected. */
+    private boolean selectionFits(String seriesKpiId, Function<String, List<String>> selectedValues) {
+        return catalogue.findRequiredSelection(seriesKpiId)
+                .map(required -> List.of(required.getValue()).equals(selectedValues.apply(required.getKey())))
+                .orElse(true);
     }
 
     private Optional<KpiThresholds> resolveLimits(SeriesKey series, Function<String, List<String>> selectedValues,
@@ -211,9 +219,8 @@ public class QaKpiThresholdService {
     }
 
     /**
-     * A specific site's own threshold row doesn't always exist (confirmed live: KPI-QA-052 /
-     * Adherence with Regulatory Guidance / Monograph has only "All sites" rows, no per-site
-     * breakdown) - per the hand-off doc, that falls back to the "All sites" row rather than leaving
+     * A specific site's own threshold row doesn't always exist (a KPI can have only "All sites"
+     * rows, with no per-site breakdown) - per the hand-off doc, that falls back to the "All sites" row rather than leaving
      * the card with no threshold at all, the same way an unpicked filter slot already resolves to
      * "All". Only the site slot gets this fallback (always filter_1 - "site" or "site_name",
      * confirmed live across every QA kpi_id) - every other selected filter dimension is left as

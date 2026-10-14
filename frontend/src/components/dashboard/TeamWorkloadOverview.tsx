@@ -1,12 +1,13 @@
 import { useState } from 'react'
-import { Users } from 'lucide-react'
-import { initials, pluralize } from '@/lib/utils'
+import { ChevronDown, Users } from 'lucide-react'
+import { cn, initials, pluralize } from '@/lib/utils'
 import { useMyAnalysts } from '@/hooks/useMyAnalysts'
 import type { TeamMember } from '@/lib/authSchemas'
 import { WORKLOAD_PROFILES } from './mockData'
 import { severityMeta } from './types'
 import { computeTeamMemberHealth } from './teamHealth'
 import { TeamMemberDetailModal } from './TeamMemberDetailModal'
+import { DemoDataBadge, UPCOMING_FEATURE_CLASS } from './DemoDataBadge'
 
 /** One severity-colored dot + label, matching the legend/pill language used across every other
  * severity surface in the app (SectionSummaryBar's chips, SeverityBadgeSummary's badges) rather
@@ -28,6 +29,8 @@ function HealthLegendEntry({ severity, label }: { severity: Parameters<typeof se
  * content itself is still placeholder (see WORKLOAD_PROFILES's own doc comment in mockData.ts): no
  * KPI/task-assignment system exists server-side yet. Design reference: team-overview.html. */
 export function TeamWorkloadOverview() {
+  // Collapsed by default - an upcoming feature (see DemoDataBadge), not something to lead the page with.
+  const [open, setOpen] = useState(false)
   const { data: analysts, isLoading } = useMyAnalysts()
   const roster = analysts ?? []
   // The id, not the TeamMember object itself - roster is fresh TanStack Query data on every
@@ -40,17 +43,25 @@ export function TeamWorkloadOverview() {
 
   return (
     <div className="rounded-lg border border-sky-200 bg-sky-50/60">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-sky-200/70 px-5 py-4">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className={cn('flex w-full flex-wrap items-center justify-between gap-2 px-5 py-4 text-left', open && 'border-b border-sky-200/70')}
+      >
         <div className="flex flex-wrap items-center gap-2">
           <Users className="size-4 text-foreground" />
           <h2 className="text-base font-semibold">Team overview</h2>
+          <DemoDataBadge />
           <span className="text-xs text-muted-foreground">— click any analyst to see their KPIs and tasks</span>
         </div>
-        <span className="shrink-0 text-xs font-semibold text-foreground">
-          {pluralize(roster.length, 'analyst')} on this shift
-        </span>
-      </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <span className="text-xs font-semibold text-foreground">{pluralize(roster.length, 'analyst')} on this shift</span>
+          <ChevronDown className={cn('size-4 text-muted-foreground transition-transform', open && 'rotate-180')} />
+        </div>
+      </button>
 
+      {open && <div className={UPCOMING_FEATURE_CLASS}>
       {isLoading ? (
         <p className="p-4 text-xs text-muted-foreground">Loading…</p>
       ) : roster.length === 0 ? (
@@ -120,6 +131,7 @@ export function TeamWorkloadOverview() {
           </div>
         </>
       )}
+      </div>}
 
       {selected && selectedProfile && (
         <TeamMemberDetailModal analyst={selected} profile={selectedProfile} onClose={() => setSelectedId(null)} />

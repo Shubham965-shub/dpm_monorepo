@@ -13,8 +13,10 @@ public class AggTwOosTrendRepository extends AbstractAggRepository<PeriodSum> {
 
     private static final String TABLE = "agg_tw_oos_trend";
 
-    /** rootCauseBuckets empty = no filter (every bucket combined). Sum happens in Postgres. */
-    public List<PeriodSum> findTotals(String site, Set<String> rootCauseBuckets, String grain, LocalDate from, LocalDate to) {
+    /** rootCauseBuckets/conclusions empty = no filter (every value combined). Sum happens in Postgres -
+     * conclusion is part of the agg grain, so an unfiltered query must sum across it. */
+    public List<PeriodSum> findTotals(String site, Set<String> rootCauseBuckets, Set<String> conclusions, String grain,
+            LocalDate from, LocalDate to) {
         StringBuilder sql = new StringBuilder("""
                 SELECT period_start, grain, SUM(oos_count) AS total
                 FROM agg_tw_oos_trend
@@ -23,6 +25,10 @@ public class AggTwOosTrendRepository extends AbstractAggRepository<PeriodSum> {
         if (!rootCauseBuckets.isEmpty()) {
             sql.append(" AND root_cause_bucket IN (").append(placeholders(rootCauseBuckets)).append(")");
             params.addAll(rootCauseBuckets);
+        }
+        if (!conclusions.isEmpty()) {
+            sql.append(" AND conclusion IN (").append(placeholders(conclusions)).append(")");
+            params.addAll(conclusions);
         }
         sql.append(" GROUP BY period_start, grain ORDER BY period_start");
 
@@ -33,9 +39,11 @@ public class AggTwOosTrendRepository extends AbstractAggRepository<PeriodSum> {
                 params.toArray());
     }
 
-    /** rootCauseBucket's live option list, scoped by site/grain/date range - see AbstractAggRepository.distinctValues. */
+    /** Live option lists, scoped by site/grain/date range - see AbstractAggRepository.distinctValues. */
     public Map<String, List<String>> filterOptions(String site, String grain, LocalDate from, LocalDate to) {
         return Map.of("rootCauseBucket",
-                distinctValues(TABLE, "site", "root_cause_bucket", site, grain, from, to, Map.of()));
+                distinctValues(TABLE, "site", "root_cause_bucket", site, grain, from, to, Map.of()),
+                "conclusion",
+                distinctValues(TABLE, "site", "conclusion", site, grain, from, to, Map.of()));
     }
 }

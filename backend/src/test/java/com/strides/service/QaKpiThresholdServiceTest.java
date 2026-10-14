@@ -109,11 +109,11 @@ class QaKpiThresholdServiceTest {
 
     @Test
     void aKpiWithNoCatalogueMappingStaysUncoloured() {
-        when(catalogue.findKpiIdForSeries("qa-repeat-deviations")).thenReturn(Optional.empty());
+        when(catalogue.findKpiIdForSeries("qa-breakdown-time-lims-instruments")).thenReturn(Optional.empty());
         when(snapshots.findAllDefaults()).thenReturn(List.of());
         service.refreshDefaults();
 
-        KpiCardResponse card = new KpiCardResponse("qa-repeat-deviations", "Repeat Deviations %",
+        KpiCardResponse card = new KpiCardResponse("qa-breakdown-time-lims-instruments", "Breakdown Time - LIMS Instruments",
                 new BigDecimal("8.24"), "%", null, "monthly", LocalDate.of(2026, 9, 1), null);
 
         KpiCardResponse result = service.applyTo(List.of(card), NOTHING_SELECTED).get(0);

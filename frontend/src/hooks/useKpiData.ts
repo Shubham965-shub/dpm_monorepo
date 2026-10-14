@@ -8,6 +8,9 @@ import { defaultExtraParams } from '@/components/kpi/ExtraFilterControl'
 export interface GlobalKpiFilters {
   site: string
   grain: string
+  /** True when `grain` is an explicit page-level Timeline pick - beats every KPI's own per-lens default
+   * grain (see useCardGrain/useDomainTrendKpis) instead of only filling in where none exists. */
+  forceGrain?: boolean
   from: string
   to: string
 }

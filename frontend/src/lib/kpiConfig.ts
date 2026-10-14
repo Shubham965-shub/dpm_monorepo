@@ -174,8 +174,8 @@ export const KPI_DOMAINS: KpiDomain[] = [
       // Blank testScope = All tests; RISE / Commercial are the switchable variants (QmsService.getInvalidOosRate).
       { id: 'invalid-oos-rate', label: 'Invalid OOS Rate', path: 'invalid-oos-rate', drilldownPath: 'invalid-oos-rate/drilldown', extraFilters: [{ kind: 'select', param: 'testScope' }] },
       { id: 'confirmed-oos-rate', label: 'Confirmed OOS Rate', path: 'confirmed-oos-rate', drilldownPath: 'confirmed-oos-rate/drilldown', extraFilters: [{ kind: 'multiSelect', param: 'productType' }] },
-      { id: 'oos-trend', label: 'OOS Trend', path: 'oos-trend', drilldownPath: 'oos-trend/drilldown', extraFilters: [{ kind: 'multiSelect', param: 'rootCauseBucket' }] },
-      { id: 'oot-trend', label: 'OOT Trend', path: 'oot-trend', drilldownPath: 'oot-trend/drilldown', extraFilters: [{ kind: 'multiSelect', param: 'rootCauseBucket' }] },
+      { id: 'oos-trend', label: 'OOS Trend', path: 'oos-trend', drilldownPath: 'oos-trend/drilldown', extraFilters: [{ kind: 'multiSelect', param: 'rootCauseBucket' }, { kind: 'multiSelect', param: 'conclusion' }] },
+      { id: 'oot-trend', label: 'OOT Trend', path: 'oot-trend', drilldownPath: 'oot-trend/drilldown', extraFilters: [{ kind: 'multiSelect', param: 'rootCauseBucket' }, { kind: 'multiSelect', param: 'conclusion' }] },
       {
         id: 'deviations', label: 'Deviations', path: 'deviations', drilldownPath: 'deviations/drilldown',
         extraFilters: [

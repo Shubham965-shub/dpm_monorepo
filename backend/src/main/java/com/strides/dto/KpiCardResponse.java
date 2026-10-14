@@ -2,6 +2,7 @@ package com.strides.dto;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Map;
 
 /**
  * One uniform response shape for every KPI card, matching the dashboard's KPI-list component.
@@ -23,6 +24,9 @@ import java.time.LocalDate;
  * null, and also null for a handful of labeled-later ratio KPIs that haven't been given real labels
  * yet (see PeriodCombiner.fromTotals's call sites) - the UI falls back to a generic
  * "Numerator / Denominator" heading in that case rather than failing to show the breakdown at all.
+ * breakdown: for the few KPIs whose denominator is a sum across categories (e.g. observations per
+ * severity), the per-category counts in display order - shown in the tooltip instead of
+ * numerator/denominator. Null for every other KPI.
  */
 public record KpiCardResponse(
         String kpiId,
@@ -38,11 +42,12 @@ public record KpiCardResponse(
         KpiThresholds thresholds,
         Boolean inProgress,
         String numeratorLabel,
-        String denominatorLabel) {
+        String denominatorLabel,
+        Map<String, Long> breakdown) {
 
     public KpiCardResponse(String kpiId, String name, BigDecimal value, String unit, KpiStatus status,
             String grain, LocalDate periodStart, String note, BigDecimal numerator, BigDecimal denominator) {
-        this(kpiId, name, value, unit, status, grain, periodStart, note, numerator, denominator, null, null, null, null);
+        this(kpiId, name, value, unit, status, grain, periodStart, note, numerator, denominator, null, null, null, null, null);
     }
 
     /** Same as the 10-arg constructor, but with real numerator/denominator labels - see
@@ -51,12 +56,22 @@ public record KpiCardResponse(
             String grain, LocalDate periodStart, String note, BigDecimal numerator, BigDecimal denominator,
             String numeratorLabel, String denominatorLabel) {
         this(kpiId, name, value, unit, status, grain, periodStart, note, numerator, denominator, null, null,
-                numeratorLabel, denominatorLabel);
+                numeratorLabel, denominatorLabel, null);
     }
 
     public KpiCardResponse withThresholdStatus(KpiStatus newStatus, KpiThresholds newThresholds, Boolean newInProgress) {
         return new KpiCardResponse(kpiId, name, value, unit, newStatus, grain, periodStart, note,
-                numerator, denominator, newThresholds, newInProgress, numeratorLabel, denominatorLabel);
+                numerator, denominator, newThresholds, newInProgress, numeratorLabel, denominatorLabel, breakdown);
+    }
+
+    public KpiCardResponse withValue(BigDecimal newValue) {
+        return new KpiCardResponse(kpiId, name, newValue, unit, status, grain, periodStart, note,
+                numerator, denominator, thresholds, inProgress, numeratorLabel, denominatorLabel, breakdown);
+    }
+
+    public KpiCardResponse withBreakdown(Map<String, Long> newBreakdown) {
+        return new KpiCardResponse(kpiId, name, value, unit, status, grain, periodStart, note,
+                numerator, denominator, thresholds, inProgress, numeratorLabel, denominatorLabel, newBreakdown);
     }
 
     /** Back-compat shape for the many KPIs with no numerator/denominator breakdown to show. */

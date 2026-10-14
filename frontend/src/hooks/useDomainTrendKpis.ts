@@ -117,7 +117,7 @@ export interface DomainTrendKpiResult extends KpiMetrics {
  * Calibration Compliance's CXO default of quarterly vs the page's monthly) could be tiered by its
  * monthly-grain severity while its own card displayed (and colored itself by) quarterly's. */
 function resolvedKpiFilters(kpi: KpiDefinition, lens: KpiVisibilityLens, globalFilters: GlobalKpiFilters): GlobalKpiFilters {
-  const grain = defaultGrainFor(kpi.id, lens) ?? (globalFilters.grain as Grain)
+  const grain = (globalFilters.forceGrain ? null : defaultGrainFor(kpi.id, lens)) ?? (globalFilters.grain as Grain)
   return grain === globalFilters.grain ? globalFilters : { ...globalFilters, grain, ...getGrainDateRange(grain) }
 }
 

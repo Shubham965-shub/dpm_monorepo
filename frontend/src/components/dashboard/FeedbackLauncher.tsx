@@ -44,7 +44,7 @@ export function FeedbackLauncher() {
       <button
         type="button"
         title="Send feedback"
-        className="flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-sm font-medium text-white hover:bg-white/20"
+        className="flex items-center gap-1.5 rounded-full border border-brand/30 bg-brand/10 px-3 py-1 text-sm font-medium hover:bg-brand/20"
       >
         <MessageSquare className="size-4" />
         Feedback

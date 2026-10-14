@@ -101,8 +101,8 @@ public class QmsController {
 
     @GET
     @Path("/oos-trend")
-    public List<KpiCardResponse> oosTrend(@BeanParam KpiParams.WithRootCauseBucket p) {
-        return service.getOosTrend(p.site, p.rootCauseBucket,
+    public List<KpiCardResponse> oosTrend(@BeanParam KpiParams.WithRootCauseBucketAndConclusion p) {
+        return service.getOosTrend(p.site, p.rootCauseBucket, p.conclusion,
                 RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
     }
 
@@ -138,8 +138,8 @@ public class QmsController {
 
     @GET
     @Path("/oot-trend")
-    public List<KpiCardResponse> ootTrend(@BeanParam KpiParams.WithRootCauseBucket p) {
-        return service.getOotTrend(p.site, p.rootCauseBucket,
+    public List<KpiCardResponse> ootTrend(@BeanParam KpiParams.WithRootCauseBucketAndConclusion p) {
+        return service.getOotTrend(p.site, p.rootCauseBucket, p.conclusion,
                 RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
     }
 

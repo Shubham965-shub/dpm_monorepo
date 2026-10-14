@@ -145,20 +145,20 @@ public class QmsService {
      * summing both happen in Postgres. Catalogue threshold is month-on-month % change, not a
      * single-value cutoff, so status stays null - raw combined counts only.
      */
-    public List<KpiCardResponse> getOosTrend(String site, String rootCauseBucket, String grain, LocalDate from, LocalDate to) {
+    public List<KpiCardResponse> getOosTrend(String site, String rootCauseBucket, String conclusion, String grain, LocalDate from, LocalDate to) {
         Set<String> selected = PeriodCombiner.parseSelection(rootCauseBucket);
-        var totals = oosTrendRepository.findTotals(site, selected, grain, from, to);
-        return PeriodCombiner.fromSums(totals, "oos-trend", "OOS Trend", "count");
+        var totals = oosTrendRepository.findTotals(site, selected, PeriodCombiner.parseSelection(conclusion), grain, from, to);
+        return PeriodCombiner.fromSums(totals, "oos-trend", "OOS Trend", "count", grain, from, to);
     }
 
     public Map<String, List<String>> getOosTrendFilterOptions(String site, String grain, LocalDate from, LocalDate to) {
         return oosTrendRepository.filterOptions(site, grain, from, to);
     }
 
-    public List<KpiCardResponse> getOotTrend(String site, String rootCauseBucket, String grain, LocalDate from, LocalDate to) {
+    public List<KpiCardResponse> getOotTrend(String site, String rootCauseBucket, String conclusion, String grain, LocalDate from, LocalDate to) {
         Set<String> selected = PeriodCombiner.parseSelection(rootCauseBucket);
-        var totals = ootTrendRepository.findTotals(site, selected, grain, from, to);
-        return PeriodCombiner.fromSums(totals, "oot-trend", "OOT Trend", "count");
+        var totals = ootTrendRepository.findTotals(site, selected, PeriodCombiner.parseSelection(conclusion), grain, from, to);
+        return PeriodCombiner.fromSums(totals, "oot-trend", "OOT Trend", "count", grain, from, to);
     }
 
     public Map<String, List<String>> getOotTrendFilterOptions(String site, String grain, LocalDate from, LocalDate to) {
@@ -189,7 +189,7 @@ public class QmsService {
                 PeriodCombiner.parseSelection(finalClassification),
                 PeriodCombiner.parseSelection(recurringByCause),
                 grain, from, to);
-        return PeriodCombiner.fromSums(totals, "deviations", "Deviations", "count");
+        return PeriodCombiner.fromSums(totals, "deviations", "Deviations", "count", grain, from, to);
     }
 
     /** departmentScope isn't a DB-driven column filter (see sliceValueFor) - not part of the cross-filtered option set below, unlike respDept etc. */
@@ -269,7 +269,7 @@ public class QmsService {
             String grain, LocalDate from, LocalDate to) {
         var totals = rciBeyondTimelineRepository.findTotals(site,
                 PeriodCombiner.parseSelection(respDept), PeriodCombiner.parseSelection(initiatedThrough), grain, from, to);
-        return PeriodCombiner.fromSums(totals, "rci-beyond-timeline", "RCIs Beyond Timeline", "count");
+        return PeriodCombiner.fromSums(totals, "rci-beyond-timeline", "RCIs Beyond Timeline", "count", grain, from, to);
     }
 
     public Map<String, List<String>> getRciBeyondTimelineFilterOptions(String site, List<String> respDept,

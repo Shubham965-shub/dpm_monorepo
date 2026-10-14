@@ -33,16 +33,20 @@ import { DomainTierCounts } from './DomainTierCounts'
 import { ZERO_TIER_COUNTS, type SeverityFilter, type TierCounts } from './types'
 import type { GlobalKpiFilters } from '@/hooks/useKpiData'
 
-// Per-lens page title, matching the reference designs exactly (analyst/supervisor/cxo) - driven
-// by the same `lens` value that gates the KPI list and TeamWorkloadOverview, so ADMIN previewing a
-// lens sees the identical title a real locked-in user of that role would. Leadership isn't here -
-// its own reference screenshot gives it a fixed "KRSG Operations" title instead (see the Leadership
-// branch below), not one derived from the lens name. clusterHead isn't here either - QC has no
-// Cluster Head tier (see the DPM role ladder), so this page's own `lens` value never resolves to it.
-const LENS_TITLE: Record<Exclude<KpiVisibilityLens, 'leadership' | 'clusterHead'>, string> = {
-  analyst: 'QC Operational View',
-  supervisor: 'QC Supervisor View',
-  cxo: 'CXO View',
+// Same title for every lens (mirrors QaDashboardPage's own "QA Dashboard") - the active lens is
+// already shown by TopNav's role tab, so it isn't repeated here.
+const QC_PAGE_TITLE = 'QC Dashboard'
+
+// Sits above the filter bar (like QaDashboardPage's title) in the layouts that have one.
+function CompositePageTitle({ kpiCount }: { kpiCount: number }) {
+  return (
+    <div className="px-6 pt-4 md:px-10 lg:px-20">
+      <h1 className="text-xl font-semibold">{QC_PAGE_TITLE}</h1>
+      <p className="text-sm text-muted-foreground">
+        Composite plant performance · {pluralize(kpiCount, 'KPI')} across {KPI_DOMAINS.length} sections
+      </p>
+    </div>
+  )
 }
 
 // QC Score's "Best ever" stat (Leadership and CXO both show it) has no real historical-best
@@ -134,7 +138,7 @@ export function DashboardPage() {
   // its card list down to just that bucket (see DomainSeverityBoard).
   const [selectedSeverity, setSelectedSeverity] = useState<SeverityFilter | null>(null)
   const toggleSelectedSeverity = (filter: SeverityFilter) => setSelectedSeverity((prev) => (prev === filter ? null : filter))
-  // The QC dashboard's own `lens` here is never 'clusterHead' (see LENS_TITLE's own comment, above) -
+  // The QC dashboard's own `lens` here is never 'clusterHead' (see resolveAnalystSupervisorView/roleAccess.ts - QC has no Cluster Head tier) -
   // only QA's resolveQaLens produces that one - so this covers every lens DashboardPage itself can
   // actually compute (spelled out, rather than excluding 'clusterHead', since `lens`'s inferred type
   // already has no overlap with it here). null while on the QA/Performance view, which have no coach
@@ -182,7 +186,7 @@ export function DashboardPage() {
             Your account has no department assigned yet. Contact an admin to get access to a dashboard.
           </p>
         </main>
-      ) : /* The two persona lenses with a strict reference screenshot (see LENS_TITLE) get that
+      ) : /* The two persona lenses with a strict reference screenshot  get that
       exact layout - no FilterBar/Heatmap/QcScore/PositiveSignals, a Pending Actions panel instead
       of Needs Attention, and the Timeline/Chart control row. Leadership/CXO/unfiltered keep the
       pre-existing generic dashboard layout, since no screenshot dictates one for them. */
@@ -196,7 +200,7 @@ export function DashboardPage() {
           />
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <h1 className="text-xl font-semibold">{LENS_TITLE[lens]}</h1>
+              <h1 className="text-xl font-semibold">{QC_PAGE_TITLE}</h1>
               <p className="text-sm text-muted-foreground">
                 {DEFAULT_SITE} · All shifts · {pluralize(visibleKpiIds.size, 'assigned KPI')}, critical first, with alerts and assigned activities.
               </p>
@@ -243,15 +247,10 @@ export function DashboardPage() {
         // "D" or "M"), a QC Score "Best ever" stat, and its own Pending Actions wording (see
         // NeedsAttentionPanel).
         <>
+          <CompositePageTitle kpiCount={visibleKpiIds.size} />
           <LeadershipFilterBar trailingDays={leadershipTrailingDays} onChange={setLeadershipTrailingDays} />
 
           <main className="flex flex-col gap-4 px-6 py-4 md:px-10 lg:px-20">
-            <div>
-              <h1 className="text-xl font-semibold">KRSG Operations</h1>
-              <p className="text-sm text-muted-foreground">
-                Composite plant performance · {pluralize(visibleKpiIds.size, 'KPI')} across {KPI_DOMAINS.length} sections
-              </p>
-            </div>
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
               <OverallHeatmapDemo
@@ -285,15 +284,10 @@ export function DashboardPage() {
         </>
       ) : (
         <>
+          <CompositePageTitle kpiCount={visibleKpiIds.size} />
           <FilterBar value={filters} onChange={setFilters} />
 
           <main className="flex flex-col gap-4 px-6 py-4 md:px-10 lg:px-20">
-            <div>
-              <h1 className="text-xl font-semibold">{LENS_TITLE[lens]}</h1>
-              <p className="text-sm text-muted-foreground">
-                Composite plant performance · {pluralize(visibleKpiIds.size, 'KPI')} across {KPI_DOMAINS.length} sections
-              </p>
-            </div>
 
             {/* Heatmap:sidebar was minmax(0,1fr)_320px (~2.95:1). 3fr:2fr (1.5:1) narrowed the
             heatmap too much - 2fr:1fr (2:1) is a smaller step down from the original, still giving

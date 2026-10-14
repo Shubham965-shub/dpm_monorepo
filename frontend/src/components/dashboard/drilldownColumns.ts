@@ -37,6 +37,7 @@ const SAMPLE_TAT_COLUMNS: DrilldownColumn[] = [
   { key: 'sampledDate', label: 'Sampled Date', filterType: 'date' },
   { key: 'completedDate', label: 'Completed Date', filterType: 'date' },
   { key: 'tatDays', label: 'TAT Days', align: 'right', format: (row) => Number(row.tatDays).toFixed(1) },
+  { key: 'initiatedOn', label: 'Initiated On', filterType: 'date' },
 ]
 
 /** Every entry below is served by the backend's GenericDrilldownRepository (see DrilldownSpecs.java) -
@@ -94,6 +95,10 @@ const CAL_PM_COMPLIANCE_COLUMNS: DrilldownColumn[] = [
   { key: 'completedDate', label: 'Completed Date', filterType: 'date' },
   { key: 'delayDays', label: 'Delay Days', align: 'right' },
   { key: 'status', label: 'Status' },
+  { key: 'wasOnBreakdown', label: 'Was On Breakdown (on due date)' },
+  { key: 'breakdownStartDate', label: 'Breakdown Start Date', filterType: 'date' },
+  { key: 'breakdownEndDate', label: 'Breakdown End Date', filterType: 'date' },
+  { key: 'breakdownOngoing', label: 'Breakdown Ongoing (as of today)' },
 ]
 
 const BREAKDOWN_FREQUENCY_COLUMNS: DrilldownColumn[] = [
@@ -220,6 +225,7 @@ const OOT_TREND_COLUMNS: DrilldownColumn[] = [
   { key: 'title', label: 'Title' },
   { key: 'dateOpened', label: 'Date Opened', filterType: 'date' },
   { key: 'status', label: 'Status' },
+  { key: 'conclusion', label: 'Conclusion' },
 ]
 
 const OOS_TREND_COLUMNS: DrilldownColumn[] = [
@@ -227,6 +233,7 @@ const OOS_TREND_COLUMNS: DrilldownColumn[] = [
   { key: 'title', label: 'Title' },
   { key: 'dateOpened', label: 'Date Opened', filterType: 'date' },
   { key: 'status', label: 'Status' },
+  { key: 'conclusion', label: 'Conclusion' },
 ]
 
 const DEVIATIONS_COLUMNS: DrilldownColumn[] = [
@@ -338,40 +345,6 @@ const CAPA_AGING_STATUS_CONFIG: DrilldownConfig = { rowSchema: genericDrilldownR
  * GenericDrilldownRepository existed) that was never extended with the richer filter/sort/export
  * query shape the rest of this registry's backend endpoints now support. */
 // ---- QA drill-down columns (backend: QaDrilldownSpecs.java) ----
-
-const QA_SLA_IP_COLUMNS: DrilldownColumn[] = [
-  { key: 'siteName', label: 'Site Name' },
-  { key: 'sampleNumber', label: 'Sample Number' },
-  { key: 'textId', label: 'Text ID' },
-  { key: 'batchName', label: 'Batch Name' },
-  { key: 'productName', label: 'Product Name' },
-  { key: 'batchCategory', label: 'Batch Category' },
-  { key: 'groupName', label: 'Group Name' },
-  { key: 'sampleType', label: 'Sample Type' },
-  { key: 'sampledDate', label: 'Sampled Date', filterType: 'date' },
-  { key: 'completedDate', label: 'Completed Date', filterType: 'date' },
-  { key: 'tatWorkingDays', label: 'TAT Working Days' },
-  { key: 'slaDays', label: 'SLA Days' },
-  { key: 'status', label: 'Status' },
-  { key: 'slaStatus', label: 'SLA Status' },
-  { key: 'daysMissedSla', label: 'Days Missed SLA' },
-]
-
-const QA_STABILITY_TESTING_PENDING_COLUMNS: DrilldownColumn[] = [
-  { key: 'sampleNumber', label: 'Sample Number' },
-  { key: 'textId', label: 'Text ID' },
-  { key: 'batchName', label: 'Batch Name' },
-  { key: 'productName', label: 'Product Name' },
-  { key: 'location', label: 'Location' },
-  { key: 'sampleType', label: 'Sample Type' },
-  { key: 'sampledDate', label: 'Sampled Date', filterType: 'date' },
-  { key: 'completedDate', label: 'Completed Date', filterType: 'date' },
-  { key: 'slaDate', label: 'SLA Date', filterType: 'date' },
-  { key: 'status', label: 'Status' },
-  { key: 'slaStatus', label: 'SLA Status' },
-  { key: 'sampleVolume', label: 'Sample Volume' },
-  { key: 'daysOverSla', label: 'Days Over SLA' },
-]
 
 const QA_QA_SAMPLING_ONTIME_COLUMNS: DrilldownColumn[] = [
   { key: 'sampleNumber', label: 'Sample Number' },
@@ -585,28 +558,6 @@ const QA_CC_APPROVAL_WITHIN_SLA_COLUMNS: DrilldownColumn[] = [
   { key: 'dueDate', label: 'Due Date', filterType: 'date' },
 ]
 
-const QA_OPEN_NEW_EQUIPMENT_FACILITY_MOD_CCS_COLUMNS: DrilldownColumn[] = [
-  { key: 'recordId', label: 'Record ID' },
-  { key: 'title', label: 'Title' },
-  { key: 'ccCategory', label: 'CC Category' },
-  { key: 'status', label: 'Status' },
-  { key: 'agingDays', label: 'Aging Days' },
-  { key: 'agingBucket', label: 'Aging Bucket' },
-  { key: 'dateOpened', label: 'Date Opened', filterType: 'date' },
-]
-
-const QA_ADHERENCE_REGULATORY_GUIDANCE_MONOGRAPH_COLUMNS: DrilldownColumn[] = [
-  { key: 'recordId', label: 'Record ID' },
-  { key: 'qmsRecordNumber', label: 'QMS Record Number' },
-  { key: 'observationTitle', label: 'Observation Title' },
-  { key: 'ccCategory', label: 'CC Category' },
-  { key: 'status', label: 'Status' },
-  { key: 'adherenceStatus', label: 'Adherence Status' },
-  { key: 'agingDays', label: 'Aging Days' },
-  { key: 'dateOpened', label: 'Date Opened', filterType: 'date' },
-  { key: 'dateClosed', label: 'Date Closed', filterType: 'date' },
-]
-
 const QA_OVERDUE_QMS_RECORDS_COLUMNS: DrilldownColumn[] = [
   { key: 'eventType', label: 'Event Type' },
   { key: 'sourceTable', label: 'Source Table' },
@@ -658,6 +609,23 @@ const QA_INTERNAL_AUDIT_ONTIME_ACTIONS_COLUMNS: DrilldownColumn[] = [
   { key: 'dateOpened', label: 'Date Opened', filterType: 'date' },
   { key: 'dateClosed', label: 'Date Closed', filterType: 'date' },
   { key: 'initialDueDate', label: 'Initial Due Date', filterType: 'date' },
+]
+
+const QA_IA_RESPONSE_CYCLE_COLUMNS: DrilldownColumn[] = [
+  { key: 'recordId', label: 'Record ID' },
+  { key: 'title', label: 'Title' },
+  { key: 'observationCategory', label: 'Observation Category' },
+  { key: 'severity', label: 'Severity' },
+  { key: 'cycleNo', label: 'Cycle No' },
+  { key: 'cycleType', label: 'Cycle Type' },
+  { key: 'cycleStart', label: 'Cycle Start', filterType: 'date' },
+  { key: 'cycleEnd', label: 'Cycle End', filterType: 'date' },
+  { key: 'dueOn', label: 'Due On', filterType: 'date' },
+  { key: 'allowedDays', label: 'Allowed Days' },
+  { key: 'actualDays', label: 'Actual Days' },
+  { key: 'daysOver', label: 'Days Over' },
+  { key: 'cycleState', label: 'Cycle State' },
+  { key: 'extensions', label: 'Extensions' },
 ]
 
 const QA_AUDIT_CRITICAL_OBSERVATIONS_COLUMNS: DrilldownColumn[] = [
@@ -774,8 +742,6 @@ export const DRILLDOWN_CONFIG: Record<string, DrilldownConfig> = {
   'capa-aging': CAPA_AGING_STATUS_CONFIG,
 
   // ---- QA KPIs ----
-  'qa-sla-ip-in-process-sample-turnaround': { rowSchema: genericDrilldownRowSchema, columns: QA_SLA_IP_COLUMNS, drilldownAdvancedFiltering: true },
-  'qa-stability-testing-pending': { rowSchema: genericDrilldownRowSchema, columns: QA_STABILITY_TESTING_PENDING_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-qa-sampling-on-time': { rowSchema: genericDrilldownRowSchema, columns: QA_QA_SAMPLING_ONTIME_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-in-process-cv-sample-qa-approval-pending': { rowSchema: genericDrilldownRowSchema, columns: QA_IP_CV_SAMPLE_QA_APPROVAL_PENDING_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-cqa-adherence-for-in-process-parameters': { rowSchema: genericDrilldownRowSchema, columns: QA_CQA_ADHERENCE_INPROCESS_COLUMNS, drilldownAdvancedFiltering: true },
@@ -794,14 +760,15 @@ export const DRILLDOWN_CONFIG: Record<string, DrilldownConfig> = {
   'qa-q-events-closure-time': { rowSchema: genericDrilldownRowSchema, columns: QA_Q_EVENTS_CLOSURE_TIME_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-capa-approval-within-sla-no-extension': { rowSchema: genericDrilldownRowSchema, columns: QA_CAPA_APPROVAL_WITHIN_SLA_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-change-control-approval-internal-external-within-sla': { rowSchema: genericDrilldownRowSchema, columns: QA_CC_APPROVAL_WITHIN_SLA_COLUMNS, drilldownAdvancedFiltering: true },
-  'qa-open-new-equipment-facility-modification-ccs': { rowSchema: genericDrilldownRowSchema, columns: QA_OPEN_NEW_EQUIPMENT_FACILITY_MOD_CCS_COLUMNS, drilldownAdvancedFiltering: true },
+  'qa-closure-of-open-change-controls': { rowSchema: genericDrilldownRowSchema, columns: QA_CC_APPROVAL_WITHIN_SLA_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-overdue-qms-records': { rowSchema: genericDrilldownRowSchema, columns: QA_OVERDUE_QMS_RECORDS_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-reg-customer-audit-success-rate': { rowSchema: genericDrilldownRowSchema, columns: QA_REG_CUSTOMER_AUDIT_SUCCESS_RATE_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-internal-audit-observation-severity': { rowSchema: genericDrilldownRowSchema, columns: QA_INTERNAL_AUDIT_OBSERVATION_SEVERITY_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-internal-audit-on-time-actions': { rowSchema: genericDrilldownRowSchema, columns: QA_INTERNAL_AUDIT_ONTIME_ACTIONS_COLUMNS, drilldownAdvancedFiltering: true },
+  'qa-ia-response-initial-on-time': { rowSchema: genericDrilldownRowSchema, columns: QA_IA_RESPONSE_CYCLE_COLUMNS, drilldownAdvancedFiltering: true },
+  'qa-ia-response-rework-on-time': { rowSchema: genericDrilldownRowSchema, columns: QA_IA_RESPONSE_CYCLE_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-audit-internal-external-critical-observations': { rowSchema: genericDrilldownRowSchema, columns: QA_AUDIT_CRITICAL_OBSERVATIONS_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-observations-open': { rowSchema: genericDrilldownRowSchema, columns: QA_OBSERVATIONS_OPEN_COLUMNS, drilldownAdvancedFiltering: true },
-  'qa-adherence-with-regulatory-guidance-monograph': { rowSchema: genericDrilldownRowSchema, columns: QA_ADHERENCE_REGULATORY_GUIDANCE_MONOGRAPH_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-product-complaint-criticality': { rowSchema: genericDrilldownRowSchema, columns: QA_MARKET_COMPLAINT_MASTER_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-repeat-complaints': { rowSchema: genericDrilldownRowSchema, columns: QA_MARKET_COMPLAINT_MASTER_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-market-complaints-cn-tracking-ack-investigation-closure': { rowSchema: genericDrilldownRowSchema, columns: QA_MARKET_COMPLAINT_MASTER_COLUMNS, drilldownAdvancedFiltering: true },

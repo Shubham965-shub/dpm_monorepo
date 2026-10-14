@@ -9,6 +9,17 @@ interface TooltipPayloadEntry {
   payload?: Record<string, unknown>
 }
 
+// Chart-data rows hold primitives only (see toChartData), so the breakdown rides as JSON.
+function parseBreakdown(raw: unknown): [string, number][] | null {
+  if (typeof raw !== 'string') return null
+  return Object.entries(JSON.parse(raw) as Record<string, number>)
+}
+
+// A plain count is stored as count / 1 (see backend QaKpiSpec.count) - "5 / 1" adds nothing over "5".
+function isPlainCount(numerator: number, denominator: number): boolean {
+  return denominator === 1 && Number.isInteger(numerator)
+}
+
 /**
  * Shared per-period line/bar tooltip content - shows the hovered period as a full date (see
  * formatPeriodLabel, richer than the axis tick's terse form) and, for any series carrying a
@@ -37,15 +48,24 @@ export function KpiLineTooltip({
           const key = String(entry.dataKey ?? '')
           const numerator = entry.payload?.[`${key}__numerator`]
           const denominator = entry.payload?.[`${key}__denominator`]
+          const breakdown = parseBreakdown(entry.payload?.[`${key}__breakdown`])
           return (
             <div key={key} className="flex items-center gap-1.5">
               <span className="inline-block size-2 shrink-0 rounded-full" style={{ background: entry.color }} />
               <span className="font-medium">{entry.name}:</span>
               <span>{entry.value}</span>
-              {typeof numerator === 'number' && typeof denominator === 'number' && (
+              {breakdown ? (
                 <span className="text-muted-foreground">
-                  ({numerator.toLocaleString()} / {denominator.toLocaleString()})
+                  ({breakdown.map(([label, count]) => `${label} ${count.toLocaleString()}`).join(', ')})
                 </span>
+              ) : (
+                typeof numerator === 'number' &&
+                typeof denominator === 'number' &&
+                !isPlainCount(numerator, denominator) && (
+                  <span className="text-muted-foreground">
+                    ({numerator.toLocaleString()} / {denominator.toLocaleString()})
+                  </span>
+                )
               )}
             </div>
           )

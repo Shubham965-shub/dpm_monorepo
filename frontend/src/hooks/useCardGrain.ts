@@ -21,7 +21,7 @@ export interface CardDateRange {
  * drops a stale range instead of reinterpreting (say) a daily range under monthly grain.
  */
 export function useCardGrain(kpiId: string, lens: KpiVisibilityLens, globalFilters: GlobalKpiFilters) {
-  const defaultGrain = defaultGrainFor(kpiId, lens) ?? (globalFilters.grain as Grain)
+  const defaultGrain = (globalFilters.forceGrain ? null : defaultGrainFor(kpiId, lens)) ?? (globalFilters.grain as Grain)
   const [grainPick, setGrainPick] = useState<{ baseGrain: Grain; grain: Grain } | null>(null)
   const grain = grainPick?.baseGrain === defaultGrain ? grainPick.grain : defaultGrain
 
