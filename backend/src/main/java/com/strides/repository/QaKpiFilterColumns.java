@@ -57,13 +57,15 @@ public final class QaKpiFilterColumns {
     private static final Map<String, Mapping> BY_KPI_ID = Map.ofEntries(
             Map.entry("qa-right-first-time-rft", of(QaKpiSpecs.RIGHT_FIRST_TIME,
                     col("materialType", "material_type"), col("sapDisposition", "sap_disposition"))),
+            Map.entry("qa-ia-response-initial-on-time", of(QaKpiSpecs.IA_RESPONSE_ON_TIME,
+                    col("observationCategory", "observation_category"), col("severity", "severity"))),
+            Map.entry("qa-ia-response-rework-on-time", of(QaKpiSpecs.IA_RESPONSE_ON_TIME,
+                    col("observationCategory", "observation_category"), col("severity", "severity"))),
             Map.entry("qa-batch-reject", of(QaKpiSpecs.BATCH_REJECT, col("materialType", "material_type"))),
             Map.entry("qa-semi-finished-goods-release-delays", of(QaKpiSpecs.SFG_RELEASE_DELAYS,
                     col("storageLocation", "storage_location"))),
             Map.entry("qa-batches-with-error-on-incoming-inspection", of(QaKpiSpecs.BATCHES_ERROR_INCOMING_INSPECTION,
                     col("sourceSystem", "source_system"))),
-            Map.entry("qa-sla-ip-in-process-sample-turnaround", of(QaKpiSpecs.SLA_IP,
-                    col("batchCategory", "batch_category"))),
             Map.entry("qa-qa-sampling-on-time", of(QaKpiSpecs.QA_SAMPLING_ONTIME, col("sampleType", "sample_type"))),
             Map.entry("qa-cqa-adherence-for-in-process-parameters", of(QaKpiSpecs.CQA_ADHERENCE_INPROCESS,
                     col("grade", "grade"), col("specKind", "spec_kind"))),
@@ -83,10 +85,8 @@ public final class QaKpiFilterColumns {
                     col("respDept", "resp_dept"))),
             Map.entry("qa-change-control-approval-internal-external-within-sla",
                     of(QaKpiSpecs.CC_APPROVAL_WITHIN_SLA, col("ccApprovalType", "cc_approval_type"))),
-            Map.entry("qa-closure-of-open-change-controls-l4", of(QaKpiSpecs.CLOSURE_OPEN_CCS_L4,
-                    col("ccApprovalType", "cc_approval_type"))),
-            Map.entry("qa-closure-of-open-change-controls-l5", of(QaKpiSpecs.CLOSURE_OPEN_CCS_L5,
-                    col("ccApprovalType", "cc_approval_type"))),
+            Map.entry("qa-closure-of-open-change-controls", of(QaKpiSpecs.CLOSURE_OPEN_CCS,
+                    col("closureLevel", "closure_level"))),
             Map.entry("qa-open-new-equipment-facility-modification-ccs",
                     of(QaKpiSpecs.OPEN_NEW_EQUIPMENT_FACILITY_MOD_CCS, col("agingBucket", "aging_bucket"))),
             Map.entry("qa-overdue-qms-records", of(QaKpiSpecs.OVERDUE_QMS_RECORDS,
@@ -94,8 +94,6 @@ public final class QaKpiFilterColumns {
             Map.entry("qa-audit-internal-external-critical-observations", of(QaKpiSpecs.AUDIT_CRITICAL_OBSERVATIONS,
                     col("observationCategory", "observation_category"))),
             Map.entry("qa-observations-open", of(QaKpiSpecs.OBSERVATIONS_OPEN, col("recordType", "record_type"))),
-            Map.entry("qa-adherence-with-regulatory-guidance-monograph",
-                    of(QaKpiSpecs.ADHERENCE_REGULATORY_GUIDANCE_MONOGRAPH, col("ccCategory", "cc_category"))),
             Map.entry("qa-vendor-blocking-due-to-quality-issue", of(QaKpiSpecs.VENDOR_BLOCKING_QUALITY_ISSUE,
                     col("blockCategory", "block_category"))),
             Map.entry("qa-repeat-complaints", of(QaKpiSpecs.REPEAT_COMPLAINTS,
@@ -106,7 +104,9 @@ public final class QaKpiFilterColumns {
                     col("initiatedThrough", "initiated_through"))),
             // Doc candidate was "dept_name" - the live column is "department".
             Map.entry("qa-training-completion", of(QaKpiSpecs.TRAINING_COMPLETION,
-                    col("department", "department"), col("trainingType", "training_type"))));
+                    col("trainingType", "training_type"))),
+            Map.entry("qa-average-time-to-implement-capa", of(QaKpiSpecs.CAPA_IMPLEMENT_TIME,
+                    col("respDept", QaKpiSpecs.CAPA_IMPLEMENT_DEPT_COLUMN))));
 
     /** null when this KPI has no extra filter columns registered (every other QA KPI). */
     public static Mapping forKpiId(String kpiId) {

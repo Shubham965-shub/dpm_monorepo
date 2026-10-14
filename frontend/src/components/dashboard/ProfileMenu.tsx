@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { isAxiosError } from 'axios'
+import { Eye, EyeOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -23,6 +24,7 @@ export function ProfileMenu({ user, onLogout }: { user: UserPublic; onLogout: ()
   const [open, setOpen] = useState(false)
   const [state, setState] = useState<ChangePasswordState>('closed')
   const [currentPassword, setCurrentPassword] = useState('')
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -31,6 +33,7 @@ export function ProfileMenu({ user, onLogout }: { user: UserPublic; onLogout: ()
   function resetForm() {
     setState('closed')
     setCurrentPassword('')
+    setShowCurrentPassword(false)
     setNewPassword('')
     setConfirmPassword('')
     setError(null)
@@ -71,7 +74,7 @@ export function ProfileMenu({ user, onLogout }: { user: UserPublic; onLogout: ()
       <PopoverTrigger asChild>
         <button
           title={user.email}
-          className="flex size-7 items-center justify-center rounded-full bg-brand text-xs font-semibold"
+          className="flex size-7 items-center justify-center rounded-full bg-brand text-xs font-semibold text-white"
         >
           {initials(user.fullName)}
         </button>
@@ -106,14 +109,25 @@ export function ProfileMenu({ user, onLogout }: { user: UserPublic; onLogout: ()
           <form onSubmit={handleSubmit} className="flex flex-col gap-2 pt-1">
             <div className="space-y-1">
               <Label htmlFor="change-password-current">Current password</Label>
-              <Input
-                id="change-password-current"
-                type="password"
-                autoComplete="current-password"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                required
-              />
+              <div className="relative">
+                <Input
+                  id="change-password-current"
+                  type={showCurrentPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
+                  className="pr-9"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  required
+                />
+                <button
+                  type="button"
+                  aria-label={showCurrentPassword ? 'Hide current password' : 'Show current password'}
+                  onClick={() => setShowCurrentPassword((v) => !v)}
+                  className="text-muted-foreground hover:text-foreground absolute inset-y-0 right-0 flex w-9 items-center justify-center"
+                >
+                  {showCurrentPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </div>
             </div>
             <div className="space-y-1">
               <Label htmlFor="change-password-new">New password</Label>

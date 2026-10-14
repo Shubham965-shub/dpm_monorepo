@@ -73,7 +73,10 @@ public class AuthService {
      * password.
      */
     @Transactional
-    public LoginResult changePassword(User user, String currentPassword, String newPassword) {
+    public LoginResult changePassword(User caller, String currentPassword, String newPassword) {
+        // The caller was loaded by AuthenticationFilter outside this transaction, so mutating it
+        // would never be flushed - re-load it into this transaction's session first.
+        User user = users.findByIdWithRoles(caller.getId()).orElseThrow(() -> new NotAuthorizedException("Inactive user", "Bearer"));
         if (!hasher.verify(currentPassword, user.getPasswordHash())) {
             throw new NotAuthorizedException("Current password is incorrect", "Bearer");
         }

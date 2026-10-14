@@ -121,4 +121,28 @@ public class QaAggRepository extends AbstractAggRepository<PeriodTotal> {
                 rs.getLong("denominator")),
                 params.toArray());
     }
+    /** One category's summed numerator/count within one period - see findCategoryTotals. */
+    public record CategoryTotal(LocalDate periodStart, String category, long numerator, long count) {
+    }
+
+    /**
+     * Per-period, per-category sums of the spec's numerator and denominator columns, for a KPI whose
+     * denominator is a count spread across categories (e.g. observations per severity). Same
+     * filtering as findTotals. categoryColumn is a literal constant from QaKpiSpecs, never client input.
+     */
+    public List<CategoryTotal> findCategoryTotals(QaKpiSpec spec, String categoryColumn, String site, String grain,
+            LocalDate from, LocalDate to) {
+        List<Object> params = new ArrayList<>();
+        String sql = "SELECT period_start, " + validatedColumn(categoryColumn) + " AS category,"
+                + " SUM(" + spec.numeratorColumn() + ") AS numerator, SUM(" + spec.denominatorColumn() + ") AS cnt"
+                + " FROM " + qualify(spec.table())
+                + whereClause(spec, params, site, grain, from, to, Map.of(), Map.of())
+                + " GROUP BY period_start, " + categoryColumn + " ORDER BY period_start";
+        return query(sql, rs -> new CategoryTotal(
+                rs.getObject("period_start", LocalDate.class),
+                rs.getString("category"),
+                rs.getLong("numerator"),
+                rs.getLong("cnt")),
+                params.toArray());
+    }
 }

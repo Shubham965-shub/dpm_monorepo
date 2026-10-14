@@ -12,13 +12,18 @@ import com.strides.repository.QaDrilldownSpecs;
 import com.strides.repository.QaKpiFilterColumns;
 import com.strides.repository.QaKpiSpec;
 import com.strides.service.kpi.PeriodCombiner;
+import com.strides.service.kpi.PeriodGaps;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * One generic fetch behind every QA KPI endpoint (see controller.QaController) - QaKpiSpec already
@@ -50,7 +55,93 @@ public class QaKpiService {
     public List<KpiCardResponse> fetch(QaKpiSpec spec, String kpiId, String name, String site, String grain,
             LocalDate from, LocalDate to, Map<String, String> fixedFilters, Map<String, Set<String>> extraFilters) {
         List<PeriodTotal> totals = repository.findTotals(spec, site, grain, from, to, fixedFilters, extraFilters);
+        if (spec.denominatorColumn() == null) {
+            totals = withZeroPeriods(totals, grain, from, to);
+        }
         return PeriodCombiner.fromTotals(totals, spec.multiplier(), kpiId, name, spec.unit());
+    }
+
+    /**
+     * Same as fetch, but also zero-fills ratio periods with no data, and attaches each period's
+     * per-category counts of the denominator (categoryColumn's values, highest numerator-per-count
+     * first, 0 where a period has none) as the card's breakdown. Gap periods use a denominator of 1 -
+     * the same 0 / 1 shape a gap uses.
+     */
+    public List<KpiCardResponse> fetchWithCategoryBreakdown(QaKpiSpec spec, String kpiId, String name,
+            String categoryColumn, String site, String grain, LocalDate from, LocalDate to) {
+        List<PeriodTotal> totals = withZeroPeriods(
+                repository.findTotals(spec, site, grain, from, to, Map.of(), Map.of()), grain, from, to);
+        List<QaAggRepository.CategoryTotal> categoryTotals =
+                repository.findCategoryTotals(spec, categoryColumn, site, grain, from, to);
+        Map<String, long[]> overall = new LinkedHashMap<>();
+        Map<LocalDate, Map<String, Long>> countsByPeriod = new LinkedHashMap<>();
+        for (QaAggRepository.CategoryTotal t : categoryTotals) {
+            long[] sums = overall.computeIfAbsent(t.category(), k -> new long[2]);
+            sums[0] += t.numerator();
+            sums[1] += t.count();
+            countsByPeriod.computeIfAbsent(t.periodStart(), k -> new LinkedHashMap<>()).put(t.category(), t.count());
+        }
+        List<String> order = overall.entrySet().stream()
+                .sorted(Comparator.comparingDouble((Map.Entry<String, long[]> e) ->
+                        e.getValue()[1] == 0 ? 0 : (double) e.getValue()[0] / e.getValue()[1]).reversed())
+                .map(Map.Entry::getKey).toList();
+        return PeriodCombiner.fromTotals(totals, spec.multiplier(), kpiId, name, spec.unit()).stream()
+                .map(card -> {
+                    Map<String, Long> counts = countsByPeriod.getOrDefault(card.periodStart(), Map.of());
+                    Map<String, Long> breakdown = new LinkedHashMap<>();
+                    order.forEach(category -> breakdown.put(category, counts.getOrDefault(category, 0L)));
+                    return card.withBreakdown(breakdown);
+                })
+                .toList();
+    }
+
+    /**
+     * A ratio whose empty periods read 0 rather than "no data" (IA response: 0 when nothing was
+     * assessed) - both a period with no agg row and one whose denominator is 0. numerator/denominator
+     * stay the real 0 / 0 so the tooltip doesn't claim a count that never happened.
+     */
+    public List<KpiCardResponse> fetchZeroWhenEmpty(QaKpiSpec spec, String kpiId, String name, String site, String grain,
+            LocalDate from, LocalDate to, Map<String, String> fixedFilters, Map<String, Set<String>> extraFilters) {
+        List<PeriodTotal> totals = new ArrayList<>(repository.findTotals(spec, site, grain, from, to, fixedFilters, extraFilters));
+        Set<LocalDate> present = totals.stream().map(PeriodTotal::periodStart).collect(Collectors.toSet());
+        PeriodGaps.missingStarts(grain, from, to, present).forEach(start -> totals.add(new PeriodTotal(start, grain, 0, 0)));
+        totals.sort(Comparator.comparing(PeriodTotal::periodStart));
+        return PeriodCombiner.fromTotals(totals, spec.multiplier(), kpiId, name, spec.unit()).stream()
+                .map(card -> card.value() == null ? card.withValue(BigDecimal.ZERO) : card)
+                .toList();
+    }
+
+    public DrilldownPage<Map<String, Object>> getIaResponseCycleDrilldown(GenericDrilldownRepository.TableSpec table,
+            String site, LocalDate from, LocalDate to, String q, List<String> sort, List<String> colFilter,
+            List<String> colSearch, List<String> colRange, int page, int pageSize) {
+        return genericDrilldownService.fetch(table, site, from, to, Map.of(), q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange), page, pageSize);
+    }
+
+    public Map<String, List<String>> getIaResponseCycleDrilldownColumnOptions(GenericDrilldownRepository.TableSpec table,
+            String site, LocalDate from, LocalDate to) {
+        return genericDrilldownService.fetchColumnOptions(table, site, from, to, Map.of());
+    }
+
+    /** CSV text for the drill-down table's Export button - see GenericDrilldownService.fetchAllForExport. */
+    public String getIaResponseCycleDrilldownExport(GenericDrilldownRepository.TableSpec table, String site,
+            LocalDate from, LocalDate to, String q, List<String> sort, List<String> colFilter,
+            List<String> colSearch, List<String> colRange) {
+        List<Map<String, Object>> rows = genericDrilldownService.fetchAllForExport(table, site, from, to, Map.of(), q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange));
+        List<String> headers = table.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
+        return DrilldownSupport.toCsv(headers, rows);
+    }
+
+    /** A period in [from, to] with no row, as 0 / 1 (a plain count's denominator is the literal 1 - see QaAggRepository.findTotals). */
+    private static List<PeriodTotal> withZeroPeriods(List<PeriodTotal> totals, String grain, LocalDate from, LocalDate to) {
+        List<PeriodTotal> filled = new ArrayList<>(totals);
+        Set<LocalDate> present = totals.stream().map(PeriodTotal::periodStart).collect(Collectors.toSet());
+        PeriodGaps.missingStarts(grain, from, to, present).forEach(start -> filled.add(new PeriodTotal(start, grain, 0, 1)));
+        filled.sort(Comparator.comparing(PeriodTotal::periodStart));
+        return filled;
     }
 
     /** Empty map when this KPI has no extra filter columns registered (see QaKpiFilterColumns). */
@@ -79,7 +170,7 @@ public class QaKpiService {
             LocalDate from, LocalDate to) {
         List<PeriodSum> sums = deviationsRepository.findTotals(site, Set.of("By Instrument"), Set.of(), Set.of(),
                 Set.of(), Set.of(), Set.of(), grain, from, to);
-        return PeriodCombiner.fromSums(sums, kpiId, name, "deviations");
+        return PeriodCombiner.fromSums(sums, kpiId, name, "deviations", grain, from, to);
     }
 
     /** Doc: "Procedural error deviations" - served from public.agg_tw_deviations with its own
@@ -87,31 +178,10 @@ public class QaKpiService {
     public List<KpiCardResponse> fetchProceduralErrorDeviations(String kpiId, String name, String site, String grain,
             LocalDate from, LocalDate to) {
         List<PeriodSum> sums = deviationsRepository.findProceduralErrorDeviationTotals(site, grain, from, to);
-        return PeriodCombiner.fromSums(sums, kpiId, name, "deviations");
+        return PeriodCombiner.fromSums(sums, kpiId, name, "deviations", grain, from, to);
     }
 
     // ---- Record-level drill-down for the KPIs with a real qa.fact_* table ----
-
-    public DrilldownPage<Map<String, Object>> getSlaIpDrilldown(String site, LocalDate from, LocalDate to,
-            String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange, int page, int pageSize) {
-        return genericDrilldownService.fetch(QaDrilldownSpecs.SLA_IP, site, from, to, Map.of(), q,
-                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
-                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange), page, pageSize);
-    }
-
-    public Map<String, List<String>> getSlaIpDrilldownColumnOptions(String site, LocalDate from, LocalDate to) {
-        return genericDrilldownService.fetchColumnOptions(QaDrilldownSpecs.SLA_IP, site, from, to, Map.of());
-    }
-
-    /** CSV text for the drill-down table's Export button - see GenericDrilldownService.fetchAllForExport. */
-    public String getSlaIpDrilldownExport(String site, LocalDate from, LocalDate to,
-            String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange) {
-        List<Map<String, Object>> rows = genericDrilldownService.fetchAllForExport(QaDrilldownSpecs.SLA_IP, site, from, to, Map.of(), q,
-                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
-                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange));
-        List<String> headers = QaDrilldownSpecs.SLA_IP.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
-        return DrilldownSupport.toCsv(headers, rows);
-    }
 
     public DrilldownPage<Map<String, Object>> getStabilityTestingPendingDrilldown(String site, LocalDate from, LocalDate to,
             String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange, int page, int pageSize) {
@@ -512,6 +582,30 @@ public class QaKpiService {
         return DrilldownSupport.toCsv(headers, rows);
     }
 
+    public DrilldownPage<Map<String, Object>> getClosureOpenCcsDrilldown(String site, LocalDate from, LocalDate to,
+            Map<String, Set<String>> extraFilters, String q, List<String> sort, List<String> colFilter, List<String> colSearch,
+            List<String> colRange, int page, int pageSize) {
+        return genericDrilldownService.fetch(QaDrilldownSpecs.CLOSURE_OPEN_CCS, site, from, to, extraFilters, q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange), page, pageSize);
+    }
+
+    public Map<String, List<String>> getClosureOpenCcsDrilldownColumnOptions(String site, LocalDate from, LocalDate to,
+            Map<String, Set<String>> extraFilters) {
+        return genericDrilldownService.fetchColumnOptions(QaDrilldownSpecs.CLOSURE_OPEN_CCS, site, from, to, extraFilters);
+    }
+
+    /** CSV text for the drill-down table's Export button - see GenericDrilldownService.fetchAllForExport. */
+    public String getClosureOpenCcsDrilldownExport(String site, LocalDate from, LocalDate to,
+            Map<String, Set<String>> extraFilters, String q, List<String> sort, List<String> colFilter, List<String> colSearch,
+            List<String> colRange) {
+        List<Map<String, Object>> rows = genericDrilldownService.fetchAllForExport(QaDrilldownSpecs.CLOSURE_OPEN_CCS, site, from, to, extraFilters, q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange));
+        List<String> headers = QaDrilldownSpecs.CLOSURE_OPEN_CCS.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
+        return DrilldownSupport.toCsv(headers, rows);
+    }
+
     public DrilldownPage<Map<String, Object>> getOpenNewEquipmentFacilityModCcsDrilldown(String site, LocalDate from, LocalDate to,
             String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange, int page, int pageSize) {
         return genericDrilldownService.fetch(QaDrilldownSpecs.OPEN_NEW_EQUIPMENT_FACILITY_MOD_CCS, site, from, to, Map.of(), q,
@@ -656,27 +750,6 @@ public class QaKpiService {
                 DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
                 DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange));
         List<String> headers = QaDrilldownSpecs.OBSERVATIONS_OPEN.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
-        return DrilldownSupport.toCsv(headers, rows);
-    }
-
-    public DrilldownPage<Map<String, Object>> getAdherenceRegulatoryGuidanceMonographDrilldown(String site, LocalDate from, LocalDate to,
-            String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange, int page, int pageSize) {
-        return genericDrilldownService.fetch(QaDrilldownSpecs.ADHERENCE_REGULATORY_GUIDANCE_MONOGRAPH, site, from, to, Map.of(), q,
-                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
-                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange), page, pageSize);
-    }
-
-    public Map<String, List<String>> getAdherenceRegulatoryGuidanceMonographDrilldownColumnOptions(String site, LocalDate from, LocalDate to) {
-        return genericDrilldownService.fetchColumnOptions(QaDrilldownSpecs.ADHERENCE_REGULATORY_GUIDANCE_MONOGRAPH, site, from, to, Map.of());
-    }
-
-    /** CSV text for the drill-down table's Export button - see GenericDrilldownService.fetchAllForExport. */
-    public String getAdherenceRegulatoryGuidanceMonographDrilldownExport(String site, LocalDate from, LocalDate to,
-            String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange) {
-        List<Map<String, Object>> rows = genericDrilldownService.fetchAllForExport(QaDrilldownSpecs.ADHERENCE_REGULATORY_GUIDANCE_MONOGRAPH, site, from, to, Map.of(), q,
-                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
-                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange));
-        List<String> headers = QaDrilldownSpecs.ADHERENCE_REGULATORY_GUIDANCE_MONOGRAPH.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
         return DrilldownSupport.toCsv(headers, rows);
     }
 

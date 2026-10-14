@@ -124,8 +124,8 @@ public class QcScoreService {
 
                 new KpiSource(qmsSection, "invalid-oos-rate", (s, g, f, t) -> qms.getInvalidOosRate(s, null, g, f, t)),
                 new KpiSource(qmsSection, "confirmed-oos-rate", (s, g, f, t) -> qms.getConfirmedOosRate(s, null, g, f, t)),
-                new KpiSource(qmsSection, "oos-trend", (s, g, f, t) -> qms.getOosTrend(s, null, g, f, t)),
-                new KpiSource(qmsSection, "oot-trend", (s, g, f, t) -> qms.getOotTrend(s, null, g, f, t)),
+                new KpiSource(qmsSection, "oos-trend", (s, g, f, t) -> qms.getOosTrend(s, null, null, g, f, t)),
+                new KpiSource(qmsSection, "oot-trend", (s, g, f, t) -> qms.getOotTrend(s, null, null, g, f, t)),
                 new KpiSource(qmsSection, "deviations", (s, g, f, t) -> qms.getDeviations(s, null, null, null, null, null, null, null, g, f, t)),
                 new KpiSource(qmsSection, "investigation-closure-tat", (s, g, f, t) -> qms.getInvestigationClosureTat(s, null, null, null, g, f, t)),
                 new KpiSource(qmsSection, "rci-beyond-timeline", (s, g, f, t) -> qms.getRciBeyondTimeline(s, null, null, g, f, t)),

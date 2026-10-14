@@ -24,12 +24,10 @@ package com.strides.repository;
  *   own name promises, so showing a raw count mislabeled "%" would be actively wrong, not just
  *   approximate. Left mock per explicit product decision (2026-10-12) rather than relabeling the card.
  *
- * closure-of-open-change-controls-open-due-date-alerts (the original single combined KPI) was
- * replaced by two KPIs, one per closure level - CLOSURE_OPEN_CCS_L4/L5 below - per explicit product
- * decision (2026-10-13): the hand-off doc's own thresholds (KPI-QA-042A/042B) are defined per level,
- * not for a combined figure, so a single card could never be scored either way. cc_approval_type
- * (Internal/External) is a true partition on this table (no "All" row - confirmed live) and isn't
- * exposed as a filter by this app, so each spec leaves it unconstrained and sums both automatically.
+ * closure-of-open-change-controls: one card with a closure-level filter (L1-L5), defaulting to L5.
+ * The hand-off doc's only limit (KPI-QA-042B) is for L5, so limits apply to the L5 selection alone
+ * (see QaKpiThresholdConfigRepository.requiredSelection). cc_approval_type (Internal/External) is a
+ * true partition on this table (no "All" row - confirmed live), so the spec sums both automatically.
  *
  * instrument-error-deviations: the doc's own catalogue lists qa.agg_tw_instrument_error_deviations,
  * but that table does NOT exist live (confirmed) - only 41 of the doc's ~42 qa tables actually
@@ -44,9 +42,6 @@ public final class QaKpiSpecs {
     }
 
     // ---- Batch Disposition & Release Performance ----
-
-    public static final QaKpiSpec SLA_IP = QaKpiSpec.ratio(
-            "agg_lims_sla_ip", "site_name", "within_sla_samples", "total_samples", 100, "%");
 
     public static final QaKpiSpec QA_SAMPLING_ONTIME = QaKpiSpec.ratio(
             "agg_lims_qa_sampling_ontime", "site", "within_sla_samples", "total_samples", 100, "%");
@@ -63,18 +58,20 @@ public final class QaKpiSpecs {
     public static final QaKpiSpec CQA_ADHERENCE_INPROCESS = QaKpiSpec.ratio(
             "agg_lims_cqa_adherence_inprocess", "site_name", "in_spec_params", "total_params", 100, "%");
 
+    // QA dashboard = QA-side TAT (-009B). The Manufacturing dashboard will reuse this KPI scoped to the
+    // pdn_* columns (-009A) - production is manufacturing.
     public static final QaKpiSpec LINE_CLEARANCE_TAT = QaKpiSpec.average(
-            "agg_syn_line_clearance_tat", "site", "sum_pdn_tat_minutes", "pdn_tat_cycles", "minutes");
+            "agg_syn_line_clearance_tat", "site", "sum_qa_tat_minutes", "qa_tat_cycles", "minutes");
 
     public static final QaKpiSpec RECEIPT_BACK_BMR_BPR = QaKpiSpec.ratio(
             "agg_bmr_bpr_receipt_back", "site", "received_back_records", "issued_records", 100, "%");
 
-    // Material Dispensed beyond 30/60 Days: the doc explicitly flags duration_band='Beyond 30 Days'
-    // as a value the fact never produces (Power BI returns 0 by design, so will this) - the 60-day
-    // band is the one that actually works, and must be the exact-case 'Beyond 60 days' (DAX matched
-    // case-insensitively; Postgres does not).
+    // Undispensed beyond 30 days (threshold KPI-QA-011A): the fact never produces a 'Beyond 30 Days'
+    // band, so "beyond 30" is the 'Within 60 days' + 'Beyond 60 days' bands together. Exact case -
+    // the DAX matched case-insensitively, Postgres does not.
     public static final QaKpiSpec UNDISPENSED_BMR_BPR_BEYOND_60_DAYS = QaKpiSpec.ratioNumeratorWhere(
-            "agg_bmr_bpr_receipt_back", "site", "issued_records", "duration_band = 'Beyond 60 days'", "all_records", 100, "%");
+            "agg_bmr_bpr_receipt_back", "site", "issued_records",
+            "duration_band IN ('Within 60 days', 'Beyond 60 days')", "all_records", 100, "%");
 
     public static final QaKpiSpec SUCCESS_RATE_VALIDATION_BATCHES = QaKpiSpec.ratioNumeratorWhere(
             "agg_sap_success_rate_of_validation_batches", "site_name", "ud_batches", "ud_code_slice = 'A0'", "total_batches", 100, "%");
@@ -115,31 +112,11 @@ public final class QaKpiSpecs {
     public static final QaKpiSpec DEVIATION_AGING = QaKpiSpec.average(
             "agg_tw_deviations_aging", "site", "sum_aging_days", "aging_rows", "days");
 
-    // CAVEAT (2026-10-12, DPM QA - KPI Thresholds Hand-off doc): that doc's own KPI ID map skips
-    // this KPI entirely (KPI-QA-014, a numbering gap) and says why: "No Power BI measure exists yet"
-    // for Repeat Deviations - Power BI is this app's stated source of truth for every KPI value, so
-    // nothing has signed off on record_type = 'Deviation' on this table as the right definition.
-    // Product decision (2026-10-12): keep this interim reading rather than reverting to mock, but
-    // treat its value as unofficial until a real Power BI measure lands - it may need to change once
-    // one does. It will never get a threshold/RAG status either way: QaKpiThresholdConfigRepository
-    // deliberately has no entry for this KPI, matching the hand-off doc's own "no row by design".
-    //
     // No qa.* table for this - public.agg_tw_repeat_failure_rate (built for QC) is the real source,
-    // sliced by record_type ('Deviation'/'OOS') and resp_dept_slice (an "All" aggregate row alongside
-    // one row per department - see the slice-column double-count footgun this file's other specs
-    // already guard against). Filtered to record_type = 'Deviation' so this doesn't overlap
-    // REPEAT_QUALITY_EVENT_RATE below.
-    public static final QaKpiSpec REPEAT_DEVIATIONS = new QaKpiSpec(
-            "public.agg_tw_repeat_failure_rate", "site", "recurring_count",
-            "record_type = 'Deviation' AND resp_dept_slice = 'All'",
-            "record_count", "record_type = 'Deviation' AND resp_dept_slice = 'All'", 100, "%");
-
-    // Same table as REPEAT_DEVIATIONS, deliberately NOT filtered to one record_type - "quality
-    // event" here means Deviation and OOS combined (both are quality-event record types on this
-    // table; record_type itself is a true partition with no "All" row, so leaving it unfiltered
-    // sums both via a plain SUM, same as every other true-partition column in this codebase).
-    // Product decision (2026-10-12): combine rather than pick one, since Repeat Deviations above
-    // already covers the Deviation-only reading.
+    // with an "All" aggregate row in resp_dept_slice alongside one row per department (hence the
+    // slice filter). Deliberately NOT filtered to one record_type - "quality event" here means
+    // Deviation and OOS combined; record_type is a true partition with no "All" row, so a plain SUM
+    // covers both.
     public static final QaKpiSpec REPEAT_QUALITY_EVENT_RATE = new QaKpiSpec(
             "public.agg_tw_repeat_failure_rate", "site", "recurring_count", "resp_dept_slice = 'All'",
             "record_count", "resp_dept_slice = 'All'", 100, "%");
@@ -201,6 +178,14 @@ public final class QaKpiSpecs {
 
     // No qa.* table for this - public.agg_tw_capa_recurrence_rate (built for QC) is the real source,
     // same resp_dept_slice "All" guard as every other *_slice column here.
+    // resp_dept_slice has an 'All' aggregate row alongside one row per department - the card reads
+    // 'All' unless departments are picked (see QaController.capaImplementTime).
+    public static final String CAPA_IMPLEMENT_DEPT_COLUMN = "resp_dept_slice";
+    public static final String CAPA_IMPLEMENT_DEPT_ALL = "All";
+
+    public static final QaKpiSpec CAPA_IMPLEMENT_TIME = QaKpiSpec.average(
+            "agg_tw_capa_implement_time", "site", "sum_aging_days", "completed_capa_count", "days");
+
     public static final QaKpiSpec CAPA_RECURRENCE_RATE = new QaKpiSpec(
             "public.agg_tw_capa_recurrence_rate", "site", "recurring_count", "resp_dept_slice = 'All'",
             "capa_count", "resp_dept_slice = 'All'", 100, "%");
@@ -219,19 +204,12 @@ public final class QaKpiSpecs {
     public static final QaKpiSpec CC_APPROVAL_WITHIN_SLA = QaKpiSpec.countWhere(
             "agg_tw_cc_approval_within_sla", "site", "cc_records", "cc_approval_state = 'Within SLA'", "change controls");
 
-    // Same table as CC_APPROVAL_WITHIN_SLA, filtered to one closure_level each - see this file's own
-    // header comment for why this KPI is now two cards instead of one.
-    public static final QaKpiSpec CLOSURE_OPEN_CCS_L4 = QaKpiSpec.countWhere(
-            "agg_tw_cc_approval_within_sla", "site", "open_records", "closure_level = 'L4'", "change controls");
-
-    public static final QaKpiSpec CLOSURE_OPEN_CCS_L5 = QaKpiSpec.countWhere(
-            "agg_tw_cc_approval_within_sla", "site", "open_records", "closure_level = 'L5'", "change controls");
+    // Same table as CC_APPROVAL_WITHIN_SLA; the closure level is a card filter, not part of the spec.
+    public static final QaKpiSpec CLOSURE_OPEN_CCS = QaKpiSpec.count(
+            "agg_tw_cc_approval_within_sla", "site", "open_records", "change controls");
 
     public static final QaKpiSpec OPEN_NEW_EQUIPMENT_FACILITY_MOD_CCS = QaKpiSpec.count(
             "agg_tw_open_new_equipment_facility_modification_cc", "site_name", "cc_count", "change controls");
-
-    public static final QaKpiSpec ADHERENCE_REGULATORY_GUIDANCE_MONOGRAPH = QaKpiSpec.ratioNumeratorWhere(
-            "agg_tw_adherence_with_regulatory_guidance_monograph", "site", "record_count", "adherence_status = 'On Time'", "record_count", 100, "%");
 
     public static final QaKpiSpec OVERDUE_QMS_RECORDS = QaKpiSpec.countWhere(
             "agg_tw_overdue_qms_records", "site", "overdue_records", "record_state = 'Closed'", "records");
@@ -243,6 +221,16 @@ public final class QaKpiSpecs {
 
     public static final QaKpiSpec INTERNAL_AUDIT_OBSERVATION_SEVERITY = QaKpiSpec.ratio(
             "agg_tw_internal_audit_observation_severity", "site", "sum_severity_weight", "observation_count", 1, "avg severity");
+
+    /** Both IA response cards share this spec and narrow it with a cycle_type fixed filter. Summing
+     * observation_count would double-count (it's a distinct count per cell) - the cycle counts
+     * are the totals. */
+    public static final QaKpiSpec IA_RESPONSE_ON_TIME = QaKpiSpec.ratio(
+            "agg_tw_ia_response_cycle", "site", "within_sla_count", "assessed_count", 100, "%");
+
+    public static final String IA_CYCLE_TYPE_COLUMN = "cycle_type";
+    public static final String IA_CYCLE_INITIAL = "Initial";
+    public static final String IA_CYCLE_REWORK = "Rework";
 
     public static final QaKpiSpec INTERNAL_AUDIT_ONTIME_ACTIONS = QaKpiSpec.ratio(
             "agg_tw_internal_audit_ontime_actions", "site", "on_time_actions", "audit_actions", 100, "%");
@@ -285,6 +273,11 @@ public final class QaKpiSpecs {
     // Date / Overdue - no "All" row), so the denominator sums every status unfiltered; department
     // and training_type are also true partitions here (no "All" row either), so leaving both
     // unfiltered correctly sums across every one rather than needing a slice guard.
+    // The QA dashboard only scores QA's own training (its limits are QA-only), so the card is pinned
+    // to this department rather than exposing a department filter.
+    public static final String TRAINING_DEPARTMENT_COLUMN = "department";
+    public static final String TRAINING_DEPARTMENT_QA = "Quality Assurance";
+
     public static final QaKpiSpec TRAINING_COMPLETION = QaKpiSpec.ratioNumeratorWhere(
             "public.agg_cw_training_completion_rate", "site", "assignment_count",
             "assignment_status IN ('Completed Late', 'Completed On Time')", "assignment_count", 100, "%");

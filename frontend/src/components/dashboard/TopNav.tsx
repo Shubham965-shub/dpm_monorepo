@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import heliosLogo from '@/assets/helios-logo.svg'
 import stridesLogo from '@/assets/strides-logo.svg'
+import stridesLogoDark from '@/assets/strides-logo-dark.svg'
 import { useTheme } from '@/hooks/useTheme'
 import { cn } from '@/lib/utils'
 import type { UserPublic } from '@/lib/authSchemas'
@@ -13,7 +14,7 @@ import { ProfileMenu } from './ProfileMenu'
 
 /** A real vertical bar, not a text "|" glyph - matches InvestigationAI's header divider. */
 function NavDivider({ className }: { className?: string }) {
-  return <div className={cn('h-6 w-px bg-white/20', className)} />
+  return <div className={cn('h-6 w-px bg-brand/30', className)} />
 }
 
 // Wireframe shows CXO / Leadership / Operations tabs, which don't map onto the backend's fixed
@@ -48,9 +49,9 @@ export function TopNav({
   const { theme, toggleTheme } = useTheme()
 
   return (
-    <header className="flex items-center justify-between border-b border-brand bg-brand-dark px-6 py-3 text-white md:px-10 lg:px-20">
+    <header className="flex items-center justify-between border-b border-brand bg-header px-8 py-5 text-foreground">
       <div className="flex items-center gap-3">
-        <img src={stridesLogo} alt="Strides" className="h-6 w-auto" />
+        <img src={theme === 'dark' ? stridesLogo : stridesLogoDark} alt="Strides" className="h-6 w-auto" />
         <NavDivider />
         <span className="text-lg font-semibold">Helios</span>
         <img src={heliosLogo} alt="Helios" className="h-8 w-auto" />
@@ -62,7 +63,7 @@ export function TopNav({
             type="button"
             onClick={onReplayTour}
             title="Replay the guided tour for this screen"
-            className="flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-sm font-medium text-white hover:bg-white/20"
+            className="flex items-center gap-1.5 rounded-full border border-brand/30 bg-brand/10 px-3 py-1 text-sm font-medium hover:bg-brand/20"
           >
             <Compass className="size-4" />
             Replay tour
@@ -76,7 +77,7 @@ export function TopNav({
           {theme === 'dark' ? <Moon className="size-4" /> : <Sun className="size-4" />}
         </button>
         {locked ? (
-          <span className="rounded-full bg-brand px-3 py-1 font-medium">{activeRole}</span>
+          <span className="rounded-full bg-brand px-3 py-1 font-medium text-white">{activeRole}</span>
         ) : (
           ROLE_TABS.map((tab) => (
             <button
@@ -84,8 +85,8 @@ export function TopNav({
               onClick={() => onActiveRoleChange(tab)}
               className={
                 tab === activeRole
-                  ? 'rounded-full bg-brand px-3 py-1 font-medium'
-                  : 'text-white/80 hover:text-white'
+                  ? 'rounded-full bg-brand px-3 py-1 font-medium text-white'
+                  : 'text-foreground/70 hover:text-foreground'
               }
             >
               {tab}

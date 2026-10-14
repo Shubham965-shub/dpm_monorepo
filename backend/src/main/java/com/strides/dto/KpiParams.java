@@ -250,6 +250,12 @@ public final class KpiParams {
         public String rootCauseBucket;
     }
 
+    /** oos-trend / oot-trend only - conclusion is part of their agg grain, so it filters independently of rootCauseBucket. */
+    public static class WithRootCauseBucketAndConclusion extends WithRootCauseBucket {
+        @QueryParam("conclusion")
+        public String conclusion;
+    }
+
     /**
      * initiatedThrough: comma-separated combine filter, or null/blank for ALL. respDept: repeated
      * params, not comma-joined - same comma-in-names reason as WithInitiatedThroughAndDepartmentScope.

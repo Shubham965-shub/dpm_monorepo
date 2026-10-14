@@ -91,11 +91,20 @@ function PendingActionsView({ items, lens }: { items: NeedsAttentionItem[]; lens
   )
 }
 
-export function NeedsAttentionPanel({ section, lens }: { section: SectionFilterValue; lens: KpiVisibilityLens }) {
+export function NeedsAttentionPanel({
+  section,
+  lens,
+  items: itemsOverride,
+}: {
+  section: SectionFilterValue
+  lens: KpiVisibilityLens
+  /** Replaces the QC demo items - QA has no pending-action source yet, so it passes an empty list rather than showing QC KPI names. */
+  items?: NeedsAttentionItem[]
+}) {
   // NEEDS_ATTENTION_MOCK.category holds a domain's real kpiConfig.ts label (e.g. "Lab
   // Performance") - filter by that so the top Section filter actually narrows this panel too.
   const sectionLabel = section === 'all' ? null : KPI_DOMAINS.find((d) => d.key === section)?.label
-  const items = sectionLabel ? NEEDS_ATTENTION_MOCK.filter((i) => i.category === sectionLabel) : NEEDS_ATTENTION_MOCK
+  const items = itemsOverride ?? (sectionLabel ? NEEDS_ATTENTION_MOCK.filter((i) => i.category === sectionLabel) : NEEDS_ATTENTION_MOCK)
 
   if (lens === 'analyst' || lens === 'supervisor' || lens === 'leadership') {
     return <PendingActionsView items={items} lens={lens} />

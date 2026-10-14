@@ -40,27 +40,6 @@ public final class QaDrilldownSpecs {
     private QaDrilldownSpecs() {
     }
 
-    public static final TableSpec SLA_IP = new TableSpec(
-            "qa.fact_lims_sla_ip", "site_name", "completed_date",
-            List.of(
-                    new Column("site_name", "siteName"),
-                    new Column("sample_number", "sampleNumber"),
-                    new Column("text_id", "textId"),
-                    new Column("batch_name", "batchName"),
-                    new Column("str_product_name", "productName"),
-                    new Column("batch_category", "batchCategory"),
-                    new Column("group_name", "groupName"),
-                    new Column("sample_type", "sampleType"),
-                    new Column("sampled_date", "sampledDate", ColumnKind.DATE),
-                    new Column("completed_date", "completedDate", ColumnKind.DATE),
-                    new Column("tat_working_days", "tatWorkingDays"),
-                    new Column("sla_days", "slaDays"),
-                    new Column("status", "status"),
-                    new Column("sla_status", "slaStatus"),
-                    new Column("days_missed_sla", "daysMissedSla")),
-            List.of("sample_number", "batch_name", "text_id"),
-            Map.of());
-
     public static final TableSpec STABILITY_TESTING_PENDING = new TableSpec(
             "qa.fact_lims_stability_testing_pending", "site_name", "sampled_date",
             List.of(
@@ -343,6 +322,13 @@ public final class QaDrilldownSpecs {
             List.of("record_id", "cc_title"),
             Map.of());
 
+    // Same fact table as CC_APPROVAL_WITHIN_SLA above; the card's closure-level filter narrows it.
+    public static final TableSpec CLOSURE_OPEN_CCS = new TableSpec(
+            "qa.fact_tw_cc_approval_within_sla", "site", "date_opened_key",
+            CC_APPROVAL_WITHIN_SLA.selectColumns(),
+            List.of("record_id", "cc_title"),
+            Map.of("closure_level", "closure_level"));
+
     public static final TableSpec OPEN_NEW_EQUIPMENT_FACILITY_MOD_CCS = new TableSpec(
             "qa.fact_tw_open_new_equipment_facility_modification_cc", "site_name", "date_opened_ist",
             List.of(
@@ -354,21 +340,6 @@ public final class QaDrilldownSpecs {
                     new Column("aging_bucket", "agingBucket"),
                     new Column("date_opened_ist", "dateOpened", ColumnKind.DATE)),
             List.of("record_id", "title"),
-            Map.of());
-
-    public static final TableSpec ADHERENCE_REGULATORY_GUIDANCE_MONOGRAPH = new TableSpec(
-            "qa.fact_tw_adherence_with_regulatory_guidance_monograph", "site", "date_opened_ist",
-            List.of(
-                    new Column("record_id", "recordId"),
-                    new Column("qms_record_number", "qmsRecordNumber"),
-                    new Column("observation_title", "observationTitle"),
-                    new Column("cc_category", "ccCategory"),
-                    new Column("record_status", "status"),
-                    new Column("adherence_status", "adherenceStatus"),
-                    new Column("aging_days", "agingDays"),
-                    new Column("date_opened_ist", "dateOpened", ColumnKind.DATE),
-                    new Column("date_closed_ist", "dateClosed", ColumnKind.DATE)),
-            List.of("record_id", "observation_title"),
             Map.of());
 
     public static final TableSpec OVERDUE_QMS_RECORDS = new TableSpec(
@@ -419,6 +390,34 @@ public final class QaDrilldownSpecs {
                     new Column("created_date_ist", "dateCreated", ColumnKind.DATE)),
             List.of("record_id", "title"),
             Map.of());
+
+    public static final TableSpec IA_RESPONSE_INITIAL = iaResponseCycle(QaKpiSpecs.IA_CYCLE_INITIAL);
+
+    public static final TableSpec IA_RESPONSE_REWORK = iaResponseCycle(QaKpiSpecs.IA_CYCLE_REWORK);
+
+    /** One row per response cycle, bucketed on due_on - the same date the agg table buckets on. */
+    private static TableSpec iaResponseCycle(String cycleType) {
+        return new TableSpec(
+                "qa.fact_tw_ia_response_cycle", "site", "due_on",
+                List.of(
+                        new Column("record_id", "recordId"),
+                        new Column("title", "title"),
+                        new Column("observation_category", "observationCategory"),
+                        new Column("severity", "severity"),
+                        new Column("cycle_no", "cycleNo"),
+                        new Column("cycle_type", "cycleType"),
+                        new Column("cycle_start_ist", "cycleStart", ColumnKind.DATE),
+                        new Column("cycle_end_ist", "cycleEnd", ColumnKind.DATE),
+                        new Column("due_on", "dueOn", ColumnKind.DATE),
+                        new Column("allowed_days", "allowedDays"),
+                        new Column("actual_days", "actualDays"),
+                        new Column("days_over", "daysOver"),
+                        new Column("cycle_state", "cycleState"),
+                        new Column("\"ExtnCtr\"", "extensions")),
+                List.of("record_id", "title"),
+                Map.of(),
+                Map.of(QaKpiSpecs.IA_CYCLE_TYPE_COLUMN, cycleType));
+    }
 
     public static final TableSpec INTERNAL_AUDIT_ONTIME_ACTIONS = new TableSpec(
             "qa.fact_tw_internal_audit_ontime_actions", "site", "date_opened_key",

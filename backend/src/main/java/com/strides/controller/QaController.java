@@ -4,6 +4,8 @@ import com.strides.domain.Department;
 import com.strides.dto.DrilldownPage;
 import com.strides.dto.KpiCardResponse;
 import com.strides.dto.KpiParams;
+import com.strides.repository.GenericDrilldownRepository;
+import com.strides.repository.QaDrilldownSpecs;
 import com.strides.repository.QaKpiFilterColumns;
 import com.strides.repository.QaKpiSpecs;
 import com.strides.security.RequiresDepartment;
@@ -41,6 +43,8 @@ import java.util.Set;
 @Produces(MediaType.APPLICATION_JSON)
 @RequiresDepartment(Department.QA)
 public class QaController {
+
+    private static final String CLOSURE_OPEN_CCS_KPI_ID = "qa-closure-of-open-change-controls";
 
     @Inject
     QaKpiService service;
@@ -100,12 +104,6 @@ public class QaController {
     }
 
     @GET
-    @Path("/qa-sla-ip-in-process-sample-turnaround")
-    public List<KpiCardResponse> slaIp(@BeanParam KpiParams.DateRange p) {
-        return fetch(QaKpiSpecs.SLA_IP, "qa-sla-ip-in-process-sample-turnaround", "SLA - IP (in-process sample turnaround)", p);
-    }
-
-    @GET
     @Path("/qa-stability-testing-pending")
     public List<KpiCardResponse> stabilityTestingPending(@BeanParam KpiParams.DateRange p) {
         return fetch(QaKpiSpecs.STABILITY_TESTING_PENDING, "qa-stability-testing-pending", "Stability Testing Pending", p);
@@ -161,7 +159,7 @@ public class QaController {
     @GET
     @Path("/qa-batch-reject")
     public List<KpiCardResponse> batchReject(@BeanParam KpiParams.DateRange p) {
-        return fetch(QaKpiSpecs.BATCH_REJECT, "qa-batch-reject", "% Batch Reject", p);
+        return fetch(QaKpiSpecs.BATCH_REJECT, "qa-batch-reject", "Lot Acceptance Rate", p);
     }
 
     @GET
@@ -222,12 +220,6 @@ public class QaController {
     @Path("/qa-open-critical-deviations")
     public List<KpiCardResponse> openCriticalDeviations(@BeanParam KpiParams.DateRange p) {
         return fetch(QaKpiSpecs.OPEN_CRITICAL_DEVIATIONS, "qa-open-critical-deviations", "Open Critical Deviations", p);
-    }
-
-    @GET
-    @Path("/qa-repeat-deviations")
-    public List<KpiCardResponse> repeatDeviations(@BeanParam KpiParams.DateRange p) {
-        return fetch(QaKpiSpecs.REPEAT_DEVIATIONS, "qa-repeat-deviations", "Repeat Deviations %", p);
     }
 
     @GET
@@ -307,6 +299,19 @@ public class QaController {
     }
 
     @GET
+    @Path("/qa-average-time-to-implement-capa")
+    public List<KpiCardResponse> capaImplementTime(@BeanParam KpiParams.DateRange p) {
+        String kpiId = "qa-average-time-to-implement-capa";
+        Map<String, Set<String>> picked = selectedFilters(kpiId, uriInfo.getQueryParameters());
+        Map<String, String> fixed = picked.containsKey(QaKpiSpecs.CAPA_IMPLEMENT_DEPT_COLUMN)
+                ? Map.of()
+                : Map.of(QaKpiSpecs.CAPA_IMPLEMENT_DEPT_COLUMN, QaKpiSpecs.CAPA_IMPLEMENT_DEPT_ALL);
+        return service.fetch(QaKpiSpecs.CAPA_IMPLEMENT_TIME, kpiId, "Average Time to Implement CAPA", p.site,
+                RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"),
+                fixed, picked);
+    }
+
+    @GET
     @Path("/qa-capa-recurrence-rate")
     public List<KpiCardResponse> capaRecurrenceRate(@BeanParam KpiParams.DateRange p) {
         return fetch(QaKpiSpecs.CAPA_RECURRENCE_RATE, "qa-capa-recurrence-rate", "CAPA Recurrence Rate", p);
@@ -327,15 +332,9 @@ public class QaController {
     }
 
     @GET
-    @Path("/qa-closure-of-open-change-controls-l4")
-    public List<KpiCardResponse> closureOpenCcsL4(@BeanParam KpiParams.DateRange p) {
-        return fetch(QaKpiSpecs.CLOSURE_OPEN_CCS_L4, "qa-closure-of-open-change-controls-l4", "Closure of Open Change Controls - L4", p);
-    }
-
-    @GET
-    @Path("/qa-closure-of-open-change-controls-l5")
-    public List<KpiCardResponse> closureOpenCcsL5(@BeanParam KpiParams.DateRange p) {
-        return fetch(QaKpiSpecs.CLOSURE_OPEN_CCS_L5, "qa-closure-of-open-change-controls-l5", "Closure of Open Change Controls - L5", p);
+    @Path("/qa-closure-of-open-change-controls")
+    public List<KpiCardResponse> closureOpenCcs(@BeanParam KpiParams.DateRange p) {
+        return fetch(QaKpiSpecs.CLOSURE_OPEN_CCS, CLOSURE_OPEN_CCS_KPI_ID, "Closure of Open Change Controls", p);
     }
 
     @GET
@@ -361,8 +360,10 @@ public class QaController {
     @GET
     @Path("/qa-internal-audit-observation-severity")
     public List<KpiCardResponse> internalAuditObservationSeverity(@BeanParam KpiParams.DateRange p) {
-        return fetch(QaKpiSpecs.INTERNAL_AUDIT_OBSERVATION_SEVERITY, "qa-internal-audit-observation-severity",
-                "Internal Audit Observation Severity", p);
+        return service.fetchWithCategoryBreakdown(QaKpiSpecs.INTERNAL_AUDIT_OBSERVATION_SEVERITY,
+                "qa-internal-audit-observation-severity", "Internal Audit Observation Severity", "severity",
+                p.site, RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"),
+                RequiredParams.require(p.to, "to"));
     }
 
     @GET
@@ -370,6 +371,24 @@ public class QaController {
     public List<KpiCardResponse> internalAuditOnTimeActions(@BeanParam KpiParams.DateRange p) {
         return fetch(QaKpiSpecs.INTERNAL_AUDIT_ONTIME_ACTIONS, "qa-internal-audit-on-time-actions",
                 "Internal Audit On-Time Actions", p);
+    }
+
+    @GET
+    @Path("/qa-ia-response-initial-on-time")
+    public List<KpiCardResponse> iaResponseInitialOnTime(@BeanParam KpiParams.DateRange p) {
+        return iaResponseOnTime(QaKpiSpecs.IA_CYCLE_INITIAL, "qa-ia-response-initial-on-time", "IA Response On-Time % (Initial)", p);
+    }
+
+    @GET
+    @Path("/qa-ia-response-rework-on-time")
+    public List<KpiCardResponse> iaResponseReworkOnTime(@BeanParam KpiParams.DateRange p) {
+        return iaResponseOnTime(QaKpiSpecs.IA_CYCLE_REWORK, "qa-ia-response-rework-on-time", "IA Response On-Time % (Rework)", p);
+    }
+
+    private List<KpiCardResponse> iaResponseOnTime(String cycleType, String kpiId, String name, KpiParams.DateRange p) {
+        return service.fetchZeroWhenEmpty(QaKpiSpecs.IA_RESPONSE_ON_TIME, kpiId, name, p.site,
+                RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"),
+                Map.of(QaKpiSpecs.IA_CYCLE_TYPE_COLUMN, cycleType), selectedFilters(kpiId, uriInfo.getQueryParameters()));
     }
 
     @GET
@@ -383,13 +402,6 @@ public class QaController {
     @Path("/qa-observations-open")
     public List<KpiCardResponse> observationsOpen(@BeanParam KpiParams.DateRange p) {
         return fetch(QaKpiSpecs.OBSERVATIONS_OPEN, "qa-observations-open", "Observations Open", p);
-    }
-
-    @GET
-    @Path("/qa-adherence-with-regulatory-guidance-monograph")
-    public List<KpiCardResponse> adherenceRegulatoryGuidanceMonograph(@BeanParam KpiParams.DateRange p) {
-        return fetch(QaKpiSpecs.ADHERENCE_REGULATORY_GUIDANCE_MONOGRAPH, "qa-adherence-with-regulatory-guidance-monograph",
-                "Adherence with Regulatory Guidance / Monograph", p);
     }
 
     @GET
@@ -427,38 +439,13 @@ public class QaController {
     @GET
     @Path("/qa-training-completion")
     public List<KpiCardResponse> trainingCompletion(@BeanParam KpiParams.DateRange p) {
-        return fetch(QaKpiSpecs.TRAINING_COMPLETION, "qa-training-completion", "Training Completion", p);
+        return service.fetch(QaKpiSpecs.TRAINING_COMPLETION, "qa-training-completion", "Training Completion", p.site,
+                RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"),
+                Map.of(QaKpiSpecs.TRAINING_DEPARTMENT_COLUMN, QaKpiSpecs.TRAINING_DEPARTMENT_QA),
+                selectedFilters("qa-training-completion", uriInfo.getQueryParameters()));
     }
 
     // ---- Record-level drill-down endpoints for the KPIs with a real qa.fact_* table ----
-
-    @GET
-    @Path("/qa-sla-ip-in-process-sample-turnaround/drilldown")
-    public DrilldownPage<Map<String, Object>> slaIpDrilldown(@BeanParam KpiParams.DrilldownBase p) {
-        return service.getSlaIpDrilldown(p.site, RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"),
-                p.q, p.sort, p.colFilter, p.colSearch, p.colRange, p.page, p.pageSize);
-    }
-
-    /** Per-column dropdown options for the drill-down table's own filter row - see
-     * GenericDrilldownRepository.findColumnOptions. */
-    @GET
-    @Path("/qa-sla-ip-in-process-sample-turnaround/drilldown/column-options")
-    public Map<String, List<String>> slaIpDrilldownColumnOptions(@BeanParam KpiParams.DrilldownBase p) {
-        return service.getSlaIpDrilldownColumnOptions(p.site,
-                RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
-    }
-
-    /** Every row matching the current filters/sort as CSV, for the drill-down table's Export button -
-     * see GenericDrilldownService.fetchAllForExport. */
-    @GET
-    @Path("/qa-sla-ip-in-process-sample-turnaround/drilldown/export")
-    @Produces("text/csv")
-    public Response slaIpDrilldownExport(@BeanParam KpiParams.DrilldownBase p) {
-        LocalDate from = RequiredParams.require(p.from, "from");
-        LocalDate to = RequiredParams.require(p.to, "to");
-        String csv = service.getSlaIpDrilldownExport(p.site, from, to, p.q, p.sort, p.colFilter, p.colSearch, p.colRange);
-        return DrilldownExport.toCsvResponse("qa-sla-ip-in-process-sample-turnaround", from, to, csv);
-    }
 
     @GET
     @Path("/qa-stability-testing-pending/drilldown")
@@ -993,6 +980,38 @@ public class QaController {
     }
 
     @GET
+    @Path("/qa-closure-of-open-change-controls/drilldown")
+    public DrilldownPage<Map<String, Object>> closureOpenCcsDrilldown(@BeanParam KpiParams.DrilldownBase p) {
+        return service.getClosureOpenCcsDrilldown(p.site, RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"),
+                selectedFilters(CLOSURE_OPEN_CCS_KPI_ID, uriInfo.getQueryParameters()),
+                p.q, p.sort, p.colFilter, p.colSearch, p.colRange, p.page, p.pageSize);
+    }
+
+    /** Per-column dropdown options for the drill-down table's own filter row - see
+     * GenericDrilldownRepository.findColumnOptions. */
+    @GET
+    @Path("/qa-closure-of-open-change-controls/drilldown/column-options")
+    public Map<String, List<String>> closureOpenCcsDrilldownColumnOptions(@BeanParam KpiParams.DrilldownBase p) {
+        return service.getClosureOpenCcsDrilldownColumnOptions(p.site,
+                RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"),
+                selectedFilters(CLOSURE_OPEN_CCS_KPI_ID, uriInfo.getQueryParameters()));
+    }
+
+    /** Every row matching the current filters/sort as CSV, for the drill-down table's Export button -
+     * see GenericDrilldownService.fetchAllForExport. */
+    @GET
+    @Path("/qa-closure-of-open-change-controls/drilldown/export")
+    @Produces("text/csv")
+    public Response closureOpenCcsDrilldownExport(@BeanParam KpiParams.DrilldownBase p) {
+        LocalDate from = RequiredParams.require(p.from, "from");
+        LocalDate to = RequiredParams.require(p.to, "to");
+        String csv = service.getClosureOpenCcsDrilldownExport(p.site, from, to,
+                selectedFilters(CLOSURE_OPEN_CCS_KPI_ID, uriInfo.getQueryParameters()),
+                p.q, p.sort, p.colFilter, p.colSearch, p.colRange);
+        return DrilldownExport.toCsvResponse(CLOSURE_OPEN_CCS_KPI_ID, from, to, csv);
+    }
+
+    @GET
     @Path("/qa-open-new-equipment-facility-modification-ccs/drilldown")
     public DrilldownPage<Map<String, Object>> openNewEquipmentFacilityModCcsDrilldown(@BeanParam KpiParams.DrilldownBase p) {
         return service.getOpenNewEquipmentFacilityModCcsDrilldown(p.site, RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"),
@@ -1133,6 +1152,58 @@ public class QaController {
     }
 
     @GET
+    @Path("/qa-ia-response-initial-on-time/drilldown")
+    public DrilldownPage<Map<String, Object>> iaResponseInitialDrilldown(@BeanParam KpiParams.DrilldownBase p) {
+        return iaResponseDrilldown(QaDrilldownSpecs.IA_RESPONSE_INITIAL, p);
+    }
+
+    @GET
+    @Path("/qa-ia-response-rework-on-time/drilldown")
+    public DrilldownPage<Map<String, Object>> iaResponseReworkDrilldown(@BeanParam KpiParams.DrilldownBase p) {
+        return iaResponseDrilldown(QaDrilldownSpecs.IA_RESPONSE_REWORK, p);
+    }
+
+    private DrilldownPage<Map<String, Object>> iaResponseDrilldown(GenericDrilldownRepository.TableSpec table, KpiParams.DrilldownBase p) {
+        return service.getIaResponseCycleDrilldown(table, p.site, RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"),
+                p.q, p.sort, p.colFilter, p.colSearch, p.colRange, p.page, p.pageSize);
+    }
+
+    @GET
+    @Path("/qa-ia-response-initial-on-time/drilldown/column-options")
+    public Map<String, List<String>> iaResponseInitialDrilldownColumnOptions(@BeanParam KpiParams.DrilldownBase p) {
+        return service.getIaResponseCycleDrilldownColumnOptions(QaDrilldownSpecs.IA_RESPONSE_INITIAL, p.site,
+                RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
+    }
+
+    @GET
+    @Path("/qa-ia-response-rework-on-time/drilldown/column-options")
+    public Map<String, List<String>> iaResponseReworkDrilldownColumnOptions(@BeanParam KpiParams.DrilldownBase p) {
+        return service.getIaResponseCycleDrilldownColumnOptions(QaDrilldownSpecs.IA_RESPONSE_REWORK, p.site,
+                RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
+    }
+
+    @GET
+    @Path("/qa-ia-response-initial-on-time/drilldown/export")
+    @Produces("text/csv")
+    public Response iaResponseInitialDrilldownExport(@BeanParam KpiParams.DrilldownBase p) {
+        return iaResponseDrilldownExport("qa-ia-response-initial-on-time", QaDrilldownSpecs.IA_RESPONSE_INITIAL, p);
+    }
+
+    @GET
+    @Path("/qa-ia-response-rework-on-time/drilldown/export")
+    @Produces("text/csv")
+    public Response iaResponseReworkDrilldownExport(@BeanParam KpiParams.DrilldownBase p) {
+        return iaResponseDrilldownExport("qa-ia-response-rework-on-time", QaDrilldownSpecs.IA_RESPONSE_REWORK, p);
+    }
+
+    private Response iaResponseDrilldownExport(String kpiId, GenericDrilldownRepository.TableSpec table, KpiParams.DrilldownBase p) {
+        LocalDate from = RequiredParams.require(p.from, "from");
+        LocalDate to = RequiredParams.require(p.to, "to");
+        String csv = service.getIaResponseCycleDrilldownExport(table, p.site, from, to, p.q, p.sort, p.colFilter, p.colSearch, p.colRange);
+        return DrilldownExport.toCsvResponse(kpiId, from, to, csv);
+    }
+
+    @GET
     @Path("/qa-audit-internal-external-critical-observations/drilldown")
     public DrilldownPage<Map<String, Object>> auditCriticalObservationsDrilldown(@BeanParam KpiParams.DrilldownBase p) {
         return service.getAuditCriticalObservationsDrilldown(p.site, RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"),
@@ -1186,34 +1257,6 @@ public class QaController {
         LocalDate to = RequiredParams.require(p.to, "to");
         String csv = service.getObservationsOpenDrilldownExport(p.site, from, to, p.q, p.sort, p.colFilter, p.colSearch, p.colRange);
         return DrilldownExport.toCsvResponse("qa-observations-open", from, to, csv);
-    }
-
-    @GET
-    @Path("/qa-adherence-with-regulatory-guidance-monograph/drilldown")
-    public DrilldownPage<Map<String, Object>> adherenceRegulatoryGuidanceMonographDrilldown(@BeanParam KpiParams.DrilldownBase p) {
-        return service.getAdherenceRegulatoryGuidanceMonographDrilldown(p.site, RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"),
-                p.q, p.sort, p.colFilter, p.colSearch, p.colRange, p.page, p.pageSize);
-    }
-
-    /** Per-column dropdown options for the drill-down table's own filter row - see
-     * GenericDrilldownRepository.findColumnOptions. */
-    @GET
-    @Path("/qa-adherence-with-regulatory-guidance-monograph/drilldown/column-options")
-    public Map<String, List<String>> adherenceRegulatoryGuidanceMonographDrilldownColumnOptions(@BeanParam KpiParams.DrilldownBase p) {
-        return service.getAdherenceRegulatoryGuidanceMonographDrilldownColumnOptions(p.site,
-                RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
-    }
-
-    /** Every row matching the current filters/sort as CSV, for the drill-down table's Export button -
-     * see GenericDrilldownService.fetchAllForExport. */
-    @GET
-    @Path("/qa-adherence-with-regulatory-guidance-monograph/drilldown/export")
-    @Produces("text/csv")
-    public Response adherenceRegulatoryGuidanceMonographDrilldownExport(@BeanParam KpiParams.DrilldownBase p) {
-        LocalDate from = RequiredParams.require(p.from, "from");
-        LocalDate to = RequiredParams.require(p.to, "to");
-        String csv = service.getAdherenceRegulatoryGuidanceMonographDrilldownExport(p.site, from, to, p.q, p.sort, p.colFilter, p.colSearch, p.colRange);
-        return DrilldownExport.toCsvResponse("qa-adherence-with-regulatory-guidance-monograph", from, to, csv);
     }
 
     @GET

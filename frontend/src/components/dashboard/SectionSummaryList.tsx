@@ -190,6 +190,8 @@ export const SectionSummaryList = forwardRef<
     site: string
     section: 'all' | string
     grain: Grain
+    /** True when `grain` is the page's explicit Timeline pick (QA) - see GlobalKpiFilters.forceGrain. */
+    forceGrain?: boolean
     /** Leadership's Timeline: T-7/T-30/T-90/T-180 filter (see LeadershipFilterBar) - a trailing
      * day-count window in place of getGrainDateRange(grain)'s. Omitted elsewhere. */
     dateRangeOverride?: { from: string; to: string }
@@ -215,7 +217,7 @@ export const SectionSummaryList = forwardRef<
     sectionScores?: (sectionKey: string) => { score: number | null; previousScore: number | null } | undefined
   }
 >(function SectionSummaryList(
-  { site, section, grain, dateRangeOverride, searchQuery, lens, highlightSeverity, domains = KPI_DOMAINS, sectionScores },
+  { site, section, grain, forceGrain, dateRangeOverride, searchQuery, lens, highlightSeverity, domains = KPI_DOMAINS, sectionScores },
   ref,
 ) {
   const visibleKpiIds = KPI_VISIBILITY[lens]
@@ -311,7 +313,7 @@ export const SectionSummaryList = forwardRef<
   // getGrainDateRange). The Performance tab's KpiFilterBar is a separate, user-adjustable filter
   // set - not shared here.
   const { from, to } = dateRangeOverride ?? getGrainDateRange(grain)
-  const globalFilters: GlobalKpiFilters = { site, grain, from, to }
+  const globalFilters: GlobalKpiFilters = { site, grain, forceGrain, from, to }
   // Same query key as QcScoreCard's, so both read one cached request. Disabled when `sectionScores`
   // is given (a mock domain set - see qaSectionScore.ts) - there's no real score endpoint to call.
   const { data: qcScore } = useQcScore(globalFilters, { enabled: !sectionScores })

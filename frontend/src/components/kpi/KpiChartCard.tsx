@@ -47,6 +47,7 @@ export function toChartData(rows: KpiCardResponse[]) {
     // directly as a Line/Bar dataKey - KpiLineTooltip looks these companion keys up by seriesKey.
     if (row.numerator != null) bucket[`${key}__numerator`] = row.numerator
     if (row.denominator != null) bucket[`${key}__denominator`] = row.denominator
+    if (row.breakdown) bucket[`${key}__breakdown`] = JSON.stringify(row.breakdown)
     byPeriod.set(row.periodStart, bucket)
   }
 

@@ -33,7 +33,8 @@ public final class DrilldownSpecs {
                     new Column("status", "status"),
                     new Column("sampled_date", "sampledDate", ColumnKind.DATE),
                     new Column("completed_date", "completedDate", ColumnKind.DATE),
-                    new Column("tat_days", "tatDays")),
+                    new Column("tat_days", "tatDays"),
+                    new Column("initiated_on", "initiatedOn", ColumnKind.DATE)),
             List.of("sample_number"),
             Map.of("sampleType", "sample_type", "batchCategory", "batch_category"));
 
@@ -130,30 +131,29 @@ public final class DrilldownSpecs {
     // Shared table with CALIBRATION_COMPLIANCE below (fact_lims_cal_pm_compliance) - each pinned to
     // its own activity_type, matching InstrumentHealthService.getPmAdherence/getCalibrationCompliance's
     // own calPmComplianceRepository.find(site, "PM"/"Calibration", ...) calls.
+    private static final List<Column> CAL_PM_COLUMNS = List.of(
+            new Column("site_name", "siteName"),
+            new Column("instrument", "instrument"),
+            new Column("event_window", "windowDays"),
+            new Column("due_date", "dueDate", ColumnKind.DATE),
+            new Column("completed_date", "completedDate", ColumnKind.DATE),
+            new Column("delay_days", "delayDays"),
+            new Column("ontime_status", "status"),
+            new Column("was_on_breakdown", "wasOnBreakdown"),
+            new Column("breakdown_start_date", "breakdownStartDate", ColumnKind.DATE),
+            new Column("breakdown_end_date", "breakdownEndDate", ColumnKind.DATE),
+            new Column("breakdown_ongoing", "breakdownOngoing"));
+
     public static final TableSpec PM_ADHERENCE = new TableSpec(
             "fact_lims_cal_pm_compliance", "site_name", "completed_date",
-            List.of(
-                    new Column("site_name", "siteName"),
-                    new Column("instrument", "instrument"),
-                    new Column("event_window", "windowDays"),
-                    new Column("due_date", "dueDate", ColumnKind.DATE),
-                    new Column("completed_date", "completedDate", ColumnKind.DATE),
-                    new Column("delay_days", "delayDays"),
-                    new Column("ontime_status", "status")),
+            CAL_PM_COLUMNS,
             List.of("instrument"),
             Map.of(),
             Map.of("activity_type", "PM"));
 
     public static final TableSpec CALIBRATION_COMPLIANCE = new TableSpec(
             "fact_lims_cal_pm_compliance", "site_name", "completed_date",
-            List.of(
-                    new Column("site_name", "siteName"),
-                    new Column("instrument", "instrument"),
-                    new Column("event_window", "windowDays"),
-                    new Column("due_date", "dueDate", ColumnKind.DATE),
-                    new Column("completed_date", "completedDate", ColumnKind.DATE),
-                    new Column("delay_days", "delayDays"),
-                    new Column("ontime_status", "status")),
+            CAL_PM_COLUMNS,
             List.of("instrument"),
             Map.of(),
             Map.of("activity_type", "Calibration"));
@@ -371,7 +371,8 @@ public final class DrilldownSpecs {
                     new Column("record_id", "recordId"),
                     new Column("title", "title"),
                     new Column("date_opened_ist", "dateOpened", ColumnKind.DATE),
-                    new Column("record_status", "status")),
+                    new Column("record_status", "status"),
+                    new Column("conclusion", "conclusion")),
             List.of("record_id", "title"),
             Map.of());
 
@@ -382,7 +383,8 @@ public final class DrilldownSpecs {
                     new Column("record_id", "recordId"),
                     new Column("title", "title"),
                     new Column("open_date", "dateOpened", ColumnKind.DATE),
-                    new Column("record_status", "status")),
+                    new Column("record_status", "status"),
+                    new Column("conclusion", "conclusion")),
             List.of("record_id", "title"),
             Map.of());
 
