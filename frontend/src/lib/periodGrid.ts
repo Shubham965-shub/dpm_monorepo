@@ -123,3 +123,46 @@ export function buildYearlyCells(referenceDate: Date): PeriodCell[] {
     label: String(currentYear - yearsBack),
   }))
 }
+
+/** The period start a date falls in, aligned the way the agg tables store them (ISO Monday weeks, 1st of month/quarter/year). */
+export function periodStartOf(d: Date, grain: Grain): Date {
+  switch (grain) {
+    case 'daily':
+      return new Date(d.getFullYear(), d.getMonth(), d.getDate())
+    case 'weekly':
+      return new Date(d.getFullYear(), d.getMonth(), d.getDate() - ((d.getDay() + 6) % 7))
+    case 'monthly':
+      return new Date(d.getFullYear(), d.getMonth(), 1)
+    case 'quarterly':
+      return new Date(d.getFullYear(), Math.floor(d.getMonth() / 3) * 3, 1)
+    case 'yearly':
+      return new Date(d.getFullYear(), 0, 1)
+  }
+}
+
+export function nextPeriodStart(d: Date, grain: Grain): Date {
+  switch (grain) {
+    case 'daily':
+      return new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)
+    case 'weekly':
+      return new Date(d.getFullYear(), d.getMonth(), d.getDate() + 7)
+    case 'monthly':
+      return new Date(d.getFullYear(), d.getMonth() + 1, 1)
+    case 'quarterly':
+      return new Date(d.getFullYear(), d.getMonth() + 3, 1)
+    case 'yearly':
+      return new Date(d.getFullYear() + 1, 0, 1)
+  }
+}
+
+/** Every period start of `grain` inside [from, to] (a period whose start precedes `from` is left out,
+ * as on the backend), so a chart can show an empty period as a gap instead of dropping it. */
+export function periodStartsBetween(grain: Grain, from: string, to: string): string[] {
+  const fromDate = new Date(`${from}T00:00:00`)
+  const toDate = new Date(`${to}T00:00:00`)
+  let start = periodStartOf(fromDate, grain)
+  if (start < fromDate) start = nextPeriodStart(start, grain)
+  const starts: string[] = []
+  for (; start <= toDate; start = nextPeriodStart(start, grain)) starts.push(toIsoDate(start))
+  return starts
+}

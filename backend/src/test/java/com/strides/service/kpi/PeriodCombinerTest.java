@@ -67,4 +67,18 @@ class PeriodCombinerTest {
 
         assertEquals(BigDecimal.valueOf(47), result.get(0).value());
     }
+
+    @Test
+    void fromSums_leavesAnEmptyPeriodInTheRangeAsNoDataNotZero() {
+        var sums = List.of(new PeriodSum(LocalDate.of(2026, 8, 1), "monthly", 0), new PeriodSum(LocalDate.of(2026, 10, 1), "monthly", 5));
+
+        var result = PeriodCombiner.fromSums(sums, "oos-trend", "OOS Trend", "count", "monthly",
+                LocalDate.of(2026, 8, 1), LocalDate.of(2026, 10, 15));
+
+        assertEquals(3, result.size());
+        assertEquals(BigDecimal.ZERO, result.get(0).value());
+        assertNull(result.get(1).value());
+        assertEquals(LocalDate.of(2026, 9, 1), result.get(1).periodStart());
+        assertEquals(BigDecimal.valueOf(5), result.get(2).value());
+    }
 }

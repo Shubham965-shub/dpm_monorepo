@@ -1,4 +1,4 @@
-import { formatPeriodLabel } from '@/lib/periodFormat'
+import { formatNoDataPeriod, formatPeriodLabel } from '@/lib/periodFormat'
 import type { Grain } from '@/lib/kpiSchemas'
 
 interface TooltipPayloadEntry {
@@ -13,11 +13,6 @@ interface TooltipPayloadEntry {
 function parseBreakdown(raw: unknown): [string, number][] | null {
   if (typeof raw !== 'string') return null
   return Object.entries(JSON.parse(raw) as Record<string, number>)
-}
-
-// A plain count is stored as count / 1 (see backend QaKpiSpec.count) - "5 / 1" adds nothing over "5".
-function isPlainCount(numerator: number, denominator: number): boolean {
-  return denominator === 1 && Number.isInteger(numerator)
 }
 
 /**
@@ -40,9 +35,19 @@ export function KpiLineTooltip({
   grain: Grain
 }) {
   if (!active || !payload || payload.length === 0 || label == null) return null
+  const periodLabel = formatPeriodLabel(String(label), grain)
+  const noDataLabel = formatNoDataPeriod(String(label), grain)
+  // An empty period has no value to report - never read as a 0 (see backend PeriodCombiner).
+  if (payload.every((entry) => entry.value == null)) {
+    return (
+      <div className="rounded-md border border-border bg-card p-2 text-[11px] shadow-md">
+        <span className="text-muted-foreground">No data for {noDataLabel}</span>
+      </div>
+    )
+  }
   return (
     <div className="rounded-md border border-border bg-card p-2 text-[11px] shadow-md">
-      <div className="mb-1 font-semibold">{formatPeriodLabel(String(label), grain)}</div>
+      <div className="mb-1 font-semibold">{periodLabel}</div>
       <div className="flex flex-col gap-0.5">
         {payload.map((entry) => {
           const key = String(entry.dataKey ?? '')
@@ -53,15 +58,14 @@ export function KpiLineTooltip({
             <div key={key} className="flex items-center gap-1.5">
               <span className="inline-block size-2 shrink-0 rounded-full" style={{ background: entry.color }} />
               <span className="font-medium">{entry.name}:</span>
-              <span>{entry.value}</span>
+              {entry.value == null ? <span className="text-muted-foreground">No data</span> : <span>{entry.value}</span>}
               {breakdown ? (
                 <span className="text-muted-foreground">
                   ({breakdown.map(([label, count]) => `${label} ${count.toLocaleString()}`).join(', ')})
                 </span>
               ) : (
                 typeof numerator === 'number' &&
-                typeof denominator === 'number' &&
-                !isPlainCount(numerator, denominator) && (
+                typeof denominator === 'number' && (
                   <span className="text-muted-foreground">
                     ({numerator.toLocaleString()} / {denominator.toLocaleString()})
                   </span>

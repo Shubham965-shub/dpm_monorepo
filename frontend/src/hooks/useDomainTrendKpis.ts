@@ -7,7 +7,9 @@ import { seriesKeyFor } from '@/lib/kpiRowName'
 import { filterRootCauseRowsToDimension, pickMaximalRootCauseDimension } from '@/lib/rootCauseDimensions'
 import type { KpiVisibilityLens } from '@/lib/roleAccess'
 import { severityFromStatus, type Severity, type TierCounts } from '@/components/dashboard/types'
-import { toChartData } from '@/components/kpi/KpiChartCard'
+import { chartAxisFor, toChartData, type ChartAxis } from '@/components/kpi/KpiChartCard'
+import { coarserGrain, staleSince } from '@/lib/kpiFreshness'
+import { toIsoDate } from '@/lib/kpiDateRange'
 import { buildKpiQueryString, fetchKpiCardData, type GlobalKpiFilters } from './useKpiData'
 
 /** Default (no user selection yet) reduction applied per-KPI before deriving chart metrics.
@@ -32,6 +34,11 @@ export interface KpiMetrics {
    * mock thresholds are per-KPI, not per-series. */
   latestValue: number | null
   previousValue: number | null
+  /** The period the headline value comes from - the latest completed one with data (see deriveKpiMetrics). */
+  latestPeriodStart: string | null
+  /** Set when the data stopped arriving: the last period that has data (see staleSince). The card says
+   * so instead of showing a status. */
+  staleSince: string | null
   severity: Severity | null
   unit: string | null
   /** The primary series' band boundaries from the backend threshold config - null when unconfigured. */
@@ -82,24 +89,32 @@ export function computeValueDomain(
  * SeverityKpiCard's own per-card grain-override fetch, so the "first series is primary, severity
  * = its latest row's backend status" logic isn't duplicated. `kpiId` drives filterRowsForKpi's
  * per-KPI reduction (currently just Root Cause Breakdown's default dimension). */
-export function deriveKpiMetrics(kpiId: string, rows: KpiCardResponse[]): KpiMetrics {
+export function deriveKpiMetrics(kpiId: string, rows: KpiCardResponse[], axis?: ChartAxis): KpiMetrics {
   const filteredRows = filterRowsForKpi(kpiId, rows)
-  const { shownSeries, hiddenCount, chartData } = toChartData(filteredRows)
+  const { shownSeries, hiddenCount, chartData } = toChartData(filteredRows, axis)
   const primary = shownSeries[0]
 
-  // The headline value is the primary series' latest row WITH a value (rows arrive ordered by
-  // period), and its colour is that same row's status - so number and colour always describe the
-  // same period, even when the newest period itself has no value.
+  // The headline is the primary series' latest COMPLETED period that has data (rows arrive ordered by
+  // period) and its colour is that same row's status - an empty or still-running period never decides
+  // the status, and number and colour always describe the same period.
   const primaryRows = primary ? filteredRows.filter((row) => seriesKeyFor(row) === primary.seriesKey) : []
   const valuedRows = primaryRows.filter((row) => row.value != null)
-  const latestRow = valuedRows.at(-1)
+  const completedRows = valuedRows.filter((row) => !row.inProgress)
+  const latestRow = completedRows.at(-1)
   const latestValue = latestRow?.value ?? null
-  const previousValue = valuedRows.at(-2)?.value ?? null
+  const previousValue = completedRows.at(-2)?.value ?? null
 
-  const severity = severityFromStatus(latestRow?.status)
+  const lastDataStart = valuedRows.at(-1)?.periodStart ?? null
+  const asOf = axis ? (axis.to < toIsoDate(new Date()) ? axis.to : toIsoDate(new Date())) : null
+  const stale = axis && asOf ? staleSince(lastDataStart, coarserGrain(axis.grain, axis.frequency), asOf) : null
+
+  const severity = stale ? null : severityFromStatus(latestRow?.status)
   const thresholds = primaryRows.findLast((row) => row.thresholds)?.thresholds ?? null
 
-  return { shownSeries, hiddenCount, chartData, latestValue, previousValue, severity, unit: primary?.unit ?? null, thresholds, rows: filteredRows }
+  return {
+    shownSeries, hiddenCount, chartData, latestValue, previousValue, latestPeriodStart: latestRow?.periodStart ?? null,
+    staleSince: stale, severity, unit: primary?.unit ?? null, thresholds, rows: filteredRows,
+  }
 }
 
 export interface DomainTrendKpiResult extends KpiMetrics {
@@ -152,7 +167,7 @@ export function useDomainTrendKpis(
 
   return kpis.map((kpi, i) => {
     const query = results[i]
-    const metrics = deriveKpiMetrics(kpi.id, query.data ?? [])
+    const metrics = deriveKpiMetrics(kpi.id, query.data ?? [], chartAxisFor(kpi, resolvedKpiFilters(kpi, lens, globalFilters), defaultGrainFor(kpi.id, lens)))
 
     return { ...metrics, kpi, isLoading: query.isLoading, isError: query.isError }
   })

@@ -26,12 +26,15 @@ import { boundaryHex, boundaryLines, boundaryZones, kpiAnchorId, severityMeta, t
 import { renderBoundaryOverlay } from './boundaryOverlay'
 import { DemoDataBadge } from './DemoDataBadge'
 import { KpiDetailModal } from './KpiDetailModal'
+import { defaultGrainFor } from '@/lib/kpiDefaultGrain'
+import { chartAxisFor } from '@/components/kpi/KpiChartCard'
+import { KpiAsOf, NoDataNote } from '@/components/kpi/KpiAsOf'
+import { ViewModeToggle, type ViewMode } from '@/components/kpi/ViewModeToggle'
 import { LegendEntry } from './LegendEntry'
 
 // The compact card's boundary lines: slightly heavier than the default so they read at card size.
 const CARD_OVERLAY_STYLE = { strokeWidth: 1.5, labelFontSize: 9 }
 
-type ViewMode = 'line' | 'bar'
 
 function CardShell({ id, label, children }: { id: string; label: string; children: React.ReactNode }) {
   return (
@@ -71,7 +74,7 @@ export function SeverityKpiCard({
   onLiveSeverityChange?: (severity: Severity | null) => void
 }) {
   const { grain, setGrain, cardFilters, dateRange, setDateRange, clearDateRange, isGrainOverridden } = useCardGrain(result.kpi.id, lens, globalFilters)
-  const [viewMode, setViewMode] = useState<ViewMode>('line')
+  const [viewMode, setViewMode] = useState<ViewMode>(result.kpi.defaultView ?? 'line')
   const [detailOpen, setDetailOpen] = useState(false)
 
   const { kpi, isLoading, isError } = result
@@ -173,11 +176,12 @@ export function SeverityKpiCard({
     ? deriveKpiMetrics(
         rootCauseEffectiveKpiId ?? kpi.id,
         rootCauseEffectiveKpiId ? filterRootCauseRowsToDimension(rootCauseRows ?? [], rootCauseEffectiveKpiId) : [],
+        chartAxisFor(kpi, cardFilters, defaultGrainFor(kpi.id, lens)),
       )
     : isOverridden && overrideQuery.data
-      ? deriveKpiMetrics(kpi.id, overrideQuery.data)
+      ? deriveKpiMetrics(kpi.id, overrideQuery.data, chartAxisFor(kpi, cardFilters, defaultGrainFor(kpi.id, lens)))
       : result
-  const { chartData, shownSeries, hiddenCount, latestValue, previousValue, severity, unit, thresholds } = metrics
+  const { chartData, shownSeries, hiddenCount, latestValue, previousValue, latestPeriodStart, staleSince, severity, unit, thresholds } = metrics
   // Root Cause Breakdown's own dimension pick is a user override too (same reason as grain/filters/
   // date-range below) - "Auto" is its default, unpicked state.
   const isUserOverridden = isOverridden || (isRootCause && rootCauseDimension != null)
@@ -215,7 +219,7 @@ export function SeverityKpiCard({
   // should empty out the chart and value, not collapse the whole card (border, header, filters,
   // threshold legend) down to a generic placeholder the way isLoading/isError do above. Not tied to
   // severity: a KPI with no configured threshold still has data to chart, just no colour.
-  const hasData = latestValue != null
+  const hasData = metrics.rows.some((row) => row.value != null)
   // Never borrow the board-level `result` severity: once overridden (grain/filter), that describes
   // different data - a null here means neutral styling, not "use the default view's colour".
   const meta = severityMeta(severity)
@@ -256,18 +260,7 @@ export function SeverityKpiCard({
           )}
         </div>
         <div className="flex shrink-0 items-start gap-1">
-          <div className="flex overflow-hidden rounded-md border" style={{ borderColor: meta.paleHex }}>
-            {(['line', 'bar'] as const).map((mode) => (
-              <button
-                key={mode}
-                onClick={() => setViewMode(mode)}
-                className={cn('px-1.5 py-0.5 text-[8px] font-bold capitalize', mode !== viewMode && 'text-muted-foreground')}
-                style={mode === viewMode ? { backgroundColor: meta.solidHex, color: 'white' } : undefined}
-              >
-                {mode}
-              </button>
-            ))}
-          </div>
+          <ViewModeToggle mode={viewMode} onChange={setViewMode} activeHex={meta.solidHex} borderHex={meta.paleHex} />
           <GrainToggle grain={grain} onChange={setGrain} activeHex={meta.solidHex} borderHex={meta.paleHex} />
           <div className="flex flex-col items-end gap-0.5">
             <FiltersPopoverButton
@@ -316,7 +309,7 @@ export function SeverityKpiCard({
               actual period. hide keeps the axis itself invisible, matching the mini card's look. */}
               <XAxis dataKey="periodStart" hide />
               <YAxis hide domain={valueDomain} />
-              <Tooltip content={<KpiLineTooltip grain={grain} />} wrapperStyle={{ zIndex: TOOLTIP_Z_INDEX }} />
+              <Tooltip filterNull={false} content={<KpiLineTooltip grain={grain} />} wrapperStyle={{ zIndex: TOOLTIP_Z_INDEX }} />
               {shownSeries.length >= 2 && <Legend wrapperStyle={{ fontSize: 8 }} />}
               {renderBoundaryOverlay(zones, lines, CARD_OVERLAY_STYLE)}
               {shownSeries.map((s, i) => (
@@ -328,7 +321,6 @@ export function SeverityKpiCard({
                   stroke={seriesColor(i)}
                   strokeWidth={2}
                   dot={{ r: 2, strokeWidth: 0, fill: seriesColor(i) }}
-                  connectNulls
                 />
               ))}
             </LineChart>
@@ -336,7 +328,7 @@ export function SeverityKpiCard({
             <BarChart data={chartData} margin={{ top: 2, right: 2, left: 2, bottom: 2 }}>
               <XAxis dataKey="periodStart" hide />
               <YAxis hide domain={barDomain} />
-              <Tooltip content={<KpiLineTooltip grain={grain} />} wrapperStyle={{ zIndex: TOOLTIP_Z_INDEX }} />
+              <Tooltip filterNull={false} content={<KpiLineTooltip grain={grain} />} wrapperStyle={{ zIndex: TOOLTIP_Z_INDEX }} />
 
               {shownSeries.length >= 2 && <Legend wrapperStyle={{ fontSize: 8 }} />}
               {renderBoundaryOverlay(zones, lines, CARD_OVERLAY_STYLE)}
@@ -356,6 +348,7 @@ export function SeverityKpiCard({
           <span>{formatRangeEnd(String(chartData[chartData.length - 1].periodStart), grain)}</span>
         </div>
       )}
+      {hasData && <NoDataNote chartData={chartData} seriesKeys={shownSeries.map((s) => s.seriesKey)} grain={grain} className="text-[10px]" />}
 
       {/* mt-auto: in a stretched grid row, the extra height goes above the footer, not inside the chart. */}
       <div className="mt-auto flex items-center gap-2.5">
@@ -372,6 +365,7 @@ export function SeverityKpiCard({
             {latestValue != null ? latestValue.toFixed(1) : '—'}
           </span>
           <span className="text-muted-foreground ml-1 text-[10px] font-semibold">{unit}</span>
+          <KpiAsOf latestPeriodStart={latestPeriodStart} staleSince={staleSince} grain={grain} className="text-[10px]" />
         </div>
         {deltaPct != null && (
           <div className="text-right">
@@ -398,6 +392,8 @@ export function SeverityKpiCard({
           severity={severity}
           grain={grain}
           onGrainChange={setGrain}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
           dateRange={dateRange}
           onDateRangeChange={setDateRange}
           onClearDateRange={clearDateRange}

@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Helios — how charts handle missing data</title>
+<style>
+  :root{
+    --bg:#f6f7f6; --paper:#ffffff; --ink:#1b1f23; --soft:#4b5563; --faint:#8a929b; --line:#e3e6e4;
+    --brand:#0b4f3c;
+    --ok:#0f7a3d; --ok-bg:#e4f5ea; --warn:#a85f08; --warn-bg:#fdf3dc; --bad:#c0262d; --bad-bg:#fde9ea;
+    --gap:#eef0ee;
+    color-scheme:light;
+    box-sizing:border-box;
+    padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#121615; --paper:#1a1f1d; --ink:#e7ebe9; --soft:#b3bbb7; --faint:#7f8984; --line:#2c3431;
+      --brand:#3fa37d;
+      --ok:#4cc37f; --ok-bg:#16301f; --warn:#e7a849; --warn-bg:#352812; --bad:#f07a7f; --bad-bg:#3a1c1e;
+      --gap:#232a27;
+      color-scheme:dark;
+    }
+  }
+  *,*::before,*::after{box-sizing:border-box}
+  html{scroll-padding-top:env(safe-area-inset-top,0px)}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:16px;line-height:1.55}
+  .bar{height:6px;background:var(--brand)}
+  .wrap{max-width:1000px;margin:0 auto;padding:40px 24px 64px}
+  header h1{font-size:34px;line-height:1.15;margin:0 0 12px;letter-spacing:-.01em}
+  header p{margin:0 0 10px;color:var(--soft);max-width:68ch}
+  .states{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:22px 0 8px}
+  .state{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+  .state b{display:block;font-size:15px}
+  .state span{display:block;font-size:14px;color:var(--soft)}
+  .rule{margin-top:44px;padding-top:28px;border-top:2px solid var(--line)}
+  .rule h2{font-size:24px;margin:0 0 8px;display:flex;gap:12px;align-items:baseline}
+  .rule h2 .n{flex:0 0 auto;width:34px;height:34px;border-radius:50%;background:var(--brand);color:var(--paper);display:inline-grid;place-items:center;font-size:17px}
+  .rule .why{margin:0 0 18px;color:var(--soft);max-width:72ch}
+  .pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+  .pane{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+  .pane .who{font-size:13px;font-weight:600;margin-bottom:8px}
+  .pane.before .who{color:var(--bad)} .pane.after .who{color:var(--ok)}
+  .hd{display:flex;align-items:baseline;flex-wrap:wrap;gap:8px;margin:0 0 6px}
+  .hd b{font-size:24px}
+  .hd small{font-size:13px;color:var(--soft)}
+  .pill{font-size:12px;font-weight:600;border-radius:999px;padding:2px 10px}
+  .pill.bad{background:var(--bad-bg);color:var(--bad)} .pill.ok{background:var(--ok-bg);color:var(--ok)} .pill.grey{background:var(--gap);color:var(--soft)}
+  .pane svg{display:block;width:100%;height:auto}
+  .pane p{margin:6px 0 0;font-size:14px;color:var(--soft)}
+  .cells{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:4px 0 10px}
+  .cells div{border-radius:8px;text-align:center;padding:9px 0;font-size:15px;font-weight:600}
+  .tasks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px}
+  .task{border-left:4px solid var(--brand);background:var(--paper);padding:10px 14px;font-size:14px;color:var(--soft)}
+  .task b{display:block;color:var(--ink);font-size:13px;margin-bottom:2px}
+  .task.none{border-left-color:var(--line);color:var(--faint)}
+  footer{margin-top:44px;padding-top:20px;border-top:2px solid var(--line);color:var(--soft);font-size:14px}
+  @media (max-width:760px){
+    header h1{font-size:28px}
+    .states,.pair,.tasks{grid-template-columns:1fr}
+    .wrap{padding:28px 16px 48px}
+  }
+  @media print{ .bar{print-color-adjust:exact;-webkit-print-color-adjust:exact} .rule{break-inside:avoid} }
+</style>
+</head>
+<body>
+<div class="bar"></div>
+<main class="wrap">
+  <header>
+    <h1>How Helios charts handle missing data</h1>
+    <p>Some KPIs have periods with nothing to measure. IA Response On-Time in October is one: no responses were due yet, so it is 0 out of 0. Today that shows as 0.0%, "down 100%" and Critical, which is wrong.</p>
+    <p>The fix is to treat every period as one of three states, never two:</p>
+    <div class="states">
+      <div class="state"><b>Has data</b><span>49 of 80. Drawn, and judged against limits.</span></div>
+      <div class="state"><b>A real zero</b><span>0 of 5. Drawn at 0, and can be Critical.</span></div>
+      <div class="state"><b>No data</b><span>0 of 0. Not drawn, and never judged.</span></div>
+    </div>
+  </header>
+
+  <section class="rule">
+    <h2><span class="n">1</span>Empty, not zero</h2>
+    <p class="why">A period with nothing to measure has no score at all. It must stay empty so it can't be mistaken for a real 0% and turn Critical.</p>
+    <div class="pair">
+      <div class="pane before"><div class="who">Today</div><div data-head="0.0%|October|bad|Critical"></div><div data-chart="72,61,98,0|4|-|Line drops to zero in October"></div><p>0 of 0 is drawn as 0%. The line dives and turns red.</p></div>
+      <div class="pane after"><div class="who">With the rule</div><div data-head="October|0 of 0|grey|No data"></div><div data-chart="72,61,98,x|4|3|Line stops at July and October is marked no data"></div><p>Nothing to measure, so no point. The line stops at July.</p></div>
+    </div>
+    <div class="tasks">
+      <div class="task"><b>Data engineer</b>When the bottom number is 0 or there are no records, store null, not 0. Never fill missing values with 0. Keep the top and bottom numbers as separate columns.</div>
+      <div class="task"><b>Back end</b>Return null for that period's value, never 0 by default. Send the top and bottom numbers with it.</div>
+      <div class="task"><b>Front end</b>Treat null as "no data". Never turn it into 0 by accident: check every place that adds a default value or converts to a number.</div>
+    </div>
+  </section>
+
+  <section class="rule">
+    <h2><span class="n">2</span>The chart runs to today</h2>
+    <p class="why">The chart always shows the full time range up to now, so people can see a period is missing rather than wonder where it went. The line just doesn't pass through empty periods.</p>
+    <div class="pair">
+      <div class="pane before"><div class="who">Today</div><div data-chart="72,61,0|3|-|Axis ends at July"></div><p>Reg / Customer Audit: the axis ends at July. Is the rest missing, or just not shown?</p></div>
+      <div class="pane after"><div class="who">With the rule</div><div data-chart="72,61,0,x|4|3|Axis runs to October with a no data zone"></div><p>The axis runs to today and the gap is labelled. July's 0 of 5 is a real zero, so it stays.</p></div>
+    </div>
+    <div class="tasks">
+      <div class="task none"><b>Data engineer</b>Nothing for this rule.</div>
+      <div class="task"><b>Back end</b>Return every period up to today for the selected D, W, M, Q or Y, with null for the empty ones.</div>
+      <div class="task"><b>Front end</b>Run the axis to today. Break the line at empty periods. Show a light grey "No data" label, and a tooltip saying "No data for Oct 2026".</div>
+    </div>
+  </section>
+
+  <section class="rule">
+    <h2><span class="n">3</span>Headline from the last completed period with data</h2>
+    <p class="why">The big number and status at the top come from the most recent finished period that has data, and say which one. A half-finished or empty period never decides whether a KPI is Critical.</p>
+    <div class="pair">
+      <div class="pane before"><div class="who">Today</div><div data-head="0.0%|down 100% vs prev period|bad|Critical"></div><div data-chart="72,61,98,0|4|-|Headline taken from empty October"></div><p>The headline reads the half-finished, empty quarter.</p></div>
+      <div class="pane after"><div class="who">With the rule</div><div data-head="98.0%|as of Jul 2026, up 60% vs Apr|ok|On track"></div><div data-chart="72,61,98,x|4|3|Headline taken from July"></div><p>The headline uses July, the last finished quarter with data, and says so.</p></div>
+    </div>
+    <div class="tasks">
+      <div class="task none"><b>Data engineer</b>Nothing for this rule.</div>
+      <div class="task"><b>Back end</b>Return the latest completed period with data: its value, its label, its status, and the change against the previous period that also has data.</div>
+      <div class="task"><b>Front end</b>Show the value with "as of Jul 2026", and the status from that period.</div>
+    </div>
+  </section>
+
+  <section class="rule">
+    <h2><span class="n">4</span>Stale data gets its own warning</h2>
+    <p class="why">If data stops arriving, the KPI says so plainly instead of quietly showing an old status. That tells you it's a data problem, not a performance problem.</p>
+    <div class="pair">
+      <div class="pane before"><div class="who">Today</div><div data-head="61.3%|April 2026|bad|Critical"></div><div data-chart="72,61,x,x|4|-|Old April value shown as current"></div><p>Data stopped after April, but the status still says Critical as if it were current.</p></div>
+      <div class="pane after"><div class="who">With the rule</div><div data-head="61.3%|last data Apr 2026|grey|Data not updated since Apr 2026"></div><div data-chart="72,61,x,x|4|2|Stale warning replaces the status"></div><p>Grey, not red. It reads as a data problem to chase.</p></div>
+    </div>
+    <div class="tasks">
+      <div class="task"><b>Data engineer</b>Provide the latest data date for each KPI.</div>
+      <div class="task"><b>Back end</b>Flag a KPI as stale when its latest data is more than one full period old at that KPI's frequency, and return the "since" date.</div>
+      <div class="task"><b>Front end</b>Replace the status with a grey "Data not updated since Apr 2026".</div>
+    </div>
+  </section>
+
+  <section class="rule">
+    <h2><span class="n">5</span>Missing data never lowers a score</h2>
+    <p class="why">Only KPIs with real data count towards a section's score or a person's percentage, so nobody is marked down for a period with nothing to measure.</p>
+    <div class="pair">
+      <div class="pane before"><div class="who">Today</div><div data-cells="96,0,98,0,97,0"></div><div data-head="48|section score|bad|Critical"></div><p>Empty cells counted as 0 drag the score down. The section looks like it is failing.</p></div>
+      <div class="pane after"><div class="who">With the rule</div><div data-cells="96,x,98,x,97,x"></div><div data-head="97|section score, 3 KPIs with data|ok|On track"></div><p>Empty cells show "–" and are left out. The score reflects only real data.</p></div>
+    </div>
+    <div class="tasks">
+      <div class="task"><b>Data engineer</b>If section scores or person percentages are calculated in the gold tables, leave out KPIs with no data rather than counting them as 0.</div>
+      <div class="task"><b>Back end</b>Same rule if scores are calculated in the backend. Return empty heatmap cells as null.</div>
+      <div class="task"><b>Front end</b>Show empty cells as a grey "–" with a "No data" tooltip.</div>
+    </div>
+  </section>
+
+  <footer>
+    Rule 5 sits with whichever of the data engineer or the back end calculates the scores today. Chart values are rounded from the IA Response On-Time quarterly view; rule 2 uses the Reg / Customer Audit chart.
+  </footer>
+</main>
+
+<script>
+(function () {
+  var AL = 94.1, AC = 85.5, Q = ['Jan', 'Apr', 'Jul', 'Oct'];
+  function y(v) { return 14 + (115 - v) / 115 * 120; }
+  function x(i, n) { return 40 + i * (250 / (n - 1)); }
+  function chart(spec) {
+    var p = spec.split('|'), vals = p[0].split(','), n = +p[1], gap = p[2], label = p[3];
+    var s = '<svg viewBox="0 0 330 170" role="img" aria-label="' + label + '">';
+    s += '<rect x="30" y="' + y(115) + '" width="275" height="' + (y(AL) - y(115)) + '" style="fill:var(--ok-bg)"/>';
+    s += '<rect x="30" y="' + y(AL) + '" width="275" height="' + (y(AC) - y(AL)) + '" style="fill:var(--warn-bg)"/>';
+    s += '<rect x="30" y="' + y(AC) + '" width="275" height="' + (y(0) - y(AC)) + '" style="fill:var(--bad-bg)"/>';
+    if (gap !== '-') {
+      var gx = x(+gap, n) - 250 / (n - 1) / 2;
+      s += '<rect x="' + gx + '" y="14" width="' + (305 - gx) + '" height="120" style="fill:var(--gap)"/>';
+      s += '<text x="' + ((gx + 305) / 2) + '" y="78" text-anchor="middle" style="font-size:12px;fill:var(--soft)">No data</text>';
+    }
+    [0, 50, 100].forEach(function (v) { s += '<text x="24" y="' + (y(v) + 4) + '" text-anchor="end" style="font-size:11px;fill:var(--faint)">' + v + '</text>'; });
+    var d = '';
+    vals.forEach(function (v, i) { if (v === 'x') return; d += (d && vals[i - 1] !== 'x' ? ' L' : ' M') + x(i, n) + ' ' + y(+v); });
+    s += '<path d="' + d + '" fill="none" style="stroke:var(--ink)" stroke-width="2"/>';
+    vals.forEach(function (v, i) {
+      if (v === 'x') return;
+      var c = +v < AC ? 'var(--bad)' : +v < AL ? 'var(--warn)' : 'var(--ok)';
+      s += '<circle cx="' + x(i, n) + '" cy="' + y(+v) + '" r="4.5" style="fill:var(--paper);stroke:' + c + '" stroke-width="2.5"/>';
+    });
+    for (var i = 0; i < n; i++) s += '<text x="' + x(i, n) + '" y="158" text-anchor="middle" style="font-size:11px;fill:var(--soft)">' + Q[i] + ' 2026</text>';
+    return s + '</svg>';
+  }
+  function head(spec) {
+    var p = spec.split('|');
+    return '<div class="hd"><b>' + p[0] + '</b><small>' + p[1] + '</small><span class="pill ' + p[2] + '">' + p[3] + '</span></div>';
+  }
+  function cells(spec) {
+    return '<div class="cells">' + spec.split(',').map(function (c) {
+      var st = c === 'x' ? 'background:var(--gap);color:var(--faint)' : +c < AC ? 'background:var(--bad-bg);color:var(--bad)' : 'background:var(--ok-bg);color:var(--ok)';
+      return '<div style="' + st + '"' + (c === 'x' ? ' title="No data"' : '') + '>' + (c === 'x' ? '–' : c) + '</div>';
+    }).join('') + '</div>';
+  }
+  document.querySelectorAll('[data-chart]').forEach(function (el) { el.innerHTML = chart(el.getAttribute('data-chart')); });
+  document.querySelectorAll('[data-head]').forEach(function (el) { el.innerHTML = head(el.getAttribute('data-head')); });
+  document.querySelectorAll('[data-cells]').forEach(function (el) { el.innerHTML = cells(el.getAttribute('data-cells')); });
+})();
+</script>
+</body>
+</html>

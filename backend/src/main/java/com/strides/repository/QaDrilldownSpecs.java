@@ -275,7 +275,6 @@ public final class QaDrilldownSpecs {
             "qa.fact_tw_q_events_closure_time", "site", "date_opened_key",
             List.of(
                     new Column("event_type", "eventType"),
-                    new Column("source_table", "sourceTable"),
                     new Column("record_id", "recordId"),
                     new Column("title", "title"),
                     new Column("record_status", "status"),
@@ -283,7 +282,37 @@ public final class QaDrilldownSpecs {
                     new Column("date_opened_key", "dateOpened", ColumnKind.DATE),
                     new Column("date_closed_key", "dateClosed", ColumnKind.DATE)),
             List.of("record_id", "title"),
-            Map.of());
+            Map.of("event_type", "event_type"));
+
+    /** Both read from the public.* fact tables built for QC - there is no qa.* equivalent. */
+    public static final TableSpec REPEAT_QUALITY_EVENT_RATE = new TableSpec(
+            "fact_tw_repeat_failure_rate", "site", "date_closed_ist",
+            List.of(
+                    new Column("record_id", "recordId"),
+                    new Column("record_type", "recordType"),
+                    new Column("title", "title"),
+                    new Column("record_status", "status"),
+                    new Column("resp_dept", "respDept"),
+                    new Column("date_opened_ist", "dateOpened", ColumnKind.DATE),
+                    new Column("date_closed_ist", "dateClosed", ColumnKind.DATE),
+                    new Column("is_recurring", "isRecurring")),
+            List.of("record_id", "title"),
+            Map.of("record_type", "record_type"));
+
+    /** Keys are the agg table's own column names (what the card's filters send); values are this fact table's. */
+    public static final TableSpec TRAINING_COMPLETION = new TableSpec(
+            "fact_cw_training_completion_rate", "site", "assignment_due_date",
+            List.of(
+                    new Column("dept_name", "departmentName"),
+                    new Column("\"user\"", "user"),
+                    new Column("training", "trainingTitle"),
+                    new Column("training_type", "trainingType"),
+                    new Column("assignment_status", "status"),
+                    new Column("assignment_due_date", "dueDate", ColumnKind.DATE),
+                    new Column("days_overdue", "daysOverdue"),
+                    new Column("assignment_completed_date", "completedDate", ColumnKind.DATE)),
+            List.of("\"user\"", "training"),
+            Map.of("department", "dept_name", "training_type", "training_type"));
 
     public static final TableSpec CAPA_APPROVAL_WITHIN_SLA = new TableSpec(
             "qa.fact_tw_capa_approval_within_sla", "site", "date_opened_key",
@@ -391,33 +420,26 @@ public final class QaDrilldownSpecs {
             List.of("record_id", "title"),
             Map.of());
 
-    public static final TableSpec IA_RESPONSE_INITIAL = iaResponseCycle(QaKpiSpecs.IA_CYCLE_INITIAL);
-
-    public static final TableSpec IA_RESPONSE_REWORK = iaResponseCycle(QaKpiSpecs.IA_CYCLE_REWORK);
-
-    /** One row per response cycle, bucketed on due_on - the same date the agg table buckets on. */
-    private static TableSpec iaResponseCycle(String cycleType) {
-        return new TableSpec(
-                "qa.fact_tw_ia_response_cycle", "site", "due_on",
-                List.of(
-                        new Column("record_id", "recordId"),
-                        new Column("title", "title"),
-                        new Column("observation_category", "observationCategory"),
-                        new Column("severity", "severity"),
-                        new Column("cycle_no", "cycleNo"),
-                        new Column("cycle_type", "cycleType"),
-                        new Column("cycle_start_ist", "cycleStart", ColumnKind.DATE),
-                        new Column("cycle_end_ist", "cycleEnd", ColumnKind.DATE),
-                        new Column("due_on", "dueOn", ColumnKind.DATE),
-                        new Column("allowed_days", "allowedDays"),
-                        new Column("actual_days", "actualDays"),
-                        new Column("days_over", "daysOver"),
-                        new Column("cycle_state", "cycleState"),
-                        new Column("\"ExtnCtr\"", "extensions")),
-                List.of("record_id", "title"),
-                Map.of(),
-                Map.of(QaKpiSpecs.IA_CYCLE_TYPE_COLUMN, cycleType));
-    }
+    /** One row per response cycle, bucketed on due_on - the same date the agg table buckets on; the card's cycleType filter narrows it. */
+    public static final TableSpec IA_RESPONSE_CYCLE = new TableSpec(
+            "qa.fact_tw_ia_response_cycle", "site", "due_on",
+            List.of(
+                    new Column("record_id", "recordId"),
+                    new Column("title", "title"),
+                    new Column("observation_category", "observationCategory"),
+                    new Column("severity", "severity"),
+                    new Column("cycle_no", "cycleNo"),
+                    new Column("cycle_type", "cycleType"),
+                    new Column("cycle_start_ist", "cycleStart", ColumnKind.DATE),
+                    new Column("cycle_end_ist", "cycleEnd", ColumnKind.DATE),
+                    new Column("due_on", "dueOn", ColumnKind.DATE),
+                    new Column("allowed_days", "allowedDays"),
+                    new Column("actual_days", "actualDays"),
+                    new Column("days_over", "daysOver"),
+                    new Column("cycle_state", "cycleState"),
+                    new Column("\"ExtnCtr\"", "extensions")),
+            List.of("record_id", "title"),
+            Map.of(QaKpiSpecs.IA_CYCLE_TYPE_COLUMN, QaKpiSpecs.IA_CYCLE_TYPE_COLUMN));
 
     public static final TableSpec INTERNAL_AUDIT_ONTIME_ACTIONS = new TableSpec(
             "qa.fact_tw_internal_audit_ontime_actions", "site", "date_opened_key",
@@ -524,7 +546,10 @@ public final class QaDrilldownSpecs {
             List.of("record_id", "title", "batch"),
             Map.of());
 
-    public static final TableSpec UNDISPENSED_BMR_BPR_BEYOND_60_DAYS = RECEIPT_BACK_BMR_BPR;
+    public static final TableSpec UNDISPENSED_BMR_BPR_BEYOND_60_DAYS = new TableSpec(
+            RECEIPT_BACK_BMR_BPR.table(), RECEIPT_BACK_BMR_BPR.siteColumn(), RECEIPT_BACK_BMR_BPR.dateColumn(),
+            RECEIPT_BACK_BMR_BPR.selectColumns().stream().filter(column -> !"site_source".equals(column.sqlColumn())).toList(),
+            RECEIPT_BACK_BMR_BPR.searchColumns(), RECEIPT_BACK_BMR_BPR.filterColumns(), RECEIPT_BACK_BMR_BPR.fixedFilters());
     public static final TableSpec PRODUCT_COMPLAINT_CRITICALITY = MARKET_COMPLAINT_MASTER;
     public static final TableSpec REPEAT_COMPLAINTS = MARKET_COMPLAINT_MASTER;
     public static final TableSpec MARKET_COMPLAINTS_TRACKING = MARKET_COMPLAINT_MASTER;

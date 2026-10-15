@@ -47,6 +47,8 @@ export interface KpiDefinition {
    * column charts, for plain counts with no threshold (see PeriodCountBarCard).
    */
   chartType?: 'line' | 'bar' | 'column'
+  /** Which view a time-series card opens in; every card can switch to the other. Default 'line'. */
+  defaultView?: 'line' | 'bar'
   /** Open-record snapshot ("as of today"): no from/to is sent, so the backend returns every
    * currently-open record, regardless of the page's date window (see AbstractOpenCapaRepository). */
   snapshot?: boolean

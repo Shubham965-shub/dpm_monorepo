@@ -69,6 +69,12 @@ public record KpiCardResponse(
                 numerator, denominator, thresholds, inProgress, numeratorLabel, denominatorLabel, breakdown);
     }
 
+    /** For a plain count, whose stored "n / 1" is an artefact of the shared ratio shape, not a real denominator. */
+    public KpiCardResponse withoutRatio() {
+        return new KpiCardResponse(kpiId, name, value, unit, status, grain, periodStart, note,
+                null, null, thresholds, inProgress, null, null, breakdown);
+    }
+
     public KpiCardResponse withBreakdown(Map<String, Long> newBreakdown) {
         return new KpiCardResponse(kpiId, name, value, unit, status, grain, periodStart, note,
                 numerator, denominator, thresholds, inProgress, numeratorLabel, denominatorLabel, newBreakdown);

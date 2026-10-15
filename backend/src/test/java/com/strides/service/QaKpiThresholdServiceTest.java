@@ -2,6 +2,8 @@ package com.strides.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 import com.strides.dto.KpiCardResponse;
@@ -52,7 +54,7 @@ class QaKpiThresholdServiceTest {
     }
 
     private void linkRftSeries(QaKpiThresholdRow... defaultRows) {
-        when(catalogue.findKpiIdForSeries("qa-right-first-time-rft")).thenReturn(Optional.of(RFT));
+        when(catalogue.findKpiIdForSeries(eq("qa-right-first-time-rft"), any())).thenReturn(Optional.of(RFT));
         when(snapshots.findAllDefaults()).thenReturn(List.of(defaultRows));
         service.refreshDefaults();
     }
@@ -109,7 +111,7 @@ class QaKpiThresholdServiceTest {
 
     @Test
     void aKpiWithNoCatalogueMappingStaysUncoloured() {
-        when(catalogue.findKpiIdForSeries("qa-breakdown-time-lims-instruments")).thenReturn(Optional.empty());
+        when(catalogue.findKpiIdForSeries(eq("qa-breakdown-time-lims-instruments"), any())).thenReturn(Optional.empty());
         when(snapshots.findAllDefaults()).thenReturn(List.of());
         service.refreshDefaults();
 
@@ -127,7 +129,7 @@ class QaKpiThresholdServiceTest {
         // Count-unit KPI (e.g. OOS Logged) - unlike "%", a non-percent unit's limits are already in
         // the API's own scale (see the hand-off doc's "Units" section), so no x100 applies here.
         String oosLogged = "KPI-QA-024";
-        when(catalogue.findKpiIdForSeries("qa-oos-logged")).thenReturn(Optional.of(oosLogged));
+        when(catalogue.findKpiIdForSeries(eq("qa-oos-logged"), any())).thenReturn(Optional.of(oosLogged));
         QaKpiThresholdRow row = new QaKpiThresholdRow(oosLogged, "monthly", slots("site", null, null),
                 slots("All", "All", "All"), "higher_is_worse", null, null, 55.3, 61.5, null, FRESH);
         when(snapshots.findAllDefaults()).thenReturn(List.of(row));
@@ -141,5 +143,25 @@ class QaKpiThresholdServiceTest {
 
         assertEquals(List.of(KpiStatus.GREEN, KpiStatus.AMBER, KpiStatus.RED), result.stream().map(KpiCardResponse::status).toList());
         assertEquals(0, new BigDecimal("55.3").compareTo(result.get(0).thresholds().greenHigh()));
+    }
+
+    @Test
+    void handSetLimitsColourACountWithoutTouchingTheSnapshot() {
+        when(catalogue.findFixedLimits("qa-far-alert-event-density"))
+                .thenReturn(Optional.of(new QaKpiThresholdConfigRepository.FixedLimits(BigDecimal.ONE, BigDecimal.valueOf(2))));
+        when(catalogue.findKpiIdForSeries("qa-far-alert-event-density")).thenReturn(Optional.of("KPI-QA-058"));
+
+        List<KpiCardResponse> result = service.applyTo(List.of(
+                countCard(LocalDate.of(2026, 7, 1), "1"),
+                countCard(LocalDate.of(2026, 8, 1), "2"),
+                countCard(LocalDate.of(2026, 9, 1), "3")), NOTHING_SELECTED);
+
+        assertEquals(List.of(KpiStatus.GREEN, KpiStatus.AMBER, KpiStatus.RED), result.stream().map(KpiCardResponse::status).toList());
+        assertEquals("KPI-QA-058", result.get(0).thresholds().configKpiId());
+    }
+
+    private static KpiCardResponse countCard(LocalDate periodStart, String value) {
+        return new KpiCardResponse("qa-far-alert-event-density", "FAR (Alert) Event Density", new BigDecimal(value), "events",
+                null, "monthly", periodStart, null);
     }
 }

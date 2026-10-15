@@ -8,6 +8,7 @@ import com.strides.dto.ScoreBand;
 import com.strides.repository.AggQueryException;
 import com.strides.repository.QaKpiSpecs;
 import com.strides.service.kpi.KpiScorer;
+import com.strides.service.kpi.StaleData;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -239,10 +240,14 @@ public class QaScoreService {
             List<KpiCardResponse> fetched = thresholds.applyTo(source.fetch().fetch(site, grain, from, to),
                     name -> source.pinnedSelection().getOrDefault(name, selectedValues.apply(name)));
             List<KpiCardResponse> rows = fetched.stream()
-                    .filter(row -> row.kpiId().equals(source.seriesId()) && row.thresholds() != null)
+                    .filter(row -> row.kpiId().equals(source.seriesId()) && row.thresholds() != null
+                            && row.value() != null && !Boolean.TRUE.equals(row.inProgress()))
                     .sorted(Comparator.comparing(KpiCardResponse::periodStart))
                     .toList();
-            return rows.isEmpty() ? null : new FetchedGraph(source, rows);
+            // Data that stopped arriving is a data problem, not a performance one - it is left out like missing data.
+            LocalDate asOf = to.isBefore(LocalDate.now()) ? to : LocalDate.now();
+            boolean stale = !rows.isEmpty() && StaleData.isStale(grain, rows.get(rows.size() - 1).periodStart(), asOf);
+            return rows.isEmpty() || stale ? null : new FetchedGraph(source, rows);
         } catch (AggQueryException e) {
             // One graph's broken feed must not blank the whole QA score - it's left out, like missing data.
             LOG.warnf(e, "QA score: could not load %s - excluded", source.seriesId());
@@ -250,7 +255,8 @@ public class QaScoreService {
         }
     }
 
-    /** Stage 2: the latest period's score (and the one before, for "vs prev") against the graph's own thresholds. */
+    /** Stage 2: the latest completed period with data (and the one before it, for "vs prev") scored against the graph's own
+     * thresholds - an empty or still-running period never decides the score (fetchGraph keeps only completed periods with a value). */
     private KpiScore scoreGraph(FetchedGraph graph) {
         List<KpiCardResponse> rows = graph.rows();
         KpiCardResponse latest = rows.get(rows.size() - 1);

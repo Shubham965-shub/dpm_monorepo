@@ -81,3 +81,12 @@ export function formatPeriodLabel(periodStart: string, grain: Grain): string {
   if (grain === 'weekly') return formatIsoWeekRangeLabel(periodStart)
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
+
+/** A period named the way the no-data messages do: "Oct 2026", "Q4 2026", "2026" - the year always shown, since an
+ * empty period can be well in the past. Weekly and daily periods keep their own tooltip labels. */
+export function formatNoDataPeriod(periodStart: string, grain: Grain): string {
+  const date = new Date(`${periodStart}T00:00:00`)
+  if (grain === 'monthly') return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+  if (grain === 'quarterly') return `Q${Math.floor(date.getMonth() / MONTHS_IN_QUARTER) + 1} ${date.getFullYear()}`
+  return formatPeriodLabel(periodStart, grain)
+}

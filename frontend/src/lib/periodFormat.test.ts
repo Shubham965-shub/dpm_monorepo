@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { evenTickInterval, formatPeriodTick, formatRangeEnd, formatRangeStart } from './periodFormat'
+import { evenTickInterval, formatNoDataPeriod, formatPeriodTick, formatRangeEnd, formatRangeStart } from './periodFormat'
 
 describe('formatPeriodTick', () => {
   const TODAY = new Date(2026, 8, 29)
@@ -51,5 +51,13 @@ describe('evenTickInterval', () => {
 
   it('respects a custom maxTicks', () => {
     expect(evenTickInterval(10, 3)).toBe(3)
+  })
+})
+
+describe('formatNoDataPeriod', () => {
+  it('names a month, quarter and year the way the no-data messages do', () => {
+    expect(formatNoDataPeriod('2026-10-01', 'monthly')).toBe('Oct 2026')
+    expect(formatNoDataPeriod('2026-10-01', 'quarterly')).toBe('Q4 2026')
+    expect(formatNoDataPeriod('2026-01-01', 'yearly')).toBe('2026')
   })
 })

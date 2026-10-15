@@ -18,14 +18,15 @@ export function buildHeatmap(rows: KpiCardResponse[]) {
 
   for (const row of rows) {
     periods.add(row.periodStart)
-    const value = row.value ?? 0
-    if (value > max) max = value
     let entry = byKpiId.get(row.kpiId)
     if (!entry) {
       entry = { kpiId: row.kpiId, label: extractRootCauseDimension(row.name), valuesByPeriod: new Map() }
       byKpiId.set(row.kpiId, entry)
     }
-    entry.valuesByPeriod.set(row.periodStart, value)
+    // A period with no value stays out of the map - the card shows it as no data, never a 0.
+    if (row.value == null) continue
+    if (row.value > max) max = row.value
+    entry.valuesByPeriod.set(row.periodStart, row.value)
   }
 
   return {

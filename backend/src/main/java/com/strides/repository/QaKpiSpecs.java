@@ -58,10 +58,16 @@ public final class QaKpiSpecs {
     public static final QaKpiSpec CQA_ADHERENCE_INPROCESS = QaKpiSpec.ratio(
             "agg_lims_cqa_adherence_inprocess", "site_name", "in_spec_params", "total_params", 100, "%");
 
-    // QA dashboard = QA-side TAT (-009B). The Manufacturing dashboard will reuse this KPI scoped to the
-    // pdn_* columns (-009A) - production is manufacturing.
-    public static final QaKpiSpec LINE_CLEARANCE_TAT = QaKpiSpec.average(
+    // The card's lineClearanceType filter picks the side: QA (threshold -009B) or Production (-009A).
+    public static final String LINE_CLEARANCE_TYPE_PARAM = "lineClearanceType";
+    public static final String LINE_CLEARANCE_QA = "QA";
+    public static final String LINE_CLEARANCE_PRODUCTION = "Production";
+
+    public static final QaKpiSpec LINE_CLEARANCE_TAT_QA = QaKpiSpec.average(
             "agg_syn_line_clearance_tat", "site", "sum_qa_tat_minutes", "qa_tat_cycles", "minutes");
+
+    public static final QaKpiSpec LINE_CLEARANCE_TAT_PRODUCTION = QaKpiSpec.average(
+            "agg_syn_line_clearance_tat", "site", "sum_pdn_tat_minutes", "pdn_tat_cycles", "minutes");
 
     public static final QaKpiSpec RECEIPT_BACK_BMR_BPR = QaKpiSpec.ratio(
             "agg_bmr_bpr_receipt_back", "site", "received_back_records", "issued_records", 100, "%");
@@ -76,8 +82,10 @@ public final class QaKpiSpecs {
     public static final QaKpiSpec SUCCESS_RATE_VALIDATION_BATCHES = QaKpiSpec.ratioNumeratorWhere(
             "agg_sap_success_rate_of_validation_batches", "site_name", "ud_batches", "ud_code_slice = 'A0'", "total_batches", 100, "%");
 
+    // The pipeline now delivers acceptance directly: non_rejected_batches (= total - rejected) over
+    // total_batches - consumed as-is, no 1 - x in the app.
     public static final QaKpiSpec BATCH_REJECT = QaKpiSpec.ratio(
-            "agg_sap_pct_batch_reject", "site_name", "rejected_batches", "total_batches", 100, "%");
+            "agg_sap_pct_batch_reject", "site_name", "non_rejected_batches", "total_batches", 100, "%");
 
     // Doc: "decided_batches where ud_code_slice='R' / all" - denominator is the table's own total
     // lot population (inspection_lot_count), not a same-column different-slice sum.
@@ -129,8 +137,8 @@ public final class QaKpiSpecs {
     public static final QaKpiSpec OPEN_CRITICAL_DEVIATIONS = QaKpiSpec.countWhere(
             "agg_tw_deviations_aging", "site", "open_count", "initial_classification = 'Critical'", "deviations");
 
-    public static final QaKpiSpec EQUIPMENT_ERROR_DEVIATIONS = QaKpiSpec.count(
-            "agg_tw_equipment_error_deviations", "site", "dev_count", "deviations");
+    public static final QaKpiSpec EQUIPMENT_ERROR_DEVIATIONS = QaKpiSpec.countWhere(
+            "agg_tw_equipment_error_deviations", "site", "dev_count", "root_cause_bucket = 'By Equipment'", "deviations");
 
     public static final QaKpiSpec SELF_REPORTING_QUALITY_EVENTS = QaKpiSpec.ratio(
             "agg_tw_self_reporting_quality_events", "site", "self_reported_records", "total_records", 100, "%");
@@ -222,15 +230,13 @@ public final class QaKpiSpecs {
     public static final QaKpiSpec INTERNAL_AUDIT_OBSERVATION_SEVERITY = QaKpiSpec.ratio(
             "agg_tw_internal_audit_observation_severity", "site", "sum_severity_weight", "observation_count", 1, "avg severity");
 
-    /** Both IA response cards share this spec and narrow it with a cycle_type fixed filter. Summing
-     * observation_count would double-count (it's a distinct count per cell) - the cycle counts
-     * are the totals. */
+    /** One card; its cycleType filter (Initial / Rework) narrows it. Summing observation_count would
+     * double-count (it's a distinct count per cell) - the cycle counts are the totals. */
     public static final QaKpiSpec IA_RESPONSE_ON_TIME = QaKpiSpec.ratio(
             "agg_tw_ia_response_cycle", "site", "within_sla_count", "assessed_count", 100, "%");
 
     public static final String IA_CYCLE_TYPE_COLUMN = "cycle_type";
     public static final String IA_CYCLE_INITIAL = "Initial";
-    public static final String IA_CYCLE_REWORK = "Rework";
 
     public static final QaKpiSpec INTERNAL_AUDIT_ONTIME_ACTIONS = QaKpiSpec.ratio(
             "agg_tw_internal_audit_ontime_actions", "site", "on_time_actions", "audit_actions", 100, "%");
@@ -273,8 +279,8 @@ public final class QaKpiSpecs {
     // Date / Overdue - no "All" row), so the denominator sums every status unfiltered; department
     // and training_type are also true partitions here (no "All" row either), so leaving both
     // unfiltered correctly sums across every one rather than needing a slice guard.
-    // The QA dashboard only scores QA's own training (its limits are QA-only), so the card is pinned
-    // to this department rather than exposing a department filter.
+    // The score only counts QA's own training (QaScoreService pins it to TRAINING_DEPARTMENT_QA); the
+    // card itself has a department filter that opens on QA and can be cleared to see every department.
     public static final String TRAINING_DEPARTMENT_COLUMN = "department";
     public static final String TRAINING_DEPARTMENT_QA = "Quality Assurance";
 

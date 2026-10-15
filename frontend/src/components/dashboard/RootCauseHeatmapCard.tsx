@@ -81,8 +81,8 @@ export function RootCauseHeatmapGrid({
                   By {row.label}
                 </td>
                 {periods.map((period) => {
-                  const value = row.valuesByPeriod.get(period) ?? 0
-                  const bg = sequentialGreen(max > 0 ? value / max : 0)
+                  const value = row.valuesByPeriod.get(period)
+                  const bg = value == null ? 'var(--muted)' : sequentialGreen(max > 0 ? value / max : 0)
                   // Radix's own collision detection (avoidCollisions, on by default) keeps this
                   // on-screen near a viewport edge - the plain absolutely-positioned div this
                   // replaced had no such awareness and could render off-screen at the grid's edges.
@@ -91,14 +91,14 @@ export function RootCauseHeatmapGrid({
                       <TooltipTrigger asChild>
                         <td className="rounded-sm p-0" style={{ backgroundColor: bg }}>
                           <div className={cn('text-center font-medium', cellPadding)} style={{ color: readableTextColor(bg) }}>
-                            {value}
+                            {value ?? '–'}
                           </div>
                         </td>
                       </TooltipTrigger>
                       <TooltipContent>
                         <div>Category: {formatPeriodTick(period, grain)}</div>
                         <div>Y: By {row.label}</div>
-                        <div>Value: {value}</div>
+                        <div>Value: {value ?? 'No data'}</div>
                       </TooltipContent>
                     </Tooltip>
                   )

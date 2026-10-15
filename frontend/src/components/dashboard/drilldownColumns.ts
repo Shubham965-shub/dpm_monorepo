@@ -167,6 +167,17 @@ const REPEAT_FAILURE_RATE_COLUMNS: DrilldownColumn[] = [
   { key: 'isRecurring', label: 'Is Recurring' },
 ]
 
+const QA_REPEAT_QUALITY_EVENT_RATE_COLUMNS: DrilldownColumn[] = [
+  { key: 'recordId', label: 'Record ID' },
+  { key: 'recordType', label: 'Record Type' },
+  { key: 'title', label: 'Title' },
+  { key: 'status', label: 'Status' },
+  { key: 'respDept', label: 'Resp Dept' },
+  { key: 'dateOpened', label: 'Date Opened', filterType: 'date' },
+  { key: 'dateClosed', label: 'Date Closed', filterType: 'date' },
+  { key: 'isRecurring', label: 'Is Recurring' },
+]
+
 const REPEAT_HUMAN_ERROR_RATE_COLUMNS: DrilldownColumn[] = [
   { key: 'recordType', label: 'Record Type' },
   { key: 'recordId', label: 'Record ID' },
@@ -423,6 +434,9 @@ const QA_RECEIPT_BACK_BMR_BPR_COLUMNS: DrilldownColumn[] = [
   { key: 'isReceivedBack', label: 'Is Received Back' },
 ]
 
+// Same fact table as Receipt Back, but this KPI's table doesn't show where the batch was sourced from.
+const QA_UNDISPENSED_BMR_BPR_COLUMNS = QA_RECEIPT_BACK_BMR_BPR_COLUMNS.filter((column) => column.key !== 'siteSource')
+
 const QA_SUCCESS_RATE_VALIDATION_BATCHES_COLUMNS: DrilldownColumn[] = [
   { key: 'batch', label: 'Batch' },
   { key: 'materialDescription', label: 'Material Description' },
@@ -518,7 +532,6 @@ const QA_SELF_REPORTING_QUALITY_EVENTS_COLUMNS: DrilldownColumn[] = [
 
 const QA_Q_EVENTS_CLOSURE_TIME_COLUMNS: DrilldownColumn[] = [
   { key: 'eventType', label: 'Event Type' },
-  { key: 'sourceTable', label: 'Source Table' },
   { key: 'recordId', label: 'Record ID' },
   { key: 'title', label: 'Title' },
   { key: 'status', label: 'Status' },
@@ -747,7 +760,7 @@ export const DRILLDOWN_CONFIG: Record<string, DrilldownConfig> = {
   'qa-cqa-adherence-for-in-process-parameters': { rowSchema: genericDrilldownRowSchema, columns: QA_CQA_ADHERENCE_INPROCESS_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-line-clearance-tat': { rowSchema: genericDrilldownRowSchema, columns: QA_LINE_CLEARANCE_TAT_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-receipt-back-of-all-issued-bmrbprs': { rowSchema: genericDrilldownRowSchema, columns: QA_RECEIPT_BACK_BMR_BPR_COLUMNS, drilldownAdvancedFiltering: true },
-  'qa-undispensed-bmrbpr-beyond-3060-days-from-issuance': { rowSchema: genericDrilldownRowSchema, columns: QA_RECEIPT_BACK_BMR_BPR_COLUMNS, drilldownAdvancedFiltering: true },
+  'qa-undispensed-bmrbpr-beyond-3060-days-from-issuance': { rowSchema: genericDrilldownRowSchema, columns: QA_UNDISPENSED_BMR_BPR_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-success-rate-of-validation-batches': { rowSchema: genericDrilldownRowSchema, columns: QA_SUCCESS_RATE_VALIDATION_BATCHES_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-batch-reject': { rowSchema: genericDrilldownRowSchema, columns: QA_BATCH_REJECT_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-batches-with-error-on-incoming-inspection': { rowSchema: genericDrilldownRowSchema, columns: QA_BATCHES_ERROR_INCOMING_INSPECTION_COLUMNS, drilldownAdvancedFiltering: true },
@@ -765,8 +778,9 @@ export const DRILLDOWN_CONFIG: Record<string, DrilldownConfig> = {
   'qa-reg-customer-audit-success-rate': { rowSchema: genericDrilldownRowSchema, columns: QA_REG_CUSTOMER_AUDIT_SUCCESS_RATE_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-internal-audit-observation-severity': { rowSchema: genericDrilldownRowSchema, columns: QA_INTERNAL_AUDIT_OBSERVATION_SEVERITY_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-internal-audit-on-time-actions': { rowSchema: genericDrilldownRowSchema, columns: QA_INTERNAL_AUDIT_ONTIME_ACTIONS_COLUMNS, drilldownAdvancedFiltering: true },
-  'qa-ia-response-initial-on-time': { rowSchema: genericDrilldownRowSchema, columns: QA_IA_RESPONSE_CYCLE_COLUMNS, drilldownAdvancedFiltering: true },
-  'qa-ia-response-rework-on-time': { rowSchema: genericDrilldownRowSchema, columns: QA_IA_RESPONSE_CYCLE_COLUMNS, drilldownAdvancedFiltering: true },
+  'qa-repeat-quality-event-rate': { rowSchema: genericDrilldownRowSchema, columns: QA_REPEAT_QUALITY_EVENT_RATE_COLUMNS, drilldownAdvancedFiltering: true },
+  'qa-training-completion': { rowSchema: genericDrilldownRowSchema, columns: TRAINING_COMPLETION_RATE_COLUMNS, drilldownAdvancedFiltering: true },
+  'qa-ia-response-on-time': { rowSchema: genericDrilldownRowSchema, columns: QA_IA_RESPONSE_CYCLE_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-audit-internal-external-critical-observations': { rowSchema: genericDrilldownRowSchema, columns: QA_AUDIT_CRITICAL_OBSERVATIONS_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-observations-open': { rowSchema: genericDrilldownRowSchema, columns: QA_OBSERVATIONS_OPEN_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-product-complaint-criticality': { rowSchema: genericDrilldownRowSchema, columns: QA_MARKET_COMPLAINT_MASTER_COLUMNS, drilldownAdvancedFiltering: true },

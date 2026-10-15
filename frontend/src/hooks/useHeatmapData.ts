@@ -112,18 +112,8 @@ function heatmapKpis(domain: KpiDomain): KpiDefinition[] {
   return domain.kpis.filter((kpi) => !kpi.snapshot && !(kpi.mock ?? domain.mock))
 }
 
-// human-error-severity, rci-beyond-timeline: a period with zero qualifying incidents comes back with
-// no row at all (confirmed live against the real API - missing periods are simply absent from the
-// array, never returned with an explicit value:0 or value:null row). Left as-is, that reads as the
-// same grey "no data" as a period this KPI genuinely couldn't be evaluated for, when it should read
-// as "zero, which is good". Scoped to this hook only (the heatmap) - each KPI's own card
-// (SeverityKpiCard) is unaffected and keeps showing it as no data.
-const ZERO_INCIDENTS_AS_GREEN_KPI_IDS = new Set(['human-error-severity', 'rci-beyond-timeline'])
-
-function heatmapCellFor(periodLabel: string, kpiId: string, row: KpiCardResponse | undefined): HeatmapCell {
-  if ((row == null || row.value == null) && ZERO_INCIDENTS_AS_GREEN_KPI_IDS.has(kpiId)) {
-    return { periodLabel, status: 'in-control', value: 0 }
-  }
+// A period with no row or no value is "no data" (a grey dash), never filled in as a 0 - even for a count KPI.
+function heatmapCellFor(periodLabel: string, row: KpiCardResponse | undefined): HeatmapCell {
   return { periodLabel, status: severityFromStatus(row?.status) ?? 'no-data', value: row?.value ?? null }
 }
 
@@ -193,14 +183,14 @@ export function useHeatmapData(site: string, window: HeatmapWindow, domains: Kpi
         const byPeriod = rowsByKpiIdAndPeriod.get(kpi.id)
         cells = periods.map((p) => {
           const row = primaryValueRow(kpi.id, byPeriod?.get(p.key) ?? [])
-          return heatmapCellFor(p.label, kpi.id, row)
+          return heatmapCellFor(p.label, row)
         })
       } else {
         const rowByPeriod = new Map<string, KpiCardResponse>()
         for (const row of primarySeriesRows(kpi.id, rowsByKpiId.get(kpi.id) ?? [])) {
           rowByPeriod.set(bucketKeyFor(row.periodStart), row)
         }
-        cells = periods.map((p) => heatmapCellFor(p.label, kpi.id, rowByPeriod.get(p.key)))
+        cells = periods.map((p) => heatmapCellFor(p.label, rowByPeriod.get(p.key)))
       }
 
       sections

@@ -49,6 +49,8 @@ public class QaKpiThresholdService {
     private static final Logger LOG = Logger.getLogger(QaKpiThresholdService.class);
 
     private static final String PERCENT_UNIT = "%";
+    private static final String HIGHER_IS_BETTER = "higher_is_better";
+    private static final String HIGHER_IS_WORSE = "higher_is_worse";
     // Same convention as QC's own kpi_threshold_snapshot (confirmed live): a percent KPI's limits
     // are stored as fractions (0.85), while the API reports percent (85.0) - see QaKpiSpec.ratio's
     // own multiplier. Per-1000/count/day/minute limits are already in the API's own scale, per the
@@ -179,16 +181,23 @@ public class QaKpiThresholdService {
         Map<SeriesKey, Optional<KpiThresholds>> limitsPerSeries = new HashMap<>();
         return cards.stream()
                 .map(card -> {
-                    KpiThresholds limits = catalogue.findKpiIdForSeries(card.kpiId())
-                            .filter(kpiId -> selectionFits(card.kpiId(), selectedValues))
-                            .flatMap(kpiId -> limitsPerSeries.computeIfAbsent(
-                                    new SeriesKey(kpiId, card.grain(), card.unit()),
-                                    key -> resolveLimits(key, selectedValues, loaded)))
+                    KpiThresholds limits = catalogue.findFixedLimits(card.kpiId())
+                            .map(fixed -> fixedThresholds(card.kpiId(), fixed))
+                            .or(() -> catalogue.findKpiIdForSeries(card.kpiId(), selectedValues)
+                                    .filter(kpiId -> selectionFits(card.kpiId(), selectedValues))
+                                    .flatMap(kpiId -> limitsPerSeries.computeIfAbsent(
+                                            new SeriesKey(kpiId, card.grain(), card.unit()),
+                                            key -> resolveLimits(key, selectedValues, loaded))))
                             .orElse(null);
                     return card.withThresholdStatus(KpiThresholdEvaluator.statusFor(card.value(), limits), limits,
                             PeriodProgress.isInProgress(card.grain(), card.periodStart(), today));
                 })
                 .toList();
+    }
+
+    private KpiThresholds fixedThresholds(String seriesKpiId, QaKpiThresholdConfigRepository.FixedLimits fixed) {
+        return new KpiThresholds(catalogue.findKpiIdForSeries(seriesKpiId).orElse(null), HIGHER_IS_WORSE,
+                null, null, fixed.alert(), fixed.action(), false);
     }
 
     /** False when the threshold id only covers one filter value and something else (or nothing) is selected. */
@@ -296,6 +305,10 @@ public class QaKpiThresholdService {
 
     private static KpiThresholds toThresholds(QaKpiThresholdRow row, String unit, boolean multiSelectHint) {
         BigDecimal scale = PERCENT_UNIT.equals(unit) ? FRACTION_TO_PERCENT : BigDecimal.ONE;
+        if (QaKpiThresholdConfigRepository.LOWER_LIMITS_ONLY.contains(row.kpiId())) {
+            return new KpiThresholds(row.kpiId(), HIGHER_IS_BETTER,
+                    scaled(row.lowerRed(), scale), scaled(row.lowerAmber(), scale), null, null, multiSelectHint);
+        }
         return new KpiThresholds(row.kpiId(), row.direction(),
                 scaled(row.lowerRed(), scale), scaled(row.lowerAmber(), scale),
                 scaled(row.upperAmber(), scale), scaled(row.upperRed(), scale), multiSelectHint);

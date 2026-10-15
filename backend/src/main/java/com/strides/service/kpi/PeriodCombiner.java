@@ -78,15 +78,17 @@ public final class PeriodCombiner {
                 .toList();
     }
 
-    /** Same as the 4-arg fromSums, but a period in [from, to] with no row reads as 0 instead of being absent. */
+    /** Same as the 4-arg fromSums, but every period in [from, to] with no row is returned too, with a null
+     * value - "no data", never a 0 (a period that has a row with a count of 0 keeps its real 0). */
     public static List<KpiCardResponse> fromSums(List<PeriodSum> sums, String kpiId, String name, String unit,
             String grain, LocalDate from, LocalDate to) {
         Set<LocalDate> present = new HashSet<>();
         sums.forEach(s -> present.add(s.periodStart()));
-        List<PeriodSum> filled = new ArrayList<>(sums);
-        PeriodGaps.missingStarts(grain, from, to, present).forEach(start -> filled.add(new PeriodSum(start, grain, 0)));
-        filled.sort(Comparator.comparing(PeriodSum::periodStart));
-        return fromSums(filled, kpiId, name, unit);
+        List<KpiCardResponse> cards = new ArrayList<>(fromSums(sums, kpiId, name, unit));
+        PeriodGaps.missingStarts(grain, from, to, present).forEach(start ->
+                cards.add(new KpiCardResponse(kpiId, name, null, unit, null, grain, start, null)));
+        cards.sort(Comparator.comparing(KpiCardResponse::periodStart));
+        return cards;
     }
 
     /** Plain-count KPIs (no numerator/denominator ratio). */

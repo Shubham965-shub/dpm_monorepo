@@ -6,6 +6,7 @@ import {
   buildWeeklyGroups,
   buildYearlyCells,
   periodEndDate,
+  periodStartsBetween,
 } from './periodGrid'
 
 describe('periodEndDate', () => {
@@ -105,5 +106,34 @@ describe('buildWeeklyGroups', () => {
     const shifted = buildWeeklyGroups(new Date(2026, 8, 29), 3, 3)
     expect(shifted.map((g) => g.label)).toEqual(['April 2026', 'May 2026', 'June 2026'])
     expect(recent.map((g) => g.label)).not.toEqual(shifted.map((g) => g.label))
+  })
+})
+
+describe('periodStartsBetween', () => {
+  it('monthly: every month start inside the range, through the current month', () => {
+    expect(periodStartsBetween('monthly', '2026-07-01', '2026-10-15')).toEqual([
+      '2026-07-01',
+      '2026-08-01',
+      '2026-09-01',
+      '2026-10-01',
+    ])
+  })
+
+  it('weekly: Monday starts, skipping a week that began before `from`', () => {
+    expect(periodStartsBetween('weekly', '2026-10-07', '2026-10-21')).toEqual(['2026-10-12', '2026-10-19'])
+  })
+
+  it('quarterly and yearly start on the 1st of the quarter / year', () => {
+    expect(periodStartsBetween('quarterly', '2026-01-01', '2026-10-15')).toEqual([
+      '2026-01-01',
+      '2026-04-01',
+      '2026-07-01',
+      '2026-10-01',
+    ])
+    expect(periodStartsBetween('yearly', '2025-01-01', '2026-10-15')).toEqual(['2025-01-01', '2026-01-01'])
+  })
+
+  it('daily: one entry per day', () => {
+    expect(periodStartsBetween('daily', '2026-10-13', '2026-10-15')).toEqual(['2026-10-13', '2026-10-14', '2026-10-15'])
   })
 })

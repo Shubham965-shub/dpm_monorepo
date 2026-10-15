@@ -138,7 +138,7 @@ function Cell({
           </div>
         ))}
         <div>
-          {periodLabel}: {formatScore(value)}
+          {periodLabel}: {value == null ? 'No data' : formatScore(value)}
         </div>
       </TooltipContent>
     </Tooltip>
