@@ -19,6 +19,7 @@ import { ExtraFilterControl } from './ExtraFilterControl'
 import { KpiLineTooltip } from './KpiLineTooltip'
 import { evenTickInterval, formatPeriodTick } from '@/lib/periodFormat'
 import { seriesKeyFor } from '@/lib/kpiRowName'
+import { periodStartsBetween } from '@/lib/periodGrid'
 import type { Grain, KpiCardResponse } from '@/lib/kpiSchemas'
 
 interface Series {
@@ -29,7 +30,21 @@ interface Series {
 }
 
 
-export function toChartData(rows: KpiCardResponse[]) {
+/** The period range a chart spans - periods inside it that have no row become empty gaps, not dropped. */
+export interface ChartAxis {
+  grain: Grain
+  from: string
+  to: string
+  /** The KPI's own reporting frequency, when known - staleness is judged at the coarser of this and `grain`. */
+  frequency?: Grain | null
+}
+
+/** A snapshot KPI ("as of today", no date window) has no axis to run - everything else spans its requested range. */
+export function chartAxisFor(kpi: KpiDefinition, filters: { grain: string; from: string; to: string }, frequency?: Grain | null): ChartAxis | undefined {
+  return kpi.snapshot ? undefined : { grain: filters.grain as Grain, from: filters.from, to: filters.to, frequency }
+}
+
+export function toChartData(rows: KpiCardResponse[], axis?: ChartAxis) {
   const seriesByKey = new Map<string, Series>()
   const byPeriod = new Map<string, Record<string, number | string | null>>()
 
@@ -49,6 +64,12 @@ export function toChartData(rows: KpiCardResponse[]) {
     if (row.denominator != null) bucket[`${key}__denominator`] = row.denominator
     if (row.breakdown) bucket[`${key}__breakdown`] = JSON.stringify(row.breakdown)
     byPeriod.set(row.periodStart, bucket)
+  }
+
+  if (axis) {
+    for (const start of periodStartsBetween(axis.grain, axis.from, axis.to)) {
+      if (!byPeriod.has(start)) byPeriod.set(start, { periodStart: start })
+    }
   }
 
   const allSeries = Array.from(seriesByKey.values())
@@ -88,8 +109,8 @@ export function KpiChartCard({ domain, kpi, globalFilters }: {
   const isBarChart = kpi.chartType === 'bar'
   const query = useKpiData(domain, kpi, globalFilters, extraParams)
   const { shownSeries, hiddenCount, chartData } = useMemo(
-    () => toChartData(query.data ?? []),
-    [query.data],
+    () => toChartData(query.data ?? [], chartAxisFor(kpi, globalFilters)),
+    [query.data, kpi, globalFilters],
   )
   const barData = useMemo(() => toBarData(query.data ?? []), [query.data])
   const emptyState = emptyStateFor(
@@ -167,7 +188,7 @@ export function KpiChartCard({ domain, kpi, globalFilters }: {
                   stroke="var(--muted-foreground)"
                 />
                 <YAxis tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" width={40} />
-                <Tooltip content={<KpiLineTooltip grain={globalFilters.grain as Grain} />} wrapperStyle={{ zIndex: TOOLTIP_Z_INDEX }} />
+                <Tooltip filterNull={false} content={<KpiLineTooltip grain={globalFilters.grain as Grain} />} wrapperStyle={{ zIndex: TOOLTIP_Z_INDEX }} />
                 {shownSeries.length >= 2 && <Legend wrapperStyle={{ fontSize: 10 }} />}
                 {shownSeries.map((s, i) => (
                   <Line
@@ -178,7 +199,6 @@ export function KpiChartCard({ domain, kpi, globalFilters }: {
                     stroke={CATEGORICAL_PALETTE[i]}
                     strokeWidth={2}
                     dot={{ r: 3 }}
-                    connectNulls
                   />
                 ))}
               </LineChart>

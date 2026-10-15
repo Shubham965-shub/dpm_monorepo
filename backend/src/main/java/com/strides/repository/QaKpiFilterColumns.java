@@ -2,6 +2,7 @@ package com.strides.repository;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Which extra breakdown columns each QA KPI exposes as a card filter, and the QaKpiSpec whose
@@ -57,10 +58,9 @@ public final class QaKpiFilterColumns {
     private static final Map<String, Mapping> BY_KPI_ID = Map.ofEntries(
             Map.entry("qa-right-first-time-rft", of(QaKpiSpecs.RIGHT_FIRST_TIME,
                     col("materialType", "material_type"), col("sapDisposition", "sap_disposition"))),
-            Map.entry("qa-ia-response-initial-on-time", of(QaKpiSpecs.IA_RESPONSE_ON_TIME,
-                    col("observationCategory", "observation_category"), col("severity", "severity"))),
-            Map.entry("qa-ia-response-rework-on-time", of(QaKpiSpecs.IA_RESPONSE_ON_TIME,
-                    col("observationCategory", "observation_category"), col("severity", "severity"))),
+            Map.entry("qa-ia-response-on-time", of(QaKpiSpecs.IA_RESPONSE_ON_TIME,
+                    col("observationCategory", "observation_category"), col("severity", "severity"),
+                    col("cycleType", QaKpiSpecs.IA_CYCLE_TYPE_COLUMN))),
             Map.entry("qa-batch-reject", of(QaKpiSpecs.BATCH_REJECT, col("materialType", "material_type"))),
             Map.entry("qa-semi-finished-goods-release-delays", of(QaKpiSpecs.SFG_RELEASE_DELAYS,
                     col("storageLocation", "storage_location"))),
@@ -104,9 +104,27 @@ public final class QaKpiFilterColumns {
                     col("initiatedThrough", "initiated_through"))),
             // Doc candidate was "dept_name" - the live column is "department".
             Map.entry("qa-training-completion", of(QaKpiSpecs.TRAINING_COMPLETION,
-                    col("trainingType", "training_type"))),
+                    col("deptName", QaKpiSpecs.TRAINING_DEPARTMENT_COLUMN), col("trainingType", "training_type"))),
             Map.entry("qa-average-time-to-implement-capa", of(QaKpiSpecs.CAPA_IMPLEMENT_TIME,
                     col("respDept", QaKpiSpecs.CAPA_IMPLEMENT_DEPT_COLUMN))));
+
+    /** Filters that pick between specs rather than narrow a column, so their options are fixed lists. */
+    private static final Map<String, Map<String, List<String>>> STATIC_OPTIONS = Map.of(
+            "qa-line-clearance-tat", Map.of(QaKpiSpecs.LINE_CLEARANCE_TYPE_PARAM,
+                    List.of(QaKpiSpecs.LINE_CLEARANCE_QA, QaKpiSpecs.LINE_CLEARANCE_PRODUCTION)));
+
+    /** Option values left out of a filter's list (the data's "no level" marker) - clearing the filter still includes them. */
+    private static final Map<String, Map<String, Set<String>>> EXCLUDED_OPTIONS = Map.of(
+            "qa-closure-of-open-change-controls", Map.of("closureLevel", Set.of("NA")),
+            "qa-open-critical-deviations", Map.of("level", Set.of("NA")));
+
+    public static Set<String> excludedOptions(String kpiId, String queryParam) {
+        return EXCLUDED_OPTIONS.getOrDefault(kpiId, Map.of()).getOrDefault(queryParam, Set.of());
+    }
+
+    public static Map<String, List<String>> staticOptions(String kpiId) {
+        return STATIC_OPTIONS.getOrDefault(kpiId, Map.of());
+    }
 
     /** null when this KPI has no extra filter columns registered (every other QA KPI). */
     public static Mapping forKpiId(String kpiId) {

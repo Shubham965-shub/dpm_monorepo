@@ -1,8 +1,12 @@
 package com.strides.repository;
 
 import jakarta.enterprise.context.ApplicationScoped;
+import java.math.BigDecimal;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.function.Function;
 
 /**
  * Which qa.kpi_threshold_snapshot_qa kpi_id each QA dashboard card is coloured against - mirrors
@@ -20,8 +24,8 @@ import java.util.Optional;
  *   qa-plan-vs-actual-pm-calibration-engineering, ...) - the hand-off doc explicitly excludes the
  *   section as "Cross-Functional Context: not scored, no chips," matching qaKpiConfig.ts's own
  *   `scored: false` on that whole domain.
- * - qa-line-clearance-tat is mapped to -009B (QA); -009A (Production = Manufacturing) belongs to the
- *   future Manufacturing dashboard's own scoping of the same KPI (pdn_* columns).
+ * - qa-line-clearance-tat is -009B (QA) by default and -009A (Production) when its lineClearanceType
+ *   filter picks Production - see KPI_ID_BY_SELECTION.
  * - Every multi-figure split this app's own existing QaKpiSpecs comment ALREADY resolves with
  *   confidence is still included below (011 -> -011B "the 60-day band is the one that actually
  *   works"; 054 -> -054A "Critical at open (initial_classification)"; 056 -> -056C "the closure-aging
@@ -71,8 +75,7 @@ public class QaKpiThresholdConfigRepository {
             Map.entry("qa-internal-audit-observation-severity", "KPI-QA-047"),
             Map.entry("qa-internal-audit-on-time-actions", "KPI-QA-048"),
             // One threshold set for both cycle types - the snapshot has no cycle_type dimension.
-            Map.entry("qa-ia-response-initial-on-time", "KPI-QA-049"),
-            Map.entry("qa-ia-response-rework-on-time", "KPI-QA-049"),
+            Map.entry("qa-ia-response-on-time", "KPI-QA-049"),
             Map.entry("qa-audit-internal-external-critical-observations", "KPI-QA-050"),
             Map.entry("qa-observations-open", "KPI-QA-051"),
             Map.entry("qa-vendor-blocking-due-to-quality-issue", "KPI-QA-053"),
@@ -84,6 +87,40 @@ public class QaKpiThresholdConfigRepository {
 
             // ---- People Performance ----
             Map.entry("qa-training-completion", "KPI-QA-059"));
+
+    /** Limits the product owner fixed by hand, ignoring the snapshot: "higher is worse", alert then action. */
+    public record FixedLimits(BigDecimal alert, BigDecimal action) {
+    }
+
+    private static final Map<String, FixedLimits> FIXED_LIMITS = Map.of(
+            "qa-far-alert-event-density", new FixedLimits(BigDecimal.valueOf(1), BigDecimal.valueOf(2)),
+            "qa-recall-event-density", new FixedLimits(BigDecimal.valueOf(1), BigDecimal.valueOf(1)));
+
+    public Optional<FixedLimits> findFixedLimits(String seriesKpiId) {
+        return Optional.ofNullable(FIXED_LIMITS.get(seriesKpiId));
+    }
+
+    /** Threshold ids whose snapshot row is a band but the KPI has no upper amber range (a rate capped at 100%): shown as lower limits only. */
+    public static final Set<String> LOWER_LIMITS_ONLY = Set.of("KPI-QA-002", "KPI-QA-048");
+
+    /** Series whose threshold id depends on a card filter: filter column, then filter value -> threshold id. The
+     * SERIES_TO_KPI_ID entry is the default for when nothing is selected. */
+    private static final Map<String, Map.Entry<String, Map<String, String>>> KPI_ID_BY_SELECTION = Map.of(
+            "qa-line-clearance-tat", Map.entry("line_clearance_type", Map.of(
+                    QaKpiSpecs.LINE_CLEARANCE_QA, "KPI-QA-009B",
+                    QaKpiSpecs.LINE_CLEARANCE_PRODUCTION, "KPI-QA-009A")));
+
+    /** The threshold id for the series given what the user picked: the selection-specific one when the card has one, else the default. */
+    public Optional<String> findKpiIdForSeries(String seriesKpiId, Function<String, List<String>> selectedValues) {
+        Map.Entry<String, Map<String, String>> bySelection = KPI_ID_BY_SELECTION.get(seriesKpiId);
+        if (bySelection != null) {
+            List<String> picked = selectedValues.apply(bySelection.getKey());
+            if (picked.size() == 1 && bySelection.getValue().containsKey(picked.get(0))) {
+                return Optional.of(bySelection.getValue().get(picked.get(0)));
+            }
+        }
+        return findKpiIdForSeries(seriesKpiId);
+    }
 
     /** Series whose threshold id only fits one value of a card filter: filter column -> that value. */
     private static final Map<String, Map.Entry<String, String>> REQUIRED_SELECTION = Map.of(

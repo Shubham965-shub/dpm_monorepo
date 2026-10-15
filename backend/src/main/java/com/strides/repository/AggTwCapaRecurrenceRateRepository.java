@@ -75,7 +75,7 @@ public class AggTwCapaRecurrenceRateRepository extends AbstractAggRepository<Agg
             AggTwCapaRecurrenceRateRow first = periodRows.get(0);
             long capaCount = periodRows.stream().mapToLong(AggTwCapaRecurrenceRateRow::capaCount).sum();
             long recurringCount = periodRows.stream().mapToLong(AggTwCapaRecurrenceRateRow::recurringCount).sum();
-            BigDecimal recurrencePct = capaCount == 0 ? BigDecimal.ZERO
+            BigDecimal recurrencePct = capaCount == 0 ? null
                     : BigDecimal.valueOf(recurringCount)
                             .divide(BigDecimal.valueOf(capaCount), RECURRENCE_PCT_SCALE + 2, RoundingMode.HALF_UP)
                             .multiply(BigDecimal.valueOf(100))

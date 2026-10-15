@@ -92,7 +92,7 @@ export function SectionSummaryBar({
                 <div
                   className={cn(
                     'flex items-center justify-end gap-0.5 text-xs',
-                    isImproving ? 'text-emerald-300' : 'text-white/70',
+                    isImproving ? 'text-emerald-300' : 'text-red-300',
                   )}
                 >
                   <span>{isImproving ? '▲' : '▼'}</span>

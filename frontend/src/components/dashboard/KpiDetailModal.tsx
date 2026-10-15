@@ -2,6 +2,8 @@ import { useEffect, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import {
+  Bar,
+  BarChart,
   CartesianGrid,
   Legend,
   Line,
@@ -23,6 +25,8 @@ import { FilterPills } from '@/components/kpi/FilterPills'
 import { KpiLineTooltip } from '@/components/kpi/KpiLineTooltip'
 import { KpiInfoDropdown } from '@/components/kpi/KpiInfoDropdown'
 import { GrainToggle } from '@/components/kpi/GrainToggle'
+import { KpiAsOf, NoDataNote } from '@/components/kpi/KpiAsOf'
+import { ViewModeToggle, type ViewMode } from '@/components/kpi/ViewModeToggle'
 import { PeriodRangePicker, type DateRange } from '@/components/kpi/PeriodRangePicker'
 import { useBackdropClose } from '@/hooks/useBackdropClose'
 import { useCoachTour } from './CoachMarks'
@@ -55,6 +59,8 @@ export function KpiDetailModal({
   severity,
   grain,
   onGrainChange,
+  viewMode,
+  onViewModeChange,
   dateRange,
   onDateRangeChange,
   onClearDateRange,
@@ -75,6 +81,8 @@ export function KpiDetailModal({
   severity: Severity | null
   grain: Grain
   onGrainChange: (g: Grain) => void
+  viewMode: ViewMode
+  onViewModeChange: (mode: ViewMode) => void
   /** A manually-picked period range (see PeriodRangePicker) - shares the compact card's own pick
    * (see useCardGrain), same as grain/filters, so it survives this modal closing. null = following
    * the grain's own default trailing window. */
@@ -111,7 +119,9 @@ export function KpiDetailModal({
   const deltaPct = previousValue != null && latestValue != null ? percentChange(latestValue, previousValue) : null
   const lines = boundaryLines(thresholds)
   const valueDomain = computeValueDomain(chartData, shownSeries, lines.map((line) => line.y))
-  const zones = boundaryZones(thresholds, valueDomain)
+  // Bars start at 0 (a zoomed baseline misrepresents bar height), as on the card.
+  const barDomain: [number, number] = [Math.min(0, valueDomain[0]), valueDomain[1]]
+  const zones = boundaryZones(thresholds, viewMode === 'line' ? valueDomain : barDomain)
   // The config's own Direction column (higher_is_better / higher_is_worse / band).
   const directionLabel =
     thresholds?.direction === 'higher_is_worse' ? 'Lower the better'
@@ -154,6 +164,7 @@ export function KpiDetailModal({
                 {latestValue != null ? latestValue.toFixed(1) : '—'}
               </span>
               <span className="text-muted-foreground text-sm">{unit}</span>
+              <KpiAsOf latestPeriodStart={metrics.latestPeriodStart} staleSince={metrics.staleSince} grain={grain} className="text-xs" />
               {deltaPct != null && (
                 <span className="text-sm font-semibold" style={{ color: meta.solidHex }}>
                   {deltaPct >= 0 ? '↑' : '↓'} {Math.abs(deltaPct).toFixed(1)}% vs prev period
@@ -179,7 +190,10 @@ export function KpiDetailModal({
           KPI with several filters (e.g. Deviations' 6) would spill its pill row out past the
           modal's own edge instead of wrapping onto a second line under the others. */}
           <div className="flex max-w-xs shrink-0 flex-col items-end gap-3">
-            <GrainToggle grain={grain} onChange={onGrainChange} activeHex={meta.solidHex} size="modal" className="coach-modal-grain" />
+            <div className="flex items-center gap-2">
+              <ViewModeToggle mode={viewMode} onChange={onViewModeChange} activeHex={meta.solidHex} borderHex={meta.paleHex} />
+              <GrainToggle grain={grain} onChange={onGrainChange} activeHex={meta.solidHex} size="modal" className="coach-modal-grain" />
+            </div>
             <PeriodRangePicker
               key={grain}
               grain={grain}
@@ -210,36 +224,57 @@ export function KpiDetailModal({
           </button>
         </div>
 
+        <NoDataNote chartData={chartData} seriesKeys={shownSeries.map((s) => s.seriesKey)} grain={grain} className="px-6 pt-2 text-xs" />
+
         {/* Thresholds sit beside the chart (stacked under it on narrow screens), not below it. */}
         <div className="grid gap-4 p-6 md:grid-cols-[minmax(0,1fr)_14rem]">
           <div className="coach-modal-chart h-80 w-full rounded-lg border border-border p-4">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData} margin={{ top: 8, right: 48, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                <XAxis
-                  dataKey="periodStart"
-                  tickFormatter={(v: string) => formatPeriodTick(v, grain)}
-                  interval={evenTickInterval(chartData.length)}
-                  tick={{ fontSize: 10 }}
-                  stroke="var(--muted-foreground)"
-                />
-                <YAxis domain={valueDomain} tickFormatter={(v: number) => formatAxisTick(v, valueDomain)} tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" width={40} />
-                <Tooltip content={<KpiLineTooltip grain={grain} />} wrapperStyle={{ zIndex: TOOLTIP_Z_INDEX }} />
-                {shownSeries.length >= 2 && <Legend wrapperStyle={{ fontSize: 10 }} />}
-                {renderBoundaryOverlay(zones, lines, MODAL_OVERLAY_STYLE)}
-                {shownSeries.map((s, i) => (
-                  <Line
-                    key={s.seriesKey}
-                    type="monotone"
-                    dataKey={s.seriesKey}
-                    name={s.label}
-                    stroke={seriesColor(i)}
-                    strokeWidth={2}
-                    dot={{ r: 3 }}
-                    connectNulls
+              {viewMode === 'line' ? (
+                <LineChart data={chartData} margin={{ top: 8, right: 48, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                  <XAxis
+                    dataKey="periodStart"
+                    tickFormatter={(v: string) => formatPeriodTick(v, grain)}
+                    interval={evenTickInterval(chartData.length)}
+                    tick={{ fontSize: 10 }}
+                    stroke="var(--muted-foreground)"
                   />
-                ))}
-              </LineChart>
+                  <YAxis domain={valueDomain} tickFormatter={(v: number) => formatAxisTick(v, valueDomain)} tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" width={40} />
+                  <Tooltip filterNull={false} content={<KpiLineTooltip grain={grain} />} wrapperStyle={{ zIndex: TOOLTIP_Z_INDEX }} />
+                  {shownSeries.length >= 2 && <Legend wrapperStyle={{ fontSize: 10 }} />}
+                  {renderBoundaryOverlay(zones, lines, MODAL_OVERLAY_STYLE)}
+                  {shownSeries.map((s, i) => (
+                    <Line
+                      key={s.seriesKey}
+                      type="monotone"
+                      dataKey={s.seriesKey}
+                      name={s.label}
+                      stroke={seriesColor(i)}
+                      strokeWidth={2}
+                      dot={{ r: 3 }}
+                      />
+                  ))}
+                </LineChart>
+              ) : (
+                <BarChart data={chartData} margin={{ top: 8, right: 48, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                  <XAxis
+                    dataKey="periodStart"
+                    tickFormatter={(v: string) => formatPeriodTick(v, grain)}
+                    interval={evenTickInterval(chartData.length)}
+                    tick={{ fontSize: 10 }}
+                    stroke="var(--muted-foreground)"
+                  />
+                  <YAxis domain={barDomain} tickFormatter={(v: number) => formatAxisTick(v, barDomain)} tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" width={40} />
+                  <Tooltip filterNull={false} content={<KpiLineTooltip grain={grain} />} wrapperStyle={{ zIndex: TOOLTIP_Z_INDEX }} />
+                  {shownSeries.length >= 2 && <Legend wrapperStyle={{ fontSize: 10 }} />}
+                  {renderBoundaryOverlay(zones, lines, MODAL_OVERLAY_STYLE)}
+                  {shownSeries.map((s, i) => (
+                    <Bar key={s.seriesKey} dataKey={s.seriesKey} name={s.label} fill={seriesColor(i)} radius={[2, 2, 0, 0]} />
+                  ))}
+                </BarChart>
+              )}
             </ResponsiveContainer>
           </div>
 

@@ -31,6 +31,16 @@ public final class PeriodGaps {
         return missing;
     }
 
+    /** The period start a date falls in, aligned the way the agg tables store them. */
+    public static LocalDate periodStartOf(String grain, LocalDate date) {
+        return truncate(grain, date);
+    }
+
+    /** The start of the period after the one starting at `start`. */
+    public static LocalDate nextStart(String grain, LocalDate start) {
+        return next(grain, start);
+    }
+
     private static boolean isKnown(String grain) {
         return switch (grain) {
             case "daily", "weekly", "monthly", "quarterly", "yearly" -> true;

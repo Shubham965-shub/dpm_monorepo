@@ -48,8 +48,10 @@ function toStackedData(rows: KpiCardResponse[]): { tiers: string[]; points: Peri
   for (const row of rows) {
     const tier = extractRowCategory(row.name)
     tierSet.add(tier)
+    // A period with no value is no data, not a 0 count - it adds nothing to the shares.
+    if (row.value == null) continue
     const bucket = byPeriod.get(row.periodStart) ?? {}
-    bucket[tier] = (bucket[tier] ?? 0) + (row.value ?? 0)
+    bucket[tier] = (bucket[tier] ?? 0) + row.value
     byPeriod.set(row.periodStart, bucket)
   }
 
