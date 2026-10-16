@@ -206,13 +206,16 @@ public final class QaKpiSpecs {
             "public.agg_tw_capa_effectiveness", "site", "passing_count", "resp_dept_slice = 'All'",
             "record_count", "resp_dept_slice = 'All'", 100, "%");
 
-    // Doc: "cc_records, filter cc_approval_state" - the frontend KPI
-    // (qa-change-control-approval-internal-external-within-sla) is a single combined card for both
-    // cc_approval_type values, so only cc_approval_state is filtered, not type.
-    public static final QaKpiSpec CC_APPROVAL_WITHIN_SLA = QaKpiSpec.countWhere(
-            "agg_tw_cc_approval_within_sla", "site", "cc_records", "cc_approval_state = 'Within SLA'", "change controls");
+    // One combined card for both cc_approval_type values; the card's cc_approval_state filter (opens on
+    // Outside SLA) picks the SLA bucket, so the spec itself counts every state.
+    public static final String CC_APPROVAL_STATE_COLUMN = "cc_approval_state";
+    public static final String CC_APPROVAL_WITHIN_SLA_STATE = "Within SLA";
+    public static final String CC_APPROVAL_OUTSIDE_SLA_STATE = "Outside SLA";
 
-    // Same table as CC_APPROVAL_WITHIN_SLA; the closure level is a card filter, not part of the spec.
+    public static final QaKpiSpec CC_APPROVAL = QaKpiSpec.count(
+            "agg_tw_cc_approval_within_sla", "site", "cc_records", "change controls");
+
+    // Same table as CC_APPROVAL; the closure level is a card filter, not part of the spec.
     public static final QaKpiSpec CLOSURE_OPEN_CCS = QaKpiSpec.count(
             "agg_tw_cc_approval_within_sla", "site", "open_records", "change controls");
 

@@ -178,6 +178,43 @@ const QA_REPEAT_QUALITY_EVENT_RATE_COLUMNS: DrilldownColumn[] = [
   { key: 'isRecurring', label: 'Is Recurring' },
 ]
 
+const QA_VALID_OOS_COLUMNS: DrilldownColumn[] = [
+  { key: 'siteName', label: 'Site Name' },
+  { key: 'recordId', label: 'Record ID' },
+  { key: 'title', label: 'Title' },
+  { key: 'category', label: 'Category' },
+  { key: 'conclusion', label: 'Conclusion' },
+  { key: 'productName', label: 'Product Name' },
+  { key: 'productType', label: 'Product Type' },
+  { key: 'eventType', label: 'Event Type' },
+  { key: 'dateClosed', label: 'Date Closed', filterType: 'date' },
+]
+
+const QA_CAPA_IMPLEMENT_TIME_COLUMNS: DrilldownColumn[] = [
+  { key: 'site', label: 'Site' },
+  { key: 'recordId', label: 'Record ID' },
+  { key: 'level', label: 'Level' },
+  { key: 'title', label: 'Title' },
+  { key: 'status', label: 'Status' },
+  { key: 'respDept', label: 'Responsible Department' },
+  { key: 'dateOpened', label: 'Date Opened', filterType: 'date' },
+  { key: 'dateCompleted', label: 'Date Completed', filterType: 'date' },
+  { key: 'agingDays', label: 'Aging Days' },
+]
+
+const QA_VENDOR_BLOCKING_COLUMNS: DrilldownColumn[] = [
+  { key: 'siteName', label: 'Site Name' },
+  { key: 'blockCategory', label: 'Block Category' },
+  { key: 'vendorCode', label: 'Vendor Code' },
+  { key: 'vendorName', label: 'Vendor Name' },
+  { key: 'materialCode', label: 'Material Code' },
+  { key: 'materialName', label: 'Material Name' },
+  { key: 'materialType', label: 'Material Type' },
+  { key: 'blockReason', label: 'Block Reason' },
+  { key: 'releaseUntil', label: 'Release Until', filterType: 'date' },
+  { key: 'resetOn', label: 'Reset On', filterType: 'date' },
+]
+
 const REPEAT_HUMAN_ERROR_RATE_COLUMNS: DrilldownColumn[] = [
   { key: 'recordType', label: 'Record Type' },
   { key: 'recordId', label: 'Record ID' },
@@ -780,6 +817,14 @@ export const DRILLDOWN_CONFIG: Record<string, DrilldownConfig> = {
   'qa-internal-audit-on-time-actions': { rowSchema: genericDrilldownRowSchema, columns: QA_INTERNAL_AUDIT_ONTIME_ACTIONS_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-repeat-quality-event-rate': { rowSchema: genericDrilldownRowSchema, columns: QA_REPEAT_QUALITY_EVENT_RATE_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-training-completion': { rowSchema: genericDrilldownRowSchema, columns: TRAINING_COMPLETION_RATE_COLUMNS, drilldownAdvancedFiltering: true },
+  'qa-valid-oos-per-1000-tests': { rowSchema: genericDrilldownRowSchema, columns: QA_VALID_OOS_COLUMNS, drilldownAdvancedFiltering: true },
+  'qa-open-critical-deviations': { rowSchema: genericDrilldownRowSchema, columns: DEVIATIONS_COLUMNS, drilldownAdvancedFiltering: true },
+  'qa-equipment-error-deviations': { rowSchema: genericDrilldownRowSchema, columns: DEVIATIONS_COLUMNS, drilldownAdvancedFiltering: true },
+  'qa-procedural-error-deviations': { rowSchema: genericDrilldownRowSchema, columns: DEVIATIONS_COLUMNS, drilldownAdvancedFiltering: true },
+  'qa-capa-effectiveness-verification-pass-rate': { rowSchema: genericDrilldownRowSchema, columns: CAPA_EFFECTIVENESS_COLUMNS, drilldownAdvancedFiltering: true },
+  'qa-average-time-to-implement-capa': { rowSchema: genericDrilldownRowSchema, columns: QA_CAPA_IMPLEMENT_TIME_COLUMNS, drilldownAdvancedFiltering: true },
+  'qa-vendor-blocking-due-to-quality-issue': { rowSchema: genericDrilldownRowSchema, columns: QA_VENDOR_BLOCKING_COLUMNS, drilldownAdvancedFiltering: true },
+  'qa-capa-recurrence-rate': CAPA_AGING_STATUS_CONFIG,
   'qa-ia-response-on-time': { rowSchema: genericDrilldownRowSchema, columns: QA_IA_RESPONSE_CYCLE_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-audit-internal-external-critical-observations': { rowSchema: genericDrilldownRowSchema, columns: QA_AUDIT_CRITICAL_OBSERVATIONS_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-observations-open': { rowSchema: genericDrilldownRowSchema, columns: QA_OBSERVATIONS_OPEN_COLUMNS, drilldownAdvancedFiltering: true },

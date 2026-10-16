@@ -8,6 +8,7 @@ import com.strides.model.PeriodTotal;
 import com.strides.repository.AggTwDeviationsRepository;
 import com.strides.repository.GenericDrilldownRepository;
 import com.strides.repository.QaAggRepository;
+import com.strides.repository.DrilldownSpecs;
 import com.strides.repository.QaDrilldownSpecs;
 import com.strides.repository.QaKpiFilterColumns;
 import com.strides.repository.QaKpiSpec;
@@ -503,6 +504,27 @@ public class QaKpiService {
         return DrilldownSupport.toCsv(headers, rows);
     }
 
+    public DrilldownPage<Map<String, Object>> getValidOosPer1000TestsDrilldown(String site, LocalDate from, LocalDate to,
+            String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.VALID_OOS_RATE, site, from, to, Map.of(), q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange), page, pageSize);
+    }
+
+    public Map<String, List<String>> getValidOosPer1000TestsDrilldownColumnOptions(String site, LocalDate from, LocalDate to) {
+        return genericDrilldownService.fetchColumnOptions(DrilldownSpecs.VALID_OOS_RATE, site, from, to, Map.of());
+    }
+
+    /** CSV text for the drill-down table's Export button - see GenericDrilldownService.fetchAllForExport. */
+    public String getValidOosPer1000TestsDrilldownExport(String site, LocalDate from, LocalDate to,
+            String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange) {
+        List<Map<String, Object>> rows = genericDrilldownService.fetchAllForExport(DrilldownSpecs.VALID_OOS_RATE, site, from, to, Map.of(), q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange));
+        List<String> headers = DrilldownSpecs.VALID_OOS_RATE.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
+        return DrilldownSupport.toCsv(headers, rows);
+    }
+
     public DrilldownPage<Map<String, Object>> getQEventsClosureTimeDrilldown(String site, LocalDate from, LocalDate to,
             Map<String, Set<String>> extraFilters, String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange, int page, int pageSize) {
         return genericDrilldownService.fetch(QaDrilldownSpecs.Q_EVENTS_CLOSURE_TIME, site, from, to, extraFilters, q,
@@ -544,6 +566,160 @@ public class QaKpiService {
                 DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
                 DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange));
         List<String> headers = QaDrilldownSpecs.REPEAT_QUALITY_EVENT_RATE.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
+        return DrilldownSupport.toCsv(headers, rows);
+    }
+
+    public DrilldownPage<Map<String, Object>> getOpenCriticalDeviationsDrilldown(String site, LocalDate from, LocalDate to,
+            Map<String, Set<String>> extraFilters, String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange, int page, int pageSize) {
+        return genericDrilldownService.fetch(QaDrilldownSpecs.OPEN_CRITICAL_DEVIATIONS, site, from, to, extraFilters, q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange), page, pageSize);
+    }
+
+    public Map<String, List<String>> getOpenCriticalDeviationsDrilldownColumnOptions(String site, LocalDate from, LocalDate to,
+            Map<String, Set<String>> extraFilters) {
+        return genericDrilldownService.fetchColumnOptions(QaDrilldownSpecs.OPEN_CRITICAL_DEVIATIONS, site, from, to, extraFilters);
+    }
+
+    /** CSV text for the drill-down table's Export button - see GenericDrilldownService.fetchAllForExport. */
+    public String getOpenCriticalDeviationsDrilldownExport(String site, LocalDate from, LocalDate to,
+            Map<String, Set<String>> extraFilters, String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange) {
+        List<Map<String, Object>> rows = genericDrilldownService.fetchAllForExport(QaDrilldownSpecs.OPEN_CRITICAL_DEVIATIONS, site, from, to, extraFilters, q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange));
+        List<String> headers = QaDrilldownSpecs.OPEN_CRITICAL_DEVIATIONS.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
+        return DrilldownSupport.toCsv(headers, rows);
+    }
+
+    public DrilldownPage<Map<String, Object>> getEquipmentErrorDeviationsDrilldown(String site, LocalDate from, LocalDate to,
+            Map<String, Set<String>> extraFilters, String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange, int page, int pageSize) {
+        return genericDrilldownService.fetch(QaDrilldownSpecs.EQUIPMENT_ERROR_DEVIATIONS, site, from, to, extraFilters, q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange), page, pageSize);
+    }
+
+    public Map<String, List<String>> getEquipmentErrorDeviationsDrilldownColumnOptions(String site, LocalDate from, LocalDate to,
+            Map<String, Set<String>> extraFilters) {
+        return genericDrilldownService.fetchColumnOptions(QaDrilldownSpecs.EQUIPMENT_ERROR_DEVIATIONS, site, from, to, extraFilters);
+    }
+
+    /** CSV text for the drill-down table's Export button - see GenericDrilldownService.fetchAllForExport. */
+    public String getEquipmentErrorDeviationsDrilldownExport(String site, LocalDate from, LocalDate to,
+            Map<String, Set<String>> extraFilters, String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange) {
+        List<Map<String, Object>> rows = genericDrilldownService.fetchAllForExport(QaDrilldownSpecs.EQUIPMENT_ERROR_DEVIATIONS, site, from, to, extraFilters, q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange));
+        List<String> headers = QaDrilldownSpecs.EQUIPMENT_ERROR_DEVIATIONS.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
+        return DrilldownSupport.toCsv(headers, rows);
+    }
+
+    public DrilldownPage<Map<String, Object>> getCapaEffectivenessVerificationPassRateDrilldown(String site, LocalDate from, LocalDate to,
+            Map<String, Set<String>> extraFilters, String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.CAPA_EFFECTIVENESS, site, from, to, extraFilters, q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange), page, pageSize);
+    }
+
+    public Map<String, List<String>> getCapaEffectivenessVerificationPassRateDrilldownColumnOptions(String site, LocalDate from, LocalDate to,
+            Map<String, Set<String>> extraFilters) {
+        return genericDrilldownService.fetchColumnOptions(DrilldownSpecs.CAPA_EFFECTIVENESS, site, from, to, extraFilters);
+    }
+
+    /** CSV text for the drill-down table's Export button - see GenericDrilldownService.fetchAllForExport. */
+    public String getCapaEffectivenessVerificationPassRateDrilldownExport(String site, LocalDate from, LocalDate to,
+            Map<String, Set<String>> extraFilters, String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange) {
+        List<Map<String, Object>> rows = genericDrilldownService.fetchAllForExport(DrilldownSpecs.CAPA_EFFECTIVENESS, site, from, to, extraFilters, q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange));
+        List<String> headers = DrilldownSpecs.CAPA_EFFECTIVENESS.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
+        return DrilldownSupport.toCsv(headers, rows);
+    }
+
+    public DrilldownPage<Map<String, Object>> getProceduralErrorDeviationsDrilldown(String site, LocalDate from, LocalDate to,
+            Map<String, Set<String>> extraFilters, String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange, int page, int pageSize) {
+        return genericDrilldownService.fetch(QaDrilldownSpecs.PROCEDURAL_ERROR_DEVIATIONS, site, from, to, extraFilters, q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange), page, pageSize);
+    }
+
+    public Map<String, List<String>> getProceduralErrorDeviationsDrilldownColumnOptions(String site, LocalDate from, LocalDate to,
+            Map<String, Set<String>> extraFilters) {
+        return genericDrilldownService.fetchColumnOptions(QaDrilldownSpecs.PROCEDURAL_ERROR_DEVIATIONS, site, from, to, extraFilters);
+    }
+
+    /** CSV text for the drill-down table's Export button - see GenericDrilldownService.fetchAllForExport. */
+    public String getProceduralErrorDeviationsDrilldownExport(String site, LocalDate from, LocalDate to,
+            Map<String, Set<String>> extraFilters, String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange) {
+        List<Map<String, Object>> rows = genericDrilldownService.fetchAllForExport(QaDrilldownSpecs.PROCEDURAL_ERROR_DEVIATIONS, site, from, to, extraFilters, q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange));
+        List<String> headers = QaDrilldownSpecs.PROCEDURAL_ERROR_DEVIATIONS.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
+        return DrilldownSupport.toCsv(headers, rows);
+    }
+
+    public DrilldownPage<Map<String, Object>> getCapaImplementTimeDrilldown(String site, LocalDate from, LocalDate to,
+            Map<String, Set<String>> extraFilters, String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange, int page, int pageSize) {
+        return genericDrilldownService.fetch(QaDrilldownSpecs.CAPA_IMPLEMENT_TIME, site, from, to, extraFilters, q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange), page, pageSize);
+    }
+
+    public Map<String, List<String>> getCapaImplementTimeDrilldownColumnOptions(String site, LocalDate from, LocalDate to,
+            Map<String, Set<String>> extraFilters) {
+        return genericDrilldownService.fetchColumnOptions(QaDrilldownSpecs.CAPA_IMPLEMENT_TIME, site, from, to, extraFilters);
+    }
+
+    /** CSV text for the drill-down table's Export button - see GenericDrilldownService.fetchAllForExport. */
+    public String getCapaImplementTimeDrilldownExport(String site, LocalDate from, LocalDate to,
+            Map<String, Set<String>> extraFilters, String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange) {
+        List<Map<String, Object>> rows = genericDrilldownService.fetchAllForExport(QaDrilldownSpecs.CAPA_IMPLEMENT_TIME, site, from, to, extraFilters, q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange));
+        List<String> headers = QaDrilldownSpecs.CAPA_IMPLEMENT_TIME.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
+        return DrilldownSupport.toCsv(headers, rows);
+    }
+
+    public DrilldownPage<Map<String, Object>> getVendorBlockingQualityIssueDrilldown(String site, LocalDate from, LocalDate to,
+            Map<String, Set<String>> extraFilters, String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange, int page, int pageSize) {
+        return genericDrilldownService.fetch(QaDrilldownSpecs.VENDOR_BLOCKING_QUALITY_ISSUE, site, from, to, extraFilters, q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange), page, pageSize);
+    }
+
+    public Map<String, List<String>> getVendorBlockingQualityIssueDrilldownColumnOptions(String site, LocalDate from, LocalDate to,
+            Map<String, Set<String>> extraFilters) {
+        return genericDrilldownService.fetchColumnOptions(QaDrilldownSpecs.VENDOR_BLOCKING_QUALITY_ISSUE, site, from, to, extraFilters);
+    }
+
+    /** CSV text for the drill-down table's Export button - see GenericDrilldownService.fetchAllForExport. */
+    public String getVendorBlockingQualityIssueDrilldownExport(String site, LocalDate from, LocalDate to,
+            Map<String, Set<String>> extraFilters, String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange) {
+        List<Map<String, Object>> rows = genericDrilldownService.fetchAllForExport(QaDrilldownSpecs.VENDOR_BLOCKING_QUALITY_ISSUE, site, from, to, extraFilters, q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange));
+        List<String> headers = QaDrilldownSpecs.VENDOR_BLOCKING_QUALITY_ISSUE.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
+        return DrilldownSupport.toCsv(headers, rows);
+    }
+
+    public DrilldownPage<Map<String, Object>> getCapaRecurrenceRateDrilldown(String site, LocalDate from, LocalDate to,
+            Map<String, Set<String>> extraFilters, String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.CAPA_AGING_STATUS, site, from, to, extraFilters, q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange), page, pageSize);
+    }
+
+    public Map<String, List<String>> getCapaRecurrenceRateDrilldownColumnOptions(String site, LocalDate from, LocalDate to,
+            Map<String, Set<String>> extraFilters) {
+        return genericDrilldownService.fetchColumnOptions(DrilldownSpecs.CAPA_AGING_STATUS, site, from, to, extraFilters);
+    }
+
+    /** CSV text for the drill-down table's Export button - see GenericDrilldownService.fetchAllForExport. */
+    public String getCapaRecurrenceRateDrilldownExport(String site, LocalDate from, LocalDate to,
+            Map<String, Set<String>> extraFilters, String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange) {
+        List<Map<String, Object>> rows = genericDrilldownService.fetchAllForExport(DrilldownSpecs.CAPA_AGING_STATUS, site, from, to, extraFilters, q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange));
+        List<String> headers = DrilldownSpecs.CAPA_AGING_STATUS.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
         return DrilldownSupport.toCsv(headers, rows);
     }
 
@@ -591,20 +767,21 @@ public class QaKpiService {
     }
 
     public DrilldownPage<Map<String, Object>> getCcApprovalWithinSlaDrilldown(String site, LocalDate from, LocalDate to,
-            String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange, int page, int pageSize) {
-        return genericDrilldownService.fetch(QaDrilldownSpecs.CC_APPROVAL_WITHIN_SLA, site, from, to, Map.of(), q,
+            Map<String, Set<String>> extraFilters, String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange, int page, int pageSize) {
+        return genericDrilldownService.fetch(QaDrilldownSpecs.CC_APPROVAL_WITHIN_SLA, site, from, to, extraFilters, q,
                 DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
                 DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange), page, pageSize);
     }
 
-    public Map<String, List<String>> getCcApprovalWithinSlaDrilldownColumnOptions(String site, LocalDate from, LocalDate to) {
-        return genericDrilldownService.fetchColumnOptions(QaDrilldownSpecs.CC_APPROVAL_WITHIN_SLA, site, from, to, Map.of());
+    public Map<String, List<String>> getCcApprovalWithinSlaDrilldownColumnOptions(String site, LocalDate from, LocalDate to,
+            Map<String, Set<String>> extraFilters) {
+        return genericDrilldownService.fetchColumnOptions(QaDrilldownSpecs.CC_APPROVAL_WITHIN_SLA, site, from, to, extraFilters);
     }
 
     /** CSV text for the drill-down table's Export button - see GenericDrilldownService.fetchAllForExport. */
     public String getCcApprovalWithinSlaDrilldownExport(String site, LocalDate from, LocalDate to,
-            String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange) {
-        List<Map<String, Object>> rows = genericDrilldownService.fetchAllForExport(QaDrilldownSpecs.CC_APPROVAL_WITHIN_SLA, site, from, to, Map.of(), q,
+            Map<String, Set<String>> extraFilters, String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange) {
+        List<Map<String, Object>> rows = genericDrilldownService.fetchAllForExport(QaDrilldownSpecs.CC_APPROVAL_WITHIN_SLA, site, from, to, extraFilters, q,
                 DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
                 DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange));
         List<String> headers = QaDrilldownSpecs.CC_APPROVAL_WITHIN_SLA.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();

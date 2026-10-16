@@ -66,12 +66,20 @@ public class GenericDrilldownRepository extends AbstractAggRepository<Map<String
              * card itself hardcodes server-side rather than exposing as a user filter (e.g.
              * Calibration Compliance and PM Adherence share fact_lims_cal_pm_compliance, split only
              * by their own fixed activity_type). Unlike filterColumns, never driven by a query param. */
-            Map<String, String> fixedFilters) {
+            Map<String, String> fixedFilters,
+            /** Always-applied SQL condition for a rule equality can't express (e.g. "date_closed IS NULL"
+             * for a card that counts only still-open records). A code constant, never user input; null for none. */
+            String fixedCondition) {
 
         /** Most KPIs have no fixedFilters - see the 7-arg constructor for the one that does. */
         public TableSpec(String table, String siteColumn, String dateColumn, List<Column> selectColumns,
                 List<String> searchColumns, Map<String, String> filterColumns) {
-            this(table, siteColumn, dateColumn, selectColumns, searchColumns, filterColumns, Map.of());
+            this(table, siteColumn, dateColumn, selectColumns, searchColumns, filterColumns, Map.of(), null);
+        }
+
+        public TableSpec(String table, String siteColumn, String dateColumn, List<Column> selectColumns,
+                List<String> searchColumns, Map<String, String> filterColumns, Map<String, String> fixedFilters) {
+            this(table, siteColumn, dateColumn, selectColumns, searchColumns, filterColumns, fixedFilters, null);
         }
 
         /** sortBy must match a real, already-selected column's own jsonKey - never interpolate the
@@ -133,6 +141,9 @@ public class GenericDrilldownRepository extends AbstractAggRepository<Map<String
         for (Map.Entry<String, String> entry : spec.fixedFilters().entrySet()) {
             sql.append(" AND ").append(entry.getKey()).append(" = ?");
             params.add(entry.getValue());
+        }
+        if (spec.fixedCondition() != null) {
+            sql.append(" AND (").append(spec.fixedCondition()).append(")");
         }
         for (Map.Entry<String, String> entry : spec.filterColumns().entrySet()) {
             Set<String> values = extraFilters.getOrDefault(entry.getKey(), Set.of());

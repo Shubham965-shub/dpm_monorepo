@@ -23,17 +23,10 @@ import java.util.Map;
  * confirmed against information_schema, not guessed, though a few tables only expose an
  * integer-keyed *_key date duplicate rather than the plain column (flagged inline where so).
  *
- * 4 QaKpiSpecs KPIs have no qa.fact_* table at all (DEVIATION_AGING/OPEN_CRITICAL_DEVIATIONS,
- * EQUIPMENT_ERROR_DEVIATIONS, ANALYST_ERROR_IOOS, PROCEDURAL_ERROR_IOOS) and so have no entry
+ * 3 QaKpiSpecs KPIs have no qa.fact_* table at all (DEVIATION_AGING, ANALYST_ERROR_IOOS, PROCEDURAL_ERROR_IOOS) and so have no entry
  * here - their card value stands, but no drill-down is possible from current data.
- * qa-procedural-error-deviations (served from public.agg_tw_deviations, like instrument-error)
- * also has no entry - unlike instrument-error, no qa-schema fact table exists for it either,
- * and reusing public's own DrilldownSpecs.DEVIATIONS would need a new fixedFilters entry there -
- * left for a follow-up rather than bundled into this pass.
- * qa-vendor-blocking-due-to-quality-issue (fact_vendor_quality_block) also has no entry - that
- * table has no per-record date column at all (only release_until/reset_on, both nullable and
- * neither a logged/opened date), so it doesn't fit GenericDrilldownRepository's mandatory
- * site+date-range shape without guessing; flagged rather than forced.
+ * qa-procedural-error-deviations and qa-vendor-blocking-due-to-quality-issue have entries below that mirror the card's own
+ * source (public.fact_tw_deviations; release_until as the date, since fact_vendor_quality_block has no logged/opened date).
  */
 public final class QaDrilldownSpecs {
 
@@ -314,6 +307,67 @@ public final class QaDrilldownSpecs {
             List.of("\"user\"", "training"),
             Map.of("department", "dept_name", "training_type", "training_type"));
 
+    /** Rows the card counts: Critical at open, opened in the period, still open - from the public.* deviations
+     * fact table built for QC (no qa.* equivalent). Filter keys are the agg table's own column names. */
+    public static final TableSpec OPEN_CRITICAL_DEVIATIONS = new TableSpec(
+            DrilldownSpecs.DEVIATIONS.table(), DrilldownSpecs.DEVIATIONS.siteColumn(), DrilldownSpecs.DEVIATIONS.dateColumn(),
+            DrilldownSpecs.DEVIATIONS.selectColumns(), DrilldownSpecs.DEVIATIONS.searchColumns(),
+            Map.of("resp_dept", "resp_dept", "level", "level"),
+            Map.of("preliminary_classification", "Critical"), "date_closed IS NULL");
+
+    /** Rows the card counts: deviations whose root-cause bucket is 'By Equipment', from the public.* deviations
+     * fact table built for QC (no qa.* equivalent). */
+    public static final TableSpec EQUIPMENT_ERROR_DEVIATIONS = new TableSpec(
+            DrilldownSpecs.DEVIATIONS.table(), DrilldownSpecs.DEVIATIONS.siteColumn(), DrilldownSpecs.DEVIATIONS.dateColumn(),
+            DrilldownSpecs.DEVIATIONS.selectColumns(), DrilldownSpecs.DEVIATIONS.searchColumns(),
+            Map.of("resp_dept", "resp_dept"),
+            Map.of("root_cause_bucket", "By Equipment"));
+
+    /** Rows the card counts: deviations in the 'Procedural error' broad root-cause category, from the public.*
+     * deviations fact table built for QC (no qa.* equivalent). */
+    public static final TableSpec PROCEDURAL_ERROR_DEVIATIONS = new TableSpec(
+            DrilldownSpecs.DEVIATIONS.table(), DrilldownSpecs.DEVIATIONS.siteColumn(), DrilldownSpecs.DEVIATIONS.dateColumn(),
+            DrilldownSpecs.DEVIATIONS.selectColumns(), DrilldownSpecs.DEVIATIONS.searchColumns(),
+            Map.of(),
+            Map.of("root_cause_broad_category", "Procedural error"));
+
+    /** Completed CAPAs - the card's sum_aging_days / completed_capa_count - from the public.* CAPA fact table built
+     * for QC (no qa.* equivalent). Filter key is the agg table's own column name. */
+    public static final TableSpec CAPA_IMPLEMENT_TIME = new TableSpec(
+            DrilldownSpecs.CAPA_AGING_STATUS.table(), DrilldownSpecs.CAPA_AGING_STATUS.siteColumn(), "date_completed_ist",
+            List.of(
+                    new Column("site", "site"),
+                    new Column("record_id", "recordId"),
+                    new Column("level", "level"),
+                    new Column("title", "title"),
+                    new Column("record_status", "status"),
+                    new Column("resp_dept", "respDept"),
+                    new Column("open_date_ist", "dateOpened", ColumnKind.DATE),
+                    new Column("date_completed_ist", "dateCompleted", ColumnKind.DATE),
+                    new Column("aging", "agingDays")),
+            DrilldownSpecs.CAPA_AGING_STATUS.searchColumns(),
+            Map.of(QaKpiSpecs.CAPA_IMPLEMENT_DEPT_COLUMN, "resp_dept"),
+            Map.of(), "date_completed_ist IS NOT NULL");
+
+    /** Quality-blocked vendor/material rows. The card buckets by release_until (the table has no logged/opened date),
+     * and counts distinct vendors, so this lists more rows than the card's value. */
+    public static final TableSpec VENDOR_BLOCKING_QUALITY_ISSUE = new TableSpec(
+            "qa.fact_vendor_quality_block", "site_name", "release_until",
+            List.of(
+                    new Column("site_name", "siteName"),
+                    new Column("block_category", "blockCategory"),
+                    new Column("vendor_code", "vendorCode"),
+                    new Column("vendor_name", "vendorName"),
+                    new Column("material_code", "materialCode"),
+                    new Column("material_name", "materialName"),
+                    new Column("material_type", "materialType"),
+                    new Column("block_reason", "blockReason"),
+                    new Column("release_until", "releaseUntil", ColumnKind.DATE),
+                    new Column("reset_on", "resetOn", ColumnKind.DATE)),
+            List.of("vendor_name", "material_name", "block_reason"),
+            Map.of("block_category", "block_category"),
+            Map.of(), "is_quality_block");
+
     public static final TableSpec CAPA_APPROVAL_WITHIN_SLA = new TableSpec(
             "qa.fact_tw_capa_approval_within_sla", "site", "date_opened_key",
             List.of(
@@ -349,7 +403,7 @@ public final class QaDrilldownSpecs {
                     new Column("date_closed_key", "dateClosed", ColumnKind.DATE),
                     new Column("due_date_key", "dueDate", ColumnKind.DATE)),
             List.of("record_id", "cc_title"),
-            Map.of());
+            Map.of("cc_approval_type", "\"CC_approval_type\"", QaKpiSpecs.CC_APPROVAL_STATE_COLUMN, "\"CC_approval_state\""));
 
     // Same fact table as CC_APPROVAL_WITHIN_SLA above; the card's closure-level filter narrows it.
     public static final TableSpec CLOSURE_OPEN_CCS = new TableSpec(
@@ -371,8 +425,10 @@ public final class QaDrilldownSpecs {
             List.of("record_id", "title"),
             Map.of());
 
+    // The card buckets by overdue_date (the day a record went overdue), not date_opened - a date_opened
+    // window left recent periods empty. Closed-only matches the card's record_state filter.
     public static final TableSpec OVERDUE_QMS_RECORDS = new TableSpec(
-            "qa.fact_tw_overdue_qms_records", "site", "date_opened_key",
+            "qa.fact_tw_overdue_qms_records", "site", "overdue_date_key",
             List.of(
                     new Column("event_type", "eventType"),
                     new Column("source_table", "sourceTable"),
@@ -389,7 +445,7 @@ public final class QaDrilldownSpecs {
                     new Column("date_closed_key", "dateClosed", ColumnKind.DATE),
                     new Column("snapshot_date", "snapshotDate", ColumnKind.DATE)),
             List.of("record_id", "title"),
-            Map.of());
+            Map.of(), Map.of("record_state", "Closed"));
 
     public static final TableSpec REG_CUSTOMER_AUDIT_SUCCESS_RATE = new TableSpec(
             "qa.fact_tw_reg_customer_audit_success_rate", "site_name", "date_opened",
@@ -472,7 +528,7 @@ public final class QaDrilldownSpecs {
                     new Column("date_created_ist", "dateCreated", ColumnKind.DATE),
                     new Column("\"ExtnCtr\"", "extensionCounter")),
             List.of("record_id", "title"),
-            Map.of());
+            Map.of(), Map.of("severity", "Critical"));
 
     public static final TableSpec OBSERVATIONS_OPEN = new TableSpec(
             "qa.fact_tw_observations_open", "site", "\"date_opened_IST\"",
