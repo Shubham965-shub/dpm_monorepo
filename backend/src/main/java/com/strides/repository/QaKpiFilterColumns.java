@@ -84,7 +84,8 @@ public final class QaKpiFilterColumns {
             Map.entry("qa-self-reporting-of-quality-events", of(QaKpiSpecs.SELF_REPORTING_QUALITY_EVENTS,
                     col("respDept", "resp_dept"))),
             Map.entry("qa-change-control-approval-internal-external-within-sla",
-                    of(QaKpiSpecs.CC_APPROVAL_WITHIN_SLA, col("ccApprovalType", "cc_approval_type"))),
+                    of(QaKpiSpecs.CC_APPROVAL, col("ccApprovalType", "cc_approval_type"),
+                            col("ccApprovalState", QaKpiSpecs.CC_APPROVAL_STATE_COLUMN))),
             Map.entry("qa-closure-of-open-change-controls", of(QaKpiSpecs.CLOSURE_OPEN_CCS,
                     col("closureLevel", "closure_level"))),
             Map.entry("qa-open-new-equipment-facility-modification-ccs",
@@ -116,6 +117,8 @@ public final class QaKpiFilterColumns {
     /** Option values left out of a filter's list (the data's "no level" marker) - clearing the filter still includes them. */
     private static final Map<String, Map<String, Set<String>>> EXCLUDED_OPTIONS = Map.of(
             "qa-closure-of-open-change-controls", Map.of("closureLevel", Set.of("NA")),
+            "qa-change-control-approval-internal-external-within-sla", Map.of("ccApprovalState",
+                    Set.of("Awaiting Approval", "External Approval Pending", "Internal Approval Pending")),
             "qa-open-critical-deviations", Map.of("level", Set.of("NA")));
 
     public static Set<String> excludedOptions(String kpiId, String queryParam) {

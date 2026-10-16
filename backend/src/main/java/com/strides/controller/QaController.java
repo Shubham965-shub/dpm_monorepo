@@ -48,6 +48,14 @@ public class QaController {
     private static final String IA_RESPONSE_KPI_ID = "qa-ia-response-on-time";
     private static final String Q_EVENTS_CLOSURE_KPI_ID = "qa-q-events-closure-time";
     private static final String REPEAT_QUALITY_KPI_ID = "qa-repeat-quality-event-rate";
+    private static final String OPEN_CRITICAL_KPI_ID = "qa-open-critical-deviations";
+    private static final String EQUIPMENT_ERROR_KPI_ID = "qa-equipment-error-deviations";
+    private static final String CAPA_EFFECTIVENESS_KPI_ID = "qa-capa-effectiveness-verification-pass-rate";
+    private static final String PROCEDURAL_ERROR_KPI_ID = "qa-procedural-error-deviations";
+    private static final String CAPA_IMPLEMENT_KPI_ID = "qa-average-time-to-implement-capa";
+    private static final String VENDOR_BLOCKING_KPI_ID = "qa-vendor-blocking-due-to-quality-issue";
+    private static final String CAPA_RECURRENCE_KPI_ID = "qa-capa-recurrence-rate";
+    private static final String CC_APPROVAL_KPI_ID = "qa-change-control-approval-internal-external-within-sla";
     private static final String TRAINING_COMPLETION_KPI_ID = "qa-training-completion";
 
     @Inject
@@ -335,8 +343,7 @@ public class QaController {
     @GET
     @Path("/qa-change-control-approval-internal-external-within-sla")
     public List<KpiCardResponse> ccApprovalWithinSla(@BeanParam KpiParams.DateRange p) {
-        return fetch(QaKpiSpecs.CC_APPROVAL_WITHIN_SLA, "qa-change-control-approval-internal-external-within-sla",
-                "Change Control Approval (Internal / External) within SLA", p);
+        return fetch(QaKpiSpecs.CC_APPROVAL, CC_APPROVAL_KPI_ID, "Change Control Approval (Internal / External)", p);
     }
 
     @GET
@@ -891,6 +898,34 @@ public class QaController {
     }
 
     @GET
+    @Path("/qa-valid-oos-per-1000-tests/drilldown")
+    public DrilldownPage<Map<String, Object>> validOosPer1000TestsDrilldown(@BeanParam KpiParams.DrilldownBase p) {
+        return service.getValidOosPer1000TestsDrilldown(p.site, RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"),
+                p.q, p.sort, p.colFilter, p.colSearch, p.colRange, p.page, p.pageSize);
+    }
+
+    /** Per-column dropdown options for the drill-down table's own filter row - see
+     * GenericDrilldownRepository.findColumnOptions. */
+    @GET
+    @Path("/qa-valid-oos-per-1000-tests/drilldown/column-options")
+    public Map<String, List<String>> validOosPer1000TestsDrilldownColumnOptions(@BeanParam KpiParams.DrilldownBase p) {
+        return service.getValidOosPer1000TestsDrilldownColumnOptions(p.site,
+                RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
+    }
+
+    /** Every row matching the current filters/sort as CSV, for the drill-down table's Export button -
+     * see GenericDrilldownService.fetchAllForExport. */
+    @GET
+    @Path("/qa-valid-oos-per-1000-tests/drilldown/export")
+    @Produces("text/csv")
+    public Response validOosPer1000TestsDrilldownExport(@BeanParam KpiParams.DrilldownBase p) {
+        LocalDate from = RequiredParams.require(p.from, "from");
+        LocalDate to = RequiredParams.require(p.to, "to");
+        String csv = service.getValidOosPer1000TestsDrilldownExport(p.site, from, to, p.q, p.sort, p.colFilter, p.colSearch, p.colRange);
+        return DrilldownExport.toCsvResponse("qa-valid-oos-per-1000-tests", from, to, csv);
+    }
+
+    @GET
     @Path("/qa-q-events-closure-time/drilldown")
     public DrilldownPage<Map<String, Object>> qEventsClosureTimeDrilldown(@BeanParam KpiParams.DrilldownBase p) {
         return service.getQEventsClosureTimeDrilldown(p.site, RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"),
@@ -950,6 +985,223 @@ public class QaController {
         String csv = service.getRepeatQualityEventRateDrilldownExport(p.site, from, to,
                 selectedFilters(REPEAT_QUALITY_KPI_ID, uriInfo.getQueryParameters()), p.q, p.sort, p.colFilter, p.colSearch, p.colRange);
         return DrilldownExport.toCsvResponse(REPEAT_QUALITY_KPI_ID, from, to, csv);
+    }
+
+    @GET
+    @Path("/qa-open-critical-deviations/drilldown")
+    public DrilldownPage<Map<String, Object>> openCriticalDeviationsDrilldown(@BeanParam KpiParams.DrilldownBase p) {
+        return service.getOpenCriticalDeviationsDrilldown(p.site, RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"),
+                selectedFilters(OPEN_CRITICAL_KPI_ID, uriInfo.getQueryParameters()),
+                p.q, p.sort, p.colFilter, p.colSearch, p.colRange, p.page, p.pageSize);
+    }
+
+    /** Per-column dropdown options for the drill-down table's own filter row - see
+     * GenericDrilldownRepository.findColumnOptions. */
+    @GET
+    @Path("/qa-open-critical-deviations/drilldown/column-options")
+    public Map<String, List<String>> openCriticalDeviationsDrilldownColumnOptions(@BeanParam KpiParams.DrilldownBase p) {
+        return service.getOpenCriticalDeviationsDrilldownColumnOptions(p.site,
+                RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"),
+                selectedFilters(OPEN_CRITICAL_KPI_ID, uriInfo.getQueryParameters()));
+    }
+
+    /** Every row matching the current filters/sort as CSV, for the drill-down table's Export button -
+     * see GenericDrilldownService.fetchAllForExport. */
+    @GET
+    @Path("/qa-open-critical-deviations/drilldown/export")
+    @Produces("text/csv")
+    public Response openCriticalDeviationsDrilldownExport(@BeanParam KpiParams.DrilldownBase p) {
+        LocalDate from = RequiredParams.require(p.from, "from");
+        LocalDate to = RequiredParams.require(p.to, "to");
+        String csv = service.getOpenCriticalDeviationsDrilldownExport(p.site, from, to,
+                selectedFilters(OPEN_CRITICAL_KPI_ID, uriInfo.getQueryParameters()), p.q, p.sort, p.colFilter, p.colSearch, p.colRange);
+        return DrilldownExport.toCsvResponse(OPEN_CRITICAL_KPI_ID, from, to, csv);
+    }
+
+    @GET
+    @Path("/qa-equipment-error-deviations/drilldown")
+    public DrilldownPage<Map<String, Object>> equipmentErrorDeviationsDrilldown(@BeanParam KpiParams.DrilldownBase p) {
+        return service.getEquipmentErrorDeviationsDrilldown(p.site, RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"),
+                selectedFilters(EQUIPMENT_ERROR_KPI_ID, uriInfo.getQueryParameters()),
+                p.q, p.sort, p.colFilter, p.colSearch, p.colRange, p.page, p.pageSize);
+    }
+
+    /** Per-column dropdown options for the drill-down table's own filter row - see
+     * GenericDrilldownRepository.findColumnOptions. */
+    @GET
+    @Path("/qa-equipment-error-deviations/drilldown/column-options")
+    public Map<String, List<String>> equipmentErrorDeviationsDrilldownColumnOptions(@BeanParam KpiParams.DrilldownBase p) {
+        return service.getEquipmentErrorDeviationsDrilldownColumnOptions(p.site,
+                RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"),
+                selectedFilters(EQUIPMENT_ERROR_KPI_ID, uriInfo.getQueryParameters()));
+    }
+
+    /** Every row matching the current filters/sort as CSV, for the drill-down table's Export button -
+     * see GenericDrilldownService.fetchAllForExport. */
+    @GET
+    @Path("/qa-equipment-error-deviations/drilldown/export")
+    @Produces("text/csv")
+    public Response equipmentErrorDeviationsDrilldownExport(@BeanParam KpiParams.DrilldownBase p) {
+        LocalDate from = RequiredParams.require(p.from, "from");
+        LocalDate to = RequiredParams.require(p.to, "to");
+        String csv = service.getEquipmentErrorDeviationsDrilldownExport(p.site, from, to,
+                selectedFilters(EQUIPMENT_ERROR_KPI_ID, uriInfo.getQueryParameters()), p.q, p.sort, p.colFilter, p.colSearch, p.colRange);
+        return DrilldownExport.toCsvResponse(EQUIPMENT_ERROR_KPI_ID, from, to, csv);
+    }
+
+    @GET
+    @Path("/qa-capa-effectiveness-verification-pass-rate/drilldown")
+    public DrilldownPage<Map<String, Object>> capaEffectivenessVerificationPassRateDrilldown(@BeanParam KpiParams.DrilldownBase p) {
+        return service.getCapaEffectivenessVerificationPassRateDrilldown(p.site, RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"),
+                selectedFilters(CAPA_EFFECTIVENESS_KPI_ID, uriInfo.getQueryParameters()),
+                p.q, p.sort, p.colFilter, p.colSearch, p.colRange, p.page, p.pageSize);
+    }
+
+    /** Per-column dropdown options for the drill-down table's own filter row - see
+     * GenericDrilldownRepository.findColumnOptions. */
+    @GET
+    @Path("/qa-capa-effectiveness-verification-pass-rate/drilldown/column-options")
+    public Map<String, List<String>> capaEffectivenessVerificationPassRateDrilldownColumnOptions(@BeanParam KpiParams.DrilldownBase p) {
+        return service.getCapaEffectivenessVerificationPassRateDrilldownColumnOptions(p.site,
+                RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"),
+                selectedFilters(CAPA_EFFECTIVENESS_KPI_ID, uriInfo.getQueryParameters()));
+    }
+
+    /** Every row matching the current filters/sort as CSV, for the drill-down table's Export button -
+     * see GenericDrilldownService.fetchAllForExport. */
+    @GET
+    @Path("/qa-capa-effectiveness-verification-pass-rate/drilldown/export")
+    @Produces("text/csv")
+    public Response capaEffectivenessVerificationPassRateDrilldownExport(@BeanParam KpiParams.DrilldownBase p) {
+        LocalDate from = RequiredParams.require(p.from, "from");
+        LocalDate to = RequiredParams.require(p.to, "to");
+        String csv = service.getCapaEffectivenessVerificationPassRateDrilldownExport(p.site, from, to,
+                selectedFilters(CAPA_EFFECTIVENESS_KPI_ID, uriInfo.getQueryParameters()), p.q, p.sort, p.colFilter, p.colSearch, p.colRange);
+        return DrilldownExport.toCsvResponse(CAPA_EFFECTIVENESS_KPI_ID, from, to, csv);
+    }
+
+    @GET
+    @Path("/qa-procedural-error-deviations/drilldown")
+    public DrilldownPage<Map<String, Object>> proceduralErrorDeviationsDrilldown(@BeanParam KpiParams.DrilldownBase p) {
+        return service.getProceduralErrorDeviationsDrilldown(p.site, RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"),
+                selectedFilters(PROCEDURAL_ERROR_KPI_ID, uriInfo.getQueryParameters()),
+                p.q, p.sort, p.colFilter, p.colSearch, p.colRange, p.page, p.pageSize);
+    }
+
+    /** Per-column dropdown options for the drill-down table's own filter row - see
+     * GenericDrilldownRepository.findColumnOptions. */
+    @GET
+    @Path("/qa-procedural-error-deviations/drilldown/column-options")
+    public Map<String, List<String>> proceduralErrorDeviationsDrilldownColumnOptions(@BeanParam KpiParams.DrilldownBase p) {
+        return service.getProceduralErrorDeviationsDrilldownColumnOptions(p.site,
+                RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"),
+                selectedFilters(PROCEDURAL_ERROR_KPI_ID, uriInfo.getQueryParameters()));
+    }
+
+    /** Every row matching the current filters/sort as CSV, for the drill-down table's Export button -
+     * see GenericDrilldownService.fetchAllForExport. */
+    @GET
+    @Path("/qa-procedural-error-deviations/drilldown/export")
+    @Produces("text/csv")
+    public Response proceduralErrorDeviationsDrilldownExport(@BeanParam KpiParams.DrilldownBase p) {
+        LocalDate from = RequiredParams.require(p.from, "from");
+        LocalDate to = RequiredParams.require(p.to, "to");
+        String csv = service.getProceduralErrorDeviationsDrilldownExport(p.site, from, to,
+                selectedFilters(PROCEDURAL_ERROR_KPI_ID, uriInfo.getQueryParameters()), p.q, p.sort, p.colFilter, p.colSearch, p.colRange);
+        return DrilldownExport.toCsvResponse(PROCEDURAL_ERROR_KPI_ID, from, to, csv);
+    }
+
+    @GET
+    @Path("/qa-average-time-to-implement-capa/drilldown")
+    public DrilldownPage<Map<String, Object>> capaImplementTimeDrilldown(@BeanParam KpiParams.DrilldownBase p) {
+        return service.getCapaImplementTimeDrilldown(p.site, RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"),
+                selectedFilters(CAPA_IMPLEMENT_KPI_ID, uriInfo.getQueryParameters()),
+                p.q, p.sort, p.colFilter, p.colSearch, p.colRange, p.page, p.pageSize);
+    }
+
+    /** Per-column dropdown options for the drill-down table's own filter row - see
+     * GenericDrilldownRepository.findColumnOptions. */
+    @GET
+    @Path("/qa-average-time-to-implement-capa/drilldown/column-options")
+    public Map<String, List<String>> capaImplementTimeDrilldownColumnOptions(@BeanParam KpiParams.DrilldownBase p) {
+        return service.getCapaImplementTimeDrilldownColumnOptions(p.site,
+                RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"),
+                selectedFilters(CAPA_IMPLEMENT_KPI_ID, uriInfo.getQueryParameters()));
+    }
+
+    /** Every row matching the current filters/sort as CSV, for the drill-down table's Export button -
+     * see GenericDrilldownService.fetchAllForExport. */
+    @GET
+    @Path("/qa-average-time-to-implement-capa/drilldown/export")
+    @Produces("text/csv")
+    public Response capaImplementTimeDrilldownExport(@BeanParam KpiParams.DrilldownBase p) {
+        LocalDate from = RequiredParams.require(p.from, "from");
+        LocalDate to = RequiredParams.require(p.to, "to");
+        String csv = service.getCapaImplementTimeDrilldownExport(p.site, from, to,
+                selectedFilters(CAPA_IMPLEMENT_KPI_ID, uriInfo.getQueryParameters()), p.q, p.sort, p.colFilter, p.colSearch, p.colRange);
+        return DrilldownExport.toCsvResponse(CAPA_IMPLEMENT_KPI_ID, from, to, csv);
+    }
+
+    @GET
+    @Path("/qa-vendor-blocking-due-to-quality-issue/drilldown")
+    public DrilldownPage<Map<String, Object>> vendorBlockingQualityIssueDrilldown(@BeanParam KpiParams.DrilldownBase p) {
+        return service.getVendorBlockingQualityIssueDrilldown(p.site, RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"),
+                selectedFilters(VENDOR_BLOCKING_KPI_ID, uriInfo.getQueryParameters()),
+                p.q, p.sort, p.colFilter, p.colSearch, p.colRange, p.page, p.pageSize);
+    }
+
+    /** Per-column dropdown options for the drill-down table's own filter row - see
+     * GenericDrilldownRepository.findColumnOptions. */
+    @GET
+    @Path("/qa-vendor-blocking-due-to-quality-issue/drilldown/column-options")
+    public Map<String, List<String>> vendorBlockingQualityIssueDrilldownColumnOptions(@BeanParam KpiParams.DrilldownBase p) {
+        return service.getVendorBlockingQualityIssueDrilldownColumnOptions(p.site,
+                RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"),
+                selectedFilters(VENDOR_BLOCKING_KPI_ID, uriInfo.getQueryParameters()));
+    }
+
+    /** Every row matching the current filters/sort as CSV, for the drill-down table's Export button -
+     * see GenericDrilldownService.fetchAllForExport. */
+    @GET
+    @Path("/qa-vendor-blocking-due-to-quality-issue/drilldown/export")
+    @Produces("text/csv")
+    public Response vendorBlockingQualityIssueDrilldownExport(@BeanParam KpiParams.DrilldownBase p) {
+        LocalDate from = RequiredParams.require(p.from, "from");
+        LocalDate to = RequiredParams.require(p.to, "to");
+        String csv = service.getVendorBlockingQualityIssueDrilldownExport(p.site, from, to,
+                selectedFilters(VENDOR_BLOCKING_KPI_ID, uriInfo.getQueryParameters()), p.q, p.sort, p.colFilter, p.colSearch, p.colRange);
+        return DrilldownExport.toCsvResponse(VENDOR_BLOCKING_KPI_ID, from, to, csv);
+    }
+
+    @GET
+    @Path("/qa-capa-recurrence-rate/drilldown")
+    public DrilldownPage<Map<String, Object>> capaRecurrenceRateDrilldown(@BeanParam KpiParams.DrilldownBase p) {
+        return service.getCapaRecurrenceRateDrilldown(p.site, RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"),
+                selectedFilters(CAPA_RECURRENCE_KPI_ID, uriInfo.getQueryParameters()),
+                p.q, p.sort, p.colFilter, p.colSearch, p.colRange, p.page, p.pageSize);
+    }
+
+    /** Per-column dropdown options for the drill-down table's own filter row - see
+     * GenericDrilldownRepository.findColumnOptions. */
+    @GET
+    @Path("/qa-capa-recurrence-rate/drilldown/column-options")
+    public Map<String, List<String>> capaRecurrenceRateDrilldownColumnOptions(@BeanParam KpiParams.DrilldownBase p) {
+        return service.getCapaRecurrenceRateDrilldownColumnOptions(p.site,
+                RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"),
+                selectedFilters(CAPA_RECURRENCE_KPI_ID, uriInfo.getQueryParameters()));
+    }
+
+    /** Every row matching the current filters/sort as CSV, for the drill-down table's Export button -
+     * see GenericDrilldownService.fetchAllForExport. */
+    @GET
+    @Path("/qa-capa-recurrence-rate/drilldown/export")
+    @Produces("text/csv")
+    public Response capaRecurrenceRateDrilldownExport(@BeanParam KpiParams.DrilldownBase p) {
+        LocalDate from = RequiredParams.require(p.from, "from");
+        LocalDate to = RequiredParams.require(p.to, "to");
+        String csv = service.getCapaRecurrenceRateDrilldownExport(p.site, from, to,
+                selectedFilters(CAPA_RECURRENCE_KPI_ID, uriInfo.getQueryParameters()), p.q, p.sort, p.colFilter, p.colSearch, p.colRange);
+        return DrilldownExport.toCsvResponse(CAPA_RECURRENCE_KPI_ID, from, to, csv);
     }
 
     @GET
@@ -1015,6 +1267,7 @@ public class QaController {
     @Path("/qa-change-control-approval-internal-external-within-sla/drilldown")
     public DrilldownPage<Map<String, Object>> ccApprovalWithinSlaDrilldown(@BeanParam KpiParams.DrilldownBase p) {
         return service.getCcApprovalWithinSlaDrilldown(p.site, RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"),
+                selectedFilters(CC_APPROVAL_KPI_ID, uriInfo.getQueryParameters()),
                 p.q, p.sort, p.colFilter, p.colSearch, p.colRange, p.page, p.pageSize);
     }
 
@@ -1024,7 +1277,8 @@ public class QaController {
     @Path("/qa-change-control-approval-internal-external-within-sla/drilldown/column-options")
     public Map<String, List<String>> ccApprovalWithinSlaDrilldownColumnOptions(@BeanParam KpiParams.DrilldownBase p) {
         return service.getCcApprovalWithinSlaDrilldownColumnOptions(p.site,
-                RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
+                RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"),
+                selectedFilters(CC_APPROVAL_KPI_ID, uriInfo.getQueryParameters()));
     }
 
     /** Every row matching the current filters/sort as CSV, for the drill-down table's Export button -
@@ -1035,8 +1289,9 @@ public class QaController {
     public Response ccApprovalWithinSlaDrilldownExport(@BeanParam KpiParams.DrilldownBase p) {
         LocalDate from = RequiredParams.require(p.from, "from");
         LocalDate to = RequiredParams.require(p.to, "to");
-        String csv = service.getCcApprovalWithinSlaDrilldownExport(p.site, from, to, p.q, p.sort, p.colFilter, p.colSearch, p.colRange);
-        return DrilldownExport.toCsvResponse("qa-change-control-approval-internal-external-within-sla", from, to, csv);
+        String csv = service.getCcApprovalWithinSlaDrilldownExport(p.site, from, to,
+                selectedFilters(CC_APPROVAL_KPI_ID, uriInfo.getQueryParameters()), p.q, p.sort, p.colFilter, p.colSearch, p.colRange);
+        return DrilldownExport.toCsvResponse(CC_APPROVAL_KPI_ID, from, to, csv);
     }
 
     @GET

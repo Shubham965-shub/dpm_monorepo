@@ -14,7 +14,7 @@ export const QA_KPI_DEFAULT_GRAIN: Partial<Record<string, Partial<Record<KpiVisi
   'qa-batch-reject': { supervisor: 'weekly', leadership: 'weekly', cxo: 'monthly', clusterHead: 'monthly' },
   'qa-semi-finished-goods-release-delays': { supervisor: 'daily', leadership: 'weekly' },
   'qa-batches-with-error-on-incoming-inspection': { supervisor: 'weekly', leadership: 'weekly' },
-  'qa-in-process-cv-sample-qa-approval-pending': { supervisor: 'daily', leadership: 'weekly' },
+  'qa-in-process-cv-sample-qa-approval-pending': { supervisor: 'daily', leadership: 'daily', cxo: 'daily', clusterHead: 'daily' },
   'qa-cqa-adherence-for-in-process-parameters': { supervisor: 'daily', leadership: 'weekly' },
   'qa-line-clearance-tat': { supervisor: 'daily', leadership: 'weekly', cxo: 'monthly' },
   'qa-receipt-back-of-all-issued-bmrbprs': { supervisor: 'weekly', leadership: 'weekly' },

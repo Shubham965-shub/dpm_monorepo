@@ -44,7 +44,6 @@ public class QaKpiThresholdConfigRepository {
             Map.entry("qa-semi-finished-goods-release-delays", "KPI-QA-003"),
             Map.entry("qa-batches-with-error-on-incoming-inspection", "KPI-QA-004"),
             Map.entry("qa-qa-sampling-on-time", "KPI-QA-006"),
-            Map.entry("qa-in-process-cv-sample-qa-approval-pending", "KPI-QA-007"),
             Map.entry("qa-cqa-adherence-for-in-process-parameters", "KPI-QA-008"),
             Map.entry("qa-line-clearance-tat", "KPI-QA-009B"),
             Map.entry("qa-receipt-back-of-all-issued-bmrbprs", "KPI-QA-010"),
@@ -124,7 +123,10 @@ public class QaKpiThresholdConfigRepository {
 
     /** Series whose threshold id only fits one value of a card filter: filter column -> that value. */
     private static final Map<String, Map.Entry<String, String>> REQUIRED_SELECTION = Map.of(
-            "qa-closure-of-open-change-controls", Map.entry("closure_level", "L5"));
+            "qa-closure-of-open-change-controls", Map.entry("closure_level", "L5"),
+            // Within SLA has no limits (Ankur's "Threshold Removal"); Outside SLA, the default, keeps KPI-QA-041's.
+            "qa-change-control-approval-internal-external-within-sla",
+            Map.entry(QaKpiSpecs.CC_APPROVAL_STATE_COLUMN, QaKpiSpecs.CC_APPROVAL_OUTSIDE_SLA_STATE));
 
     /** Filter column and value the card must be filtered to for its threshold to apply, if any. */
     public Optional<Map.Entry<String, String>> findRequiredSelection(String seriesKpiId) {
