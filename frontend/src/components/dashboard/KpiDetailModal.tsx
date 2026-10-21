@@ -5,6 +5,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Cell,
   Legend,
   Line,
   LineChart,
@@ -23,6 +24,7 @@ import type { ExtraFilterState } from '@/components/kpi/ExtraFilterControl'
 import type { ExtraParams, GlobalKpiFilters } from '@/hooks/useKpiData'
 import { FilterPills } from '@/components/kpi/FilterPills'
 import { KpiLineTooltip } from '@/components/kpi/KpiLineTooltip'
+import { ageShadeOpacity } from '@/lib/ageShade'
 import { KpiInfoDropdown } from '@/components/kpi/KpiInfoDropdown'
 import { GrainToggle } from '@/components/kpi/GrainToggle'
 import { KpiAsOf, NoDataNote } from '@/components/kpi/KpiAsOf'
@@ -30,7 +32,7 @@ import { ViewModeToggle, type ViewMode } from '@/components/kpi/ViewModeToggle'
 import { PeriodRangePicker, type DateRange } from '@/components/kpi/PeriodRangePicker'
 import { useBackdropClose } from '@/hooks/useBackdropClose'
 import { useCoachTour } from './CoachMarks'
-import { SEVERITY_META, boundaryHex, boundaryLines, boundaryZones, severityMeta, type Severity } from './types'
+import { ALERT_LIMIT_HEX, SEVERITY_META, boundaryHex, boundaryLines, boundaryZones, severityMeta, type Severity } from './types'
 import { renderBoundaryOverlay } from './boundaryOverlay'
 import { KpiDrilldownTable } from './KpiDrilldownTable'
 
@@ -241,7 +243,7 @@ export function KpiDetailModal({
                     stroke="var(--muted-foreground)"
                   />
                   <YAxis domain={valueDomain} tickFormatter={(v: number) => formatAxisTick(v, valueDomain)} tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" width={40} />
-                  <Tooltip filterNull={false} content={<KpiLineTooltip grain={grain} />} wrapperStyle={{ zIndex: TOOLTIP_Z_INDEX }} />
+                  <Tooltip filterNull={false} content={<KpiLineTooltip grain={grain} rows={chartData} />} wrapperStyle={{ zIndex: TOOLTIP_Z_INDEX }} />
                   {shownSeries.length >= 2 && <Legend wrapperStyle={{ fontSize: 10 }} />}
                   {renderBoundaryOverlay(zones, lines, MODAL_OVERLAY_STYLE)}
                   {shownSeries.map((s, i) => (
@@ -267,11 +269,15 @@ export function KpiDetailModal({
                     stroke="var(--muted-foreground)"
                   />
                   <YAxis domain={barDomain} tickFormatter={(v: number) => formatAxisTick(v, barDomain)} tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" width={40} />
-                  <Tooltip filterNull={false} content={<KpiLineTooltip grain={grain} />} wrapperStyle={{ zIndex: TOOLTIP_Z_INDEX }} />
+                  <Tooltip filterNull={false} content={<KpiLineTooltip grain={grain} rows={chartData} />} wrapperStyle={{ zIndex: TOOLTIP_Z_INDEX }} />
                   {shownSeries.length >= 2 && <Legend wrapperStyle={{ fontSize: 10 }} />}
                   {renderBoundaryOverlay(zones, lines, MODAL_OVERLAY_STYLE)}
                   {shownSeries.map((s, i) => (
-                    <Bar key={s.seriesKey} dataKey={s.seriesKey} name={s.label} fill={seriesColor(i)} radius={[2, 2, 0, 0]} />
+                    <Bar key={s.seriesKey} dataKey={s.seriesKey} name={s.label} fill={seriesColor(i)} radius={[2, 2, 0, 0]}>
+                  {kpi.barAgeShading && chartData.map((row) => (
+                    <Cell key={String(row.periodStart)} fill={ALERT_LIMIT_HEX} fillOpacity={ageShadeOpacity(String(row.periodStart), String(chartData[0].periodStart))} />
+                  ))}
+                </Bar>
                   ))}
                 </BarChart>
               )}

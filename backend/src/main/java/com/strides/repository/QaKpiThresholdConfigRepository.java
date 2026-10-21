@@ -48,6 +48,7 @@ public class QaKpiThresholdConfigRepository {
             Map.entry("qa-line-clearance-tat", "KPI-QA-009B"),
             Map.entry("qa-receipt-back-of-all-issued-bmrbprs", "KPI-QA-010"),
             Map.entry("qa-undispensed-bmrbpr-beyond-3060-days-from-issuance", "KPI-QA-011A"),
+            Map.entry("qa-undispensed-bmrbpr-beyond-60-days-from-issuance", "KPI-QA-011B"),
             Map.entry("qa-success-rate-of-validation-batches", "KPI-QA-012"),
 
             // ---- Quality Event & Investigation Management ----
@@ -68,6 +69,7 @@ public class QaKpiThresholdConfigRepository {
             Map.entry("qa-change-control-approval-internal-external-within-sla", "KPI-QA-041"),
             Map.entry("qa-closure-of-open-change-controls", "KPI-QA-042B"),
             Map.entry("qa-overdue-qms-records", "KPI-QA-045"),
+            Map.entry("qa-overdue-investigation-crossing-30-days", "KPI-QA-033"),
 
             // ---- Compliance, Audit & Regulatory ----
             Map.entry("qa-reg-customer-audit-success-rate", "KPI-QA-046"),
@@ -93,7 +95,7 @@ public class QaKpiThresholdConfigRepository {
 
     private static final Map<String, FixedLimits> FIXED_LIMITS = Map.of(
             "qa-far-alert-event-density", new FixedLimits(BigDecimal.valueOf(1), BigDecimal.valueOf(2)),
-            "qa-recall-event-density", new FixedLimits(BigDecimal.valueOf(1), BigDecimal.valueOf(1)));
+            "qa-recall-event-density", new FixedLimits(BigDecimal.ZERO, BigDecimal.ZERO));
 
     public Optional<FixedLimits> findFixedLimits(String seriesKpiId) {
         return Optional.ofNullable(FIXED_LIMITS.get(seriesKpiId));

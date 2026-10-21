@@ -54,6 +54,8 @@ public class QaController {
     private static final String PROCEDURAL_ERROR_KPI_ID = "qa-procedural-error-deviations";
     private static final String CAPA_IMPLEMENT_KPI_ID = "qa-average-time-to-implement-capa";
     private static final String VENDOR_BLOCKING_KPI_ID = "qa-vendor-blocking-due-to-quality-issue";
+    private static final String OVERDUE_INVESTIGATIONS_KPI_ID = "qa-overdue-investigation-crossing-30-days";
+    private static final String CLOSED_CRITICAL_KPI_ID = "qa-closed-critical-deviations";
     private static final String CAPA_RECURRENCE_KPI_ID = "qa-capa-recurrence-rate";
     private static final String CC_APPROVAL_KPI_ID = "qa-change-control-approval-internal-external-within-sla";
     private static final String TRAINING_COMPLETION_KPI_ID = "qa-training-completion";
@@ -160,9 +162,16 @@ public class QaController {
 
     @GET
     @Path("/qa-undispensed-bmrbpr-beyond-3060-days-from-issuance")
+    public List<KpiCardResponse> undispensedBmrBprBeyond30Days(@BeanParam KpiParams.DateRange p) {
+        return fetch(QaKpiSpecs.UNDISPENSED_BMR_BPR_BEYOND_30_DAYS, "qa-undispensed-bmrbpr-beyond-3060-days-from-issuance",
+                "Undispensed BMR/BPR Beyond 30 Days from Issuance", p);
+    }
+
+    @GET
+    @Path("/qa-undispensed-bmrbpr-beyond-60-days-from-issuance")
     public List<KpiCardResponse> undispensedBmrBprBeyond60Days(@BeanParam KpiParams.DateRange p) {
-        return fetch(QaKpiSpecs.UNDISPENSED_BMR_BPR_BEYOND_60_DAYS, "qa-undispensed-bmrbpr-beyond-3060-days-from-issuance",
-                "Undispensed BMR/BPR Beyond 30/60 Days from Issuance", p);
+        return fetch(QaKpiSpecs.UNDISPENSED_BMR_BPR_BEYOND_60_DAYS, "qa-undispensed-bmrbpr-beyond-60-days-from-issuance",
+                "Undispensed BMR/BPR Beyond 60 Days from Issuance", p);
     }
 
     @GET
@@ -194,9 +203,16 @@ public class QaController {
 
     @GET
     @Path("/qa-plan-vs-actual-pm-calibration-engineering")
-    public List<KpiCardResponse> planVsActualPmCalibration(@BeanParam KpiParams.DateRange p) {
-        return fetch(QaKpiSpecs.PLAN_VS_ACTUAL_PM_CALIBRATION_ENGINEERING, "qa-plan-vs-actual-pm-calibration-engineering",
-                "Plan vs Actual - PM & Calibration (Engineering)", p);
+    public List<KpiCardResponse> planVsActualPm(@BeanParam KpiParams.DateRange p) {
+        return fetch(QaKpiSpecs.PLAN_VS_ACTUAL_PM_ENGINEERING, "qa-plan-vs-actual-pm-calibration-engineering",
+                "Plan vs Actual - PM (Engineering)", p);
+    }
+
+    @GET
+    @Path("/qa-plan-vs-actual-calibration-engineering")
+    public List<KpiCardResponse> planVsActualCalibration(@BeanParam KpiParams.DateRange p) {
+        return fetch(QaKpiSpecs.PLAN_VS_ACTUAL_CALIBRATION_ENGINEERING, "qa-plan-vs-actual-calibration-engineering",
+                "Plan vs Actual - Calibration (Engineering)", p);
     }
 
     @GET
@@ -239,6 +255,12 @@ public class QaController {
     }
 
     @GET
+    @Path("/qa-closed-critical-deviations")
+    public List<KpiCardResponse> closedCriticalDeviations(@BeanParam KpiParams.DateRange p) {
+        return fetch(QaKpiSpecs.CLOSED_CRITICAL_DEVIATIONS, "qa-closed-critical-deviations", "Closed Critical Deviations", p);
+    }
+
+    @GET
     @Path("/qa-repeat-quality-event-rate")
     public List<KpiCardResponse> repeatQualityEventRate(@BeanParam KpiParams.DateRange p) {
         return fetch(QaKpiSpecs.REPEAT_QUALITY_EVENT_RATE, "qa-repeat-quality-event-rate", "Repeat Quality Event Rate", p);
@@ -253,15 +275,13 @@ public class QaController {
     @GET
     @Path("/qa-instrument-error-deviations")
     public List<KpiCardResponse> instrumentErrorDeviations(@BeanParam KpiParams.DateRange p) {
-        return service.fetchInstrumentErrorDeviations("qa-instrument-error-deviations", "Instrument Error Deviations",
-                p.site, RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
+        return fetch(QaKpiSpecs.INSTRUMENT_ERROR_DEVIATIONS, "qa-instrument-error-deviations", "Instrument Error Deviations", p);
     }
 
     @GET
     @Path("/qa-procedural-error-deviations")
     public List<KpiCardResponse> proceduralErrorDeviations(@BeanParam KpiParams.DateRange p) {
-        return service.fetchProceduralErrorDeviations("qa-procedural-error-deviations", "Procedural Error Deviations",
-                p.site, RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
+        return fetch(QaKpiSpecs.PROCEDURAL_ERROR_DEVIATIONS, "qa-procedural-error-deviations", "Procedural Error Deviations", p);
     }
 
     @GET
@@ -302,9 +322,22 @@ public class QaController {
     }
 
     @GET
+    @Path("/qa-overdue-investigation-crossing-30-days")
+    public List<KpiCardResponse> overdueInvestigations(@BeanParam KpiParams.DateRange p) {
+        return fetch(QaKpiSpecs.OVERDUE_INVESTIGATIONS, OVERDUE_INVESTIGATIONS_KPI_ID, "Overdue Investigations", p);
+    }
+
+    @GET
     @Path("/qa-valid-oos-per-1000-tests")
     public List<KpiCardResponse> validOosPer1000Tests(@BeanParam KpiParams.DateRange p) {
-        return fetch(QaKpiSpecs.VALID_OOS_PER_1000_TESTS, "qa-valid-oos-per-1000-tests", "Valid OOS per 1000 Tests", p);
+        String kpiId = "qa-valid-oos-per-1000-tests";
+        Map<String, Set<String>> picked = selectedFilters(kpiId, uriInfo.getQueryParameters());
+        Map<String, String> fixed = picked.containsKey(QaKpiSpecs.VALID_OOS_PRODUCT_TYPE_COLUMN)
+                ? Map.of()
+                : Map.of(QaKpiSpecs.VALID_OOS_PRODUCT_TYPE_COLUMN, QaKpiSpecs.VALID_OOS_PRODUCT_TYPE_ALL);
+        return service.fetch(QaKpiSpecs.VALID_OOS_PER_1000_TESTS, kpiId, "Valid OOS per 1000 Tests", p.site,
+                RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"),
+                fixed, picked);
     }
 
     @GET
@@ -619,8 +652,8 @@ public class QaController {
 
     @GET
     @Path("/qa-undispensed-bmrbpr-beyond-3060-days-from-issuance/drilldown")
-    public DrilldownPage<Map<String, Object>> undispensedBmrBprBeyond60DaysDrilldown(@BeanParam KpiParams.DrilldownBase p) {
-        return service.getUndispensedBmrBprBeyond60DaysDrilldown(p.site, RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"),
+    public DrilldownPage<Map<String, Object>> undispensedBmrBprBeyond30DaysDrilldown(@BeanParam KpiParams.DrilldownBase p) {
+        return service.getUndispensedBmrBprBeyond30DaysDrilldown(p.site, RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"),
                 p.q, p.sort, p.colFilter, p.colSearch, p.colRange, p.page, p.pageSize);
     }
 
@@ -628,8 +661,8 @@ public class QaController {
      * GenericDrilldownRepository.findColumnOptions. */
     @GET
     @Path("/qa-undispensed-bmrbpr-beyond-3060-days-from-issuance/drilldown/column-options")
-    public Map<String, List<String>> undispensedBmrBprBeyond60DaysDrilldownColumnOptions(@BeanParam KpiParams.DrilldownBase p) {
-        return service.getUndispensedBmrBprBeyond60DaysDrilldownColumnOptions(p.site,
+    public Map<String, List<String>> undispensedBmrBprBeyond30DaysDrilldownColumnOptions(@BeanParam KpiParams.DrilldownBase p) {
+        return service.getUndispensedBmrBprBeyond30DaysDrilldownColumnOptions(p.site,
                 RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
     }
 
@@ -638,11 +671,39 @@ public class QaController {
     @GET
     @Path("/qa-undispensed-bmrbpr-beyond-3060-days-from-issuance/drilldown/export")
     @Produces("text/csv")
+    public Response undispensedBmrBprBeyond30DaysDrilldownExport(@BeanParam KpiParams.DrilldownBase p) {
+        LocalDate from = RequiredParams.require(p.from, "from");
+        LocalDate to = RequiredParams.require(p.to, "to");
+        String csv = service.getUndispensedBmrBprBeyond30DaysDrilldownExport(p.site, from, to, p.q, p.sort, p.colFilter, p.colSearch, p.colRange);
+        return DrilldownExport.toCsvResponse("qa-undispensed-bmrbpr-beyond-3060-days-from-issuance", from, to, csv);
+    }
+
+    @GET
+    @Path("/qa-undispensed-bmrbpr-beyond-60-days-from-issuance/drilldown")
+    public DrilldownPage<Map<String, Object>> undispensedBmrBprBeyond60DaysDrilldown(@BeanParam KpiParams.DrilldownBase p) {
+        return service.getUndispensedBmrBprBeyond60DaysDrilldown(p.site, RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"),
+                p.q, p.sort, p.colFilter, p.colSearch, p.colRange, p.page, p.pageSize);
+    }
+
+    /** Per-column dropdown options for the drill-down table's own filter row - see
+     * GenericDrilldownRepository.findColumnOptions. */
+    @GET
+    @Path("/qa-undispensed-bmrbpr-beyond-60-days-from-issuance/drilldown/column-options")
+    public Map<String, List<String>> undispensedBmrBprBeyond60DaysDrilldownColumnOptions(@BeanParam KpiParams.DrilldownBase p) {
+        return service.getUndispensedBmrBprBeyond60DaysDrilldownColumnOptions(p.site,
+                RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
+    }
+
+    /** Every row matching the current filters/sort as CSV, for the drill-down table's Export button -
+     * see GenericDrilldownService.fetchAllForExport. */
+    @GET
+    @Path("/qa-undispensed-bmrbpr-beyond-60-days-from-issuance/drilldown/export")
+    @Produces("text/csv")
     public Response undispensedBmrBprBeyond60DaysDrilldownExport(@BeanParam KpiParams.DrilldownBase p) {
         LocalDate from = RequiredParams.require(p.from, "from");
         LocalDate to = RequiredParams.require(p.to, "to");
         String csv = service.getUndispensedBmrBprBeyond60DaysDrilldownExport(p.site, from, to, p.q, p.sort, p.colFilter, p.colSearch, p.colRange);
-        return DrilldownExport.toCsvResponse("qa-undispensed-bmrbpr-beyond-3060-days-from-issuance", from, to, csv);
+        return DrilldownExport.toCsvResponse("qa-undispensed-bmrbpr-beyond-60-days-from-issuance", from, to, csv);
     }
 
     @GET
@@ -759,8 +820,8 @@ public class QaController {
 
     @GET
     @Path("/qa-plan-vs-actual-pm-calibration-engineering/drilldown")
-    public DrilldownPage<Map<String, Object>> planVsActualPmCalibrationDrilldown(@BeanParam KpiParams.DrilldownBase p) {
-        return service.getPlanVsActualPmCalibrationDrilldown(p.site, RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"),
+    public DrilldownPage<Map<String, Object>> planVsActualPmDrilldown(@BeanParam KpiParams.DrilldownBase p) {
+        return service.getPlanVsActualPmDrilldown(p.site, RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"),
                 p.q, p.sort, p.colFilter, p.colSearch, p.colRange, p.page, p.pageSize);
     }
 
@@ -768,8 +829,8 @@ public class QaController {
      * GenericDrilldownRepository.findColumnOptions. */
     @GET
     @Path("/qa-plan-vs-actual-pm-calibration-engineering/drilldown/column-options")
-    public Map<String, List<String>> planVsActualPmCalibrationDrilldownColumnOptions(@BeanParam KpiParams.DrilldownBase p) {
-        return service.getPlanVsActualPmCalibrationDrilldownColumnOptions(p.site,
+    public Map<String, List<String>> planVsActualPmDrilldownColumnOptions(@BeanParam KpiParams.DrilldownBase p) {
+        return service.getPlanVsActualPmDrilldownColumnOptions(p.site,
                 RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
     }
 
@@ -778,11 +839,39 @@ public class QaController {
     @GET
     @Path("/qa-plan-vs-actual-pm-calibration-engineering/drilldown/export")
     @Produces("text/csv")
-    public Response planVsActualPmCalibrationDrilldownExport(@BeanParam KpiParams.DrilldownBase p) {
+    public Response planVsActualPmDrilldownExport(@BeanParam KpiParams.DrilldownBase p) {
         LocalDate from = RequiredParams.require(p.from, "from");
         LocalDate to = RequiredParams.require(p.to, "to");
-        String csv = service.getPlanVsActualPmCalibrationDrilldownExport(p.site, from, to, p.q, p.sort, p.colFilter, p.colSearch, p.colRange);
+        String csv = service.getPlanVsActualPmDrilldownExport(p.site, from, to, p.q, p.sort, p.colFilter, p.colSearch, p.colRange);
         return DrilldownExport.toCsvResponse("qa-plan-vs-actual-pm-calibration-engineering", from, to, csv);
+    }
+
+    @GET
+    @Path("/qa-plan-vs-actual-calibration-engineering/drilldown")
+    public DrilldownPage<Map<String, Object>> planVsActualCalibrationDrilldown(@BeanParam KpiParams.DrilldownBase p) {
+        return service.getPlanVsActualCalibrationDrilldown(p.site, RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"),
+                p.q, p.sort, p.colFilter, p.colSearch, p.colRange, p.page, p.pageSize);
+    }
+
+    /** Per-column dropdown options for the drill-down table's own filter row - see
+     * GenericDrilldownRepository.findColumnOptions. */
+    @GET
+    @Path("/qa-plan-vs-actual-calibration-engineering/drilldown/column-options")
+    public Map<String, List<String>> planVsActualCalibrationDrilldownColumnOptions(@BeanParam KpiParams.DrilldownBase p) {
+        return service.getPlanVsActualCalibrationDrilldownColumnOptions(p.site,
+                RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
+    }
+
+    /** Every row matching the current filters/sort as CSV, for the drill-down table's Export button -
+     * see GenericDrilldownService.fetchAllForExport. */
+    @GET
+    @Path("/qa-plan-vs-actual-calibration-engineering/drilldown/export")
+    @Produces("text/csv")
+    public Response planVsActualCalibrationDrilldownExport(@BeanParam KpiParams.DrilldownBase p) {
+        LocalDate from = RequiredParams.require(p.from, "from");
+        LocalDate to = RequiredParams.require(p.to, "to");
+        String csv = service.getPlanVsActualCalibrationDrilldownExport(p.site, from, to, p.q, p.sort, p.colFilter, p.colSearch, p.colRange);
+        return DrilldownExport.toCsvResponse("qa-plan-vs-actual-calibration-engineering", from, to, csv);
     }
 
     @GET
@@ -1019,6 +1108,37 @@ public class QaController {
     }
 
     @GET
+    @Path("/qa-closed-critical-deviations/drilldown")
+    public DrilldownPage<Map<String, Object>> closedCriticalDeviationsDrilldown(@BeanParam KpiParams.DrilldownBase p) {
+        return service.getClosedCriticalDeviationsDrilldown(p.site, RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"),
+                selectedFilters(CLOSED_CRITICAL_KPI_ID, uriInfo.getQueryParameters()),
+                p.q, p.sort, p.colFilter, p.colSearch, p.colRange, p.page, p.pageSize);
+    }
+
+    /** Per-column dropdown options for the drill-down table's own filter row - see
+     * GenericDrilldownRepository.findColumnOptions. */
+    @GET
+    @Path("/qa-closed-critical-deviations/drilldown/column-options")
+    public Map<String, List<String>> closedCriticalDeviationsDrilldownColumnOptions(@BeanParam KpiParams.DrilldownBase p) {
+        return service.getClosedCriticalDeviationsDrilldownColumnOptions(p.site,
+                RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"),
+                selectedFilters(CLOSED_CRITICAL_KPI_ID, uriInfo.getQueryParameters()));
+    }
+
+    /** Every row matching the current filters/sort as CSV, for the drill-down table's Export button -
+     * see GenericDrilldownService.fetchAllForExport. */
+    @GET
+    @Path("/qa-closed-critical-deviations/drilldown/export")
+    @Produces("text/csv")
+    public Response closedCriticalDeviationsDrilldownExport(@BeanParam KpiParams.DrilldownBase p) {
+        LocalDate from = RequiredParams.require(p.from, "from");
+        LocalDate to = RequiredParams.require(p.to, "to");
+        String csv = service.getClosedCriticalDeviationsDrilldownExport(p.site, from, to,
+                selectedFilters(CLOSED_CRITICAL_KPI_ID, uriInfo.getQueryParameters()), p.q, p.sort, p.colFilter, p.colSearch, p.colRange);
+        return DrilldownExport.toCsvResponse(CLOSED_CRITICAL_KPI_ID, from, to, csv);
+    }
+
+    @GET
     @Path("/qa-equipment-error-deviations/drilldown")
     public DrilldownPage<Map<String, Object>> equipmentErrorDeviationsDrilldown(@BeanParam KpiParams.DrilldownBase p) {
         return service.getEquipmentErrorDeviationsDrilldown(p.site, RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"),
@@ -1047,6 +1167,37 @@ public class QaController {
         String csv = service.getEquipmentErrorDeviationsDrilldownExport(p.site, from, to,
                 selectedFilters(EQUIPMENT_ERROR_KPI_ID, uriInfo.getQueryParameters()), p.q, p.sort, p.colFilter, p.colSearch, p.colRange);
         return DrilldownExport.toCsvResponse(EQUIPMENT_ERROR_KPI_ID, from, to, csv);
+    }
+
+    @GET
+    @Path("/qa-overdue-investigation-crossing-30-days/drilldown")
+    public DrilldownPage<Map<String, Object>> overdueInvestigationsDrilldown(@BeanParam KpiParams.DrilldownBase p) {
+        return service.getOverdueInvestigationsDrilldown(p.site, RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"),
+                selectedFilters(OVERDUE_INVESTIGATIONS_KPI_ID, uriInfo.getQueryParameters()),
+                p.q, p.sort, p.colFilter, p.colSearch, p.colRange, p.page, p.pageSize);
+    }
+
+    /** Per-column dropdown options for the drill-down table's own filter row - see
+     * GenericDrilldownRepository.findColumnOptions. */
+    @GET
+    @Path("/qa-overdue-investigation-crossing-30-days/drilldown/column-options")
+    public Map<String, List<String>> overdueInvestigationsDrilldownColumnOptions(@BeanParam KpiParams.DrilldownBase p) {
+        return service.getOverdueInvestigationsDrilldownColumnOptions(p.site,
+                RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"),
+                selectedFilters(OVERDUE_INVESTIGATIONS_KPI_ID, uriInfo.getQueryParameters()));
+    }
+
+    /** Every row matching the current filters/sort as CSV, for the drill-down table's Export button -
+     * see GenericDrilldownService.fetchAllForExport. */
+    @GET
+    @Path("/qa-overdue-investigation-crossing-30-days/drilldown/export")
+    @Produces("text/csv")
+    public Response overdueInvestigationsDrilldownExport(@BeanParam KpiParams.DrilldownBase p) {
+        LocalDate from = RequiredParams.require(p.from, "from");
+        LocalDate to = RequiredParams.require(p.to, "to");
+        String csv = service.getOverdueInvestigationsDrilldownExport(p.site, from, to,
+                selectedFilters(OVERDUE_INVESTIGATIONS_KPI_ID, uriInfo.getQueryParameters()), p.q, p.sort, p.colFilter, p.colSearch, p.colRange);
+        return DrilldownExport.toCsvResponse(OVERDUE_INVESTIGATIONS_KPI_ID, from, to, csv);
     }
 
     @GET

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ArrowDown, ArrowUp, Maximize2 } from 'lucide-react'
-import { Bar, BarChart, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Bar, BarChart, Cell, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { cn } from '@/lib/utils'
 import { CATEGORICAL_PALETTE, MAX_SERIES, TOOLTIP_Z_INDEX } from '@/lib/chartPalette'
 import type { ExtraFilter, KpiDomain } from '@/lib/kpiConfig'
@@ -22,7 +22,8 @@ import type { ExtraFilterState } from '@/components/kpi/ExtraFilterControl'
 import { FiltersPopoverButton } from '@/components/kpi/FiltersPopoverButton'
 import { GrainToggle } from '@/components/kpi/GrainToggle'
 import { KpiLineTooltip } from '@/components/kpi/KpiLineTooltip'
-import { boundaryHex, boundaryLines, boundaryZones, kpiAnchorId, severityMeta, type Severity } from './types'
+import { ageShadeOpacity } from '@/lib/ageShade'
+import { ALERT_LIMIT_HEX, boundaryHex, boundaryLines, boundaryZones, kpiAnchorId, severityMeta, type Severity } from './types'
 import { renderBoundaryOverlay } from './boundaryOverlay'
 import { DemoDataBadge } from './DemoDataBadge'
 import { KpiDetailModal } from './KpiDetailModal'
@@ -309,7 +310,7 @@ export function SeverityKpiCard({
               actual period. hide keeps the axis itself invisible, matching the mini card's look. */}
               <XAxis dataKey="periodStart" hide />
               <YAxis hide domain={valueDomain} />
-              <Tooltip filterNull={false} content={<KpiLineTooltip grain={grain} />} wrapperStyle={{ zIndex: TOOLTIP_Z_INDEX }} />
+              <Tooltip filterNull={false} content={<KpiLineTooltip grain={grain} rows={chartData} />} wrapperStyle={{ zIndex: TOOLTIP_Z_INDEX }} />
               {shownSeries.length >= 2 && <Legend wrapperStyle={{ fontSize: 8 }} />}
               {renderBoundaryOverlay(zones, lines, CARD_OVERLAY_STYLE)}
               {shownSeries.map((s, i) => (
@@ -328,12 +329,16 @@ export function SeverityKpiCard({
             <BarChart data={chartData} margin={{ top: 2, right: 2, left: 2, bottom: 2 }}>
               <XAxis dataKey="periodStart" hide />
               <YAxis hide domain={barDomain} />
-              <Tooltip filterNull={false} content={<KpiLineTooltip grain={grain} />} wrapperStyle={{ zIndex: TOOLTIP_Z_INDEX }} />
+              <Tooltip filterNull={false} content={<KpiLineTooltip grain={grain} rows={chartData} />} wrapperStyle={{ zIndex: TOOLTIP_Z_INDEX }} />
 
               {shownSeries.length >= 2 && <Legend wrapperStyle={{ fontSize: 8 }} />}
               {renderBoundaryOverlay(zones, lines, CARD_OVERLAY_STYLE)}
               {shownSeries.map((s, i) => (
-                <Bar key={s.seriesKey} dataKey={s.seriesKey} name={s.label} fill={seriesColor(i)} radius={[2, 2, 0, 0]} />
+                <Bar key={s.seriesKey} dataKey={s.seriesKey} name={s.label} fill={seriesColor(i)} radius={[2, 2, 0, 0]}>
+                  {result.kpi.barAgeShading && chartData.map((row) => (
+                    <Cell key={String(row.periodStart)} fill={ALERT_LIMIT_HEX} fillOpacity={ageShadeOpacity(String(row.periodStart), String(chartData[0].periodStart))} />
+                  ))}
+                </Bar>
               ))}
             </BarChart>
           )}

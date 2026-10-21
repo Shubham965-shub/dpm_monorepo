@@ -3,9 +3,7 @@ package com.strides.service;
 import com.strides.dto.DrilldownPage;
 import com.strides.dto.DrilldownSupport;
 import com.strides.dto.KpiCardResponse;
-import com.strides.model.PeriodSum;
 import com.strides.model.PeriodTotal;
-import com.strides.repository.AggTwDeviationsRepository;
 import com.strides.repository.GenericDrilldownRepository;
 import com.strides.repository.QaAggRepository;
 import com.strides.repository.DrilldownSpecs;
@@ -41,9 +39,6 @@ public class QaKpiService {
 
     @Inject
     QaAggRepository repository;
-
-    @Inject
-    AggTwDeviationsRepository deviationsRepository;
 
     @Inject
     GenericDrilldownService genericDrilldownService;
@@ -142,28 +137,6 @@ public class QaKpiService {
                             .filter(value -> !excluded.contains(value)).toList());
         }
         return options;
-    }
-
-    /**
-     * Instrument error deviations has no qa.agg_tw_instrument_error_deviations table live (confirmed
-     * against information_schema - only 41 of the handover doc's ~42 qa tables actually exist), so
-     * this reads the doc's own fallback instead: public.agg_tw_deviations filtered to
-     * root_cause_bucket = 'By Instrument', via the same repository QC's own Deviations KPI already
-     * uses (reuse, not a new one-off query path).
-     */
-    public List<KpiCardResponse> fetchInstrumentErrorDeviations(String kpiId, String name, String site, String grain,
-            LocalDate from, LocalDate to) {
-        List<PeriodSum> sums = deviationsRepository.findTotals(site, Set.of("By Instrument"), Set.of(), Set.of(),
-                Set.of(), Set.of(), Set.of(), grain, from, to);
-        return PeriodCombiner.fromSums(sums, kpiId, name, "deviations", grain, from, to);
-    }
-
-    /** Doc: "Procedural error deviations" - served from public.agg_tw_deviations with its own
-     * dedup (see AggTwDeviationsRepository.findProceduralErrorDeviationTotals). */
-    public List<KpiCardResponse> fetchProceduralErrorDeviations(String kpiId, String name, String site, String grain,
-            LocalDate from, LocalDate to) {
-        List<PeriodSum> sums = deviationsRepository.findProceduralErrorDeviationTotals(site, grain, from, to);
-        return PeriodCombiner.fromSums(sums, kpiId, name, "deviations", grain, from, to);
     }
 
     // ---- Record-level drill-down for the KPIs with a real qa.fact_* table ----
@@ -294,6 +267,27 @@ public class QaKpiService {
         return DrilldownSupport.toCsv(headers, rows);
     }
 
+    public DrilldownPage<Map<String, Object>> getUndispensedBmrBprBeyond30DaysDrilldown(String site, LocalDate from, LocalDate to,
+            String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange, int page, int pageSize) {
+        return genericDrilldownService.fetch(QaDrilldownSpecs.UNDISPENSED_BMR_BPR_BEYOND_30_DAYS, site, from, to, Map.of(), q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange), page, pageSize);
+    }
+
+    public Map<String, List<String>> getUndispensedBmrBprBeyond30DaysDrilldownColumnOptions(String site, LocalDate from, LocalDate to) {
+        return genericDrilldownService.fetchColumnOptions(QaDrilldownSpecs.UNDISPENSED_BMR_BPR_BEYOND_30_DAYS, site, from, to, Map.of());
+    }
+
+    /** CSV text for the drill-down table's Export button - see GenericDrilldownService.fetchAllForExport. */
+    public String getUndispensedBmrBprBeyond30DaysDrilldownExport(String site, LocalDate from, LocalDate to,
+            String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange) {
+        List<Map<String, Object>> rows = genericDrilldownService.fetchAllForExport(QaDrilldownSpecs.UNDISPENSED_BMR_BPR_BEYOND_30_DAYS, site, from, to, Map.of(), q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange));
+        List<String> headers = QaDrilldownSpecs.UNDISPENSED_BMR_BPR_BEYOND_30_DAYS.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
+        return DrilldownSupport.toCsv(headers, rows);
+    }
+
     public DrilldownPage<Map<String, Object>> getUndispensedBmrBprBeyond60DaysDrilldown(String site, LocalDate from, LocalDate to,
             String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange, int page, int pageSize) {
         return genericDrilldownService.fetch(QaDrilldownSpecs.UNDISPENSED_BMR_BPR_BEYOND_60_DAYS, site, from, to, Map.of(), q,
@@ -399,24 +393,45 @@ public class QaKpiService {
         return DrilldownSupport.toCsv(headers, rows);
     }
 
-    public DrilldownPage<Map<String, Object>> getPlanVsActualPmCalibrationDrilldown(String site, LocalDate from, LocalDate to,
+    public DrilldownPage<Map<String, Object>> getPlanVsActualPmDrilldown(String site, LocalDate from, LocalDate to,
             String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange, int page, int pageSize) {
-        return genericDrilldownService.fetch(QaDrilldownSpecs.PM_CALIBRATION_PLAN_VS_ACTUAL, site, from, to, Map.of(), q,
+        return genericDrilldownService.fetch(QaDrilldownSpecs.PM_PLAN_VS_ACTUAL, site, from, to, Map.of(), q,
                 DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
                 DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange), page, pageSize);
     }
 
-    public Map<String, List<String>> getPlanVsActualPmCalibrationDrilldownColumnOptions(String site, LocalDate from, LocalDate to) {
-        return genericDrilldownService.fetchColumnOptions(QaDrilldownSpecs.PM_CALIBRATION_PLAN_VS_ACTUAL, site, from, to, Map.of());
+    public Map<String, List<String>> getPlanVsActualPmDrilldownColumnOptions(String site, LocalDate from, LocalDate to) {
+        return genericDrilldownService.fetchColumnOptions(QaDrilldownSpecs.PM_PLAN_VS_ACTUAL, site, from, to, Map.of());
     }
 
     /** CSV text for the drill-down table's Export button - see GenericDrilldownService.fetchAllForExport. */
-    public String getPlanVsActualPmCalibrationDrilldownExport(String site, LocalDate from, LocalDate to,
+    public String getPlanVsActualPmDrilldownExport(String site, LocalDate from, LocalDate to,
             String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange) {
-        List<Map<String, Object>> rows = genericDrilldownService.fetchAllForExport(QaDrilldownSpecs.PM_CALIBRATION_PLAN_VS_ACTUAL, site, from, to, Map.of(), q,
+        List<Map<String, Object>> rows = genericDrilldownService.fetchAllForExport(QaDrilldownSpecs.PM_PLAN_VS_ACTUAL, site, from, to, Map.of(), q,
                 DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
                 DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange));
-        List<String> headers = QaDrilldownSpecs.PM_CALIBRATION_PLAN_VS_ACTUAL.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
+        List<String> headers = QaDrilldownSpecs.PM_PLAN_VS_ACTUAL.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
+        return DrilldownSupport.toCsv(headers, rows);
+    }
+
+    public DrilldownPage<Map<String, Object>> getPlanVsActualCalibrationDrilldown(String site, LocalDate from, LocalDate to,
+            String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange, int page, int pageSize) {
+        return genericDrilldownService.fetch(QaDrilldownSpecs.CALIBRATION_PLAN_VS_ACTUAL, site, from, to, Map.of(), q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange), page, pageSize);
+    }
+
+    public Map<String, List<String>> getPlanVsActualCalibrationDrilldownColumnOptions(String site, LocalDate from, LocalDate to) {
+        return genericDrilldownService.fetchColumnOptions(QaDrilldownSpecs.CALIBRATION_PLAN_VS_ACTUAL, site, from, to, Map.of());
+    }
+
+    /** CSV text for the drill-down table's Export button - see GenericDrilldownService.fetchAllForExport. */
+    public String getPlanVsActualCalibrationDrilldownExport(String site, LocalDate from, LocalDate to,
+            String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange) {
+        List<Map<String, Object>> rows = genericDrilldownService.fetchAllForExport(QaDrilldownSpecs.CALIBRATION_PLAN_VS_ACTUAL, site, from, to, Map.of(), q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange));
+        List<String> headers = QaDrilldownSpecs.CALIBRATION_PLAN_VS_ACTUAL.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
         return DrilldownSupport.toCsv(headers, rows);
     }
 
@@ -591,6 +606,28 @@ public class QaKpiService {
         return DrilldownSupport.toCsv(headers, rows);
     }
 
+    public DrilldownPage<Map<String, Object>> getClosedCriticalDeviationsDrilldown(String site, LocalDate from, LocalDate to,
+            Map<String, Set<String>> extraFilters, String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange, int page, int pageSize) {
+        return genericDrilldownService.fetch(QaDrilldownSpecs.CLOSED_CRITICAL_DEVIATIONS, site, from, to, extraFilters, q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange), page, pageSize);
+    }
+
+    public Map<String, List<String>> getClosedCriticalDeviationsDrilldownColumnOptions(String site, LocalDate from, LocalDate to,
+            Map<String, Set<String>> extraFilters) {
+        return genericDrilldownService.fetchColumnOptions(QaDrilldownSpecs.CLOSED_CRITICAL_DEVIATIONS, site, from, to, extraFilters);
+    }
+
+    /** CSV text for the drill-down table's Export button - see GenericDrilldownService.fetchAllForExport. */
+    public String getClosedCriticalDeviationsDrilldownExport(String site, LocalDate from, LocalDate to,
+            Map<String, Set<String>> extraFilters, String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange) {
+        List<Map<String, Object>> rows = genericDrilldownService.fetchAllForExport(QaDrilldownSpecs.CLOSED_CRITICAL_DEVIATIONS, site, from, to, extraFilters, q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange));
+        List<String> headers = QaDrilldownSpecs.CLOSED_CRITICAL_DEVIATIONS.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
+        return DrilldownSupport.toCsv(headers, rows);
+    }
+
     public DrilldownPage<Map<String, Object>> getEquipmentErrorDeviationsDrilldown(String site, LocalDate from, LocalDate to,
             Map<String, Set<String>> extraFilters, String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange, int page, int pageSize) {
         return genericDrilldownService.fetch(QaDrilldownSpecs.EQUIPMENT_ERROR_DEVIATIONS, site, from, to, extraFilters, q,
@@ -610,6 +647,28 @@ public class QaKpiService {
                 DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
                 DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange));
         List<String> headers = QaDrilldownSpecs.EQUIPMENT_ERROR_DEVIATIONS.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
+        return DrilldownSupport.toCsv(headers, rows);
+    }
+
+    public DrilldownPage<Map<String, Object>> getOverdueInvestigationsDrilldown(String site, LocalDate from, LocalDate to,
+            Map<String, Set<String>> extraFilters, String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange, int page, int pageSize) {
+        return genericDrilldownService.fetch(QaDrilldownSpecs.OVERDUE_INVESTIGATIONS, site, from, to, extraFilters, q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange), page, pageSize);
+    }
+
+    public Map<String, List<String>> getOverdueInvestigationsDrilldownColumnOptions(String site, LocalDate from, LocalDate to,
+            Map<String, Set<String>> extraFilters) {
+        return genericDrilldownService.fetchColumnOptions(QaDrilldownSpecs.OVERDUE_INVESTIGATIONS, site, from, to, extraFilters);
+    }
+
+    /** CSV text for the drill-down table's Export button - see GenericDrilldownService.fetchAllForExport. */
+    public String getOverdueInvestigationsDrilldownExport(String site, LocalDate from, LocalDate to,
+            Map<String, Set<String>> extraFilters, String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange) {
+        List<Map<String, Object>> rows = genericDrilldownService.fetchAllForExport(QaDrilldownSpecs.OVERDUE_INVESTIGATIONS, site, from, to, extraFilters, q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange));
+        List<String> headers = QaDrilldownSpecs.OVERDUE_INVESTIGATIONS.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
         return DrilldownSupport.toCsv(headers, rows);
     }
 

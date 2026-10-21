@@ -15,6 +15,20 @@ function parseBreakdown(raw: unknown): [string, number][] | null {
   return Object.entries(JSON.parse(raw) as Record<string, number>)
 }
 
+type ChartRow = Record<string, unknown>
+
+/** First and last period of the unbroken run of empty periods containing `label`, or null for a lone empty period. */
+function noDataRun(rows: readonly ChartRow[], label: string, keys: string[]): [string, string] | null {
+  const isEmpty = (row: ChartRow) => keys.every((key) => row[key] == null)
+  const at = rows.findIndex((row) => row.periodStart === label)
+  if (at < 0 || !isEmpty(rows[at])) return null
+  let first = at
+  let last = at
+  while (first > 0 && isEmpty(rows[first - 1])) first--
+  while (last < rows.length - 1 && isEmpty(rows[last + 1])) last++
+  return first === last ? null : [String(rows[first].periodStart), String(rows[last].periodStart)]
+}
+
 /**
  * Shared per-period line/bar tooltip content - shows the hovered period as a full date (see
  * formatPeriodLabel, richer than the axis tick's terse form) and, for any series carrying a
@@ -28,20 +42,26 @@ export function KpiLineTooltip({
   payload,
   label,
   grain,
+  rows,
 }: {
   active?: boolean
   payload?: readonly TooltipPayloadEntry[]
   label?: string | number
   grain: Grain
+  /** The chart's rows - lets an empty period report the whole stretch of empty periods around it as one range. */
+  rows?: readonly ChartRow[]
 }) {
   if (!active || !payload || payload.length === 0 || label == null) return null
   const periodLabel = formatPeriodLabel(String(label), grain)
   const noDataLabel = formatNoDataPeriod(String(label), grain)
   // An empty period has no value to report - never read as a 0 (see backend PeriodCombiner).
   if (payload.every((entry) => entry.value == null)) {
+    const run = rows ? noDataRun(rows, String(label), payload.map((entry) => String(entry.dataKey ?? ''))) : null
     return (
       <div className="rounded-md border border-border bg-card p-2 text-[11px] shadow-md">
-        <span className="text-muted-foreground">No data for {noDataLabel}</span>
+        <span className="text-muted-foreground">
+          {run ? `No data from ${formatNoDataPeriod(run[0], grain)} to ${formatNoDataPeriod(run[1], grain)}` : `No data for ${noDataLabel}`}
+        </span>
       </div>
     )
   }
