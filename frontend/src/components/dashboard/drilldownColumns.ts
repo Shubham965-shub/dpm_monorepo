@@ -498,6 +498,8 @@ const QA_BATCH_REJECT_COLUMNS: DrilldownColumn[] = [
 const QA_BATCHES_ERROR_INCOMING_INSPECTION_COLUMNS: DrilldownColumn[] = [
   { key: 'inspectionLot', label: 'Inspection Lot' },
   { key: 'batch', label: 'Batch' },
+  { key: 'materialCode', label: 'Material Code' },
+  { key: 'material', label: 'Material' },
   { key: 'udCode', label: 'UD Code' },
   { key: 'dateOpened', label: 'Date Opened', filterType: 'date' },
   { key: 'sourceSystem', label: 'Source System' },
@@ -544,15 +546,6 @@ const QA_DEVIATIONS_SHOPFLOOR_COLUMNS: DrilldownColumn[] = [
   { key: 'respDept', label: 'Resp Dept' },
   { key: 'status', label: 'Status' },
   { key: 'openDate', label: 'Open Date', filterType: 'date' },
-]
-
-const QA_INSTRUMENT_ERROR_DEVIATIONS_COLUMNS: DrilldownColumn[] = [
-  { key: 'recordId', label: 'Record ID' },
-  { key: 'title', label: 'Title' },
-  { key: 'status', label: 'Status' },
-  { key: 'causalFactorSub', label: 'Causal Factor Sub' },
-  { key: 'dateOpened', label: 'Date Opened', filterType: 'date' },
-  { key: 'dateClosed', label: 'Date Closed', filterType: 'date' },
 ]
 
 const QA_SELF_REPORTING_QUALITY_EVENTS_COLUMNS: DrilldownColumn[] = [
@@ -798,14 +791,16 @@ export const DRILLDOWN_CONFIG: Record<string, DrilldownConfig> = {
   'qa-line-clearance-tat': { rowSchema: genericDrilldownRowSchema, columns: QA_LINE_CLEARANCE_TAT_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-receipt-back-of-all-issued-bmrbprs': { rowSchema: genericDrilldownRowSchema, columns: QA_RECEIPT_BACK_BMR_BPR_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-undispensed-bmrbpr-beyond-3060-days-from-issuance': { rowSchema: genericDrilldownRowSchema, columns: QA_UNDISPENSED_BMR_BPR_COLUMNS, drilldownAdvancedFiltering: true },
+  'qa-undispensed-bmrbpr-beyond-60-days-from-issuance': { rowSchema: genericDrilldownRowSchema, columns: QA_UNDISPENSED_BMR_BPR_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-success-rate-of-validation-batches': { rowSchema: genericDrilldownRowSchema, columns: QA_SUCCESS_RATE_VALIDATION_BATCHES_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-batch-reject': { rowSchema: genericDrilldownRowSchema, columns: QA_BATCH_REJECT_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-batches-with-error-on-incoming-inspection': { rowSchema: genericDrilldownRowSchema, columns: QA_BATCHES_ERROR_INCOMING_INSPECTION_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-semi-finished-goods-release-delays': { rowSchema: genericDrilldownRowSchema, columns: QA_SFG_RELEASE_DELAYS_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-plan-vs-actual-pm-calibration-engineering': { rowSchema: genericDrilldownRowSchema, columns: QA_PM_CALIBRATION_PLAN_VS_ACTUAL_COLUMNS, drilldownAdvancedFiltering: true },
+  'qa-plan-vs-actual-calibration-engineering': { rowSchema: genericDrilldownRowSchema, columns: QA_PM_CALIBRATION_PLAN_VS_ACTUAL_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-right-first-time-rft': { rowSchema: genericDrilldownRowSchema, columns: QA_RIGHT_FIRST_TIME_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-deviations-per-1000-batches-shopfloor': { rowSchema: genericDrilldownRowSchema, columns: QA_DEVIATIONS_SHOPFLOOR_COLUMNS, drilldownAdvancedFiltering: true },
-  'qa-instrument-error-deviations': { rowSchema: genericDrilldownRowSchema, columns: QA_INSTRUMENT_ERROR_DEVIATIONS_COLUMNS, drilldownAdvancedFiltering: true },
+  'qa-instrument-error-deviations': { rowSchema: genericDrilldownRowSchema, columns: DEVIATIONS_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-self-reporting-of-quality-events': { rowSchema: genericDrilldownRowSchema, columns: QA_SELF_REPORTING_QUALITY_EVENTS_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-q-events-closure-time': { rowSchema: genericDrilldownRowSchema, columns: QA_Q_EVENTS_CLOSURE_TIME_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-capa-approval-within-sla-no-extension': { rowSchema: genericDrilldownRowSchema, columns: QA_CAPA_APPROVAL_WITHIN_SLA_COLUMNS, drilldownAdvancedFiltering: true },
@@ -819,7 +814,9 @@ export const DRILLDOWN_CONFIG: Record<string, DrilldownConfig> = {
   'qa-training-completion': { rowSchema: genericDrilldownRowSchema, columns: TRAINING_COMPLETION_RATE_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-valid-oos-per-1000-tests': { rowSchema: genericDrilldownRowSchema, columns: QA_VALID_OOS_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-open-critical-deviations': { rowSchema: genericDrilldownRowSchema, columns: DEVIATIONS_COLUMNS, drilldownAdvancedFiltering: true },
+  'qa-closed-critical-deviations': { rowSchema: genericDrilldownRowSchema, columns: DEVIATIONS_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-equipment-error-deviations': { rowSchema: genericDrilldownRowSchema, columns: DEVIATIONS_COLUMNS, drilldownAdvancedFiltering: true },
+  'qa-overdue-investigation-crossing-30-days': { rowSchema: genericDrilldownRowSchema, columns: RCI_BEYOND_TIMELINE_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-procedural-error-deviations': { rowSchema: genericDrilldownRowSchema, columns: DEVIATIONS_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-capa-effectiveness-verification-pass-rate': { rowSchema: genericDrilldownRowSchema, columns: CAPA_EFFECTIVENESS_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-average-time-to-implement-capa': { rowSchema: genericDrilldownRowSchema, columns: QA_CAPA_IMPLEMENT_TIME_COLUMNS, drilldownAdvancedFiltering: true },

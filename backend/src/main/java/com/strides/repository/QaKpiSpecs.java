@@ -19,22 +19,11 @@ package com.strides.repository;
  * - deviations-per-1000-batches-human: agg_tw_human_error_rate looked like a match by name, but its
  *   own denominator is test_count, not a batch count - it's the real source for "Human Error Index"
  *   (a different, not-yet-added KPI from the same fact-table sheet), not this one.
- * - overdue-investigation-crossing-30-days: agg_tw_rci_beyond_timeline has only overdue_count, no
- *   total-investigations column - there's no way to turn that into the real percentage this KPI's
- *   own name promises, so showing a raw count mislabeled "%" would be actively wrong, not just
- *   approximate. Left mock per explicit product decision (2026-10-12) rather than relabeling the card.
  *
  * closure-of-open-change-controls: one card with a closure-level filter (L1-L5), defaulting to L5.
  * The hand-off doc's only limit (KPI-QA-042B) is for L5, so limits apply to the L5 selection alone
  * (see QaKpiThresholdConfigRepository.requiredSelection). cc_approval_type (Internal/External) is a
  * true partition on this table (no "All" row - confirmed live), so the spec sums both automatically.
- *
- * instrument-error-deviations: the doc's own catalogue lists qa.agg_tw_instrument_error_deviations,
- * but that table does NOT exist live (confirmed) - only 41 of the doc's ~42 qa tables actually
- * exist. Per the doc's own "Known issues" section, the fallback read is public.agg_tw_deviations
- * with root_cause_bucket = 'By Instrument' (anchored on open_date_ist) - that KPI is wired directly
- * in QaController instead of through this registry, since AggTwDeviationsRepository's own dedup
- * logic (see findProceduralErrorDeviationTotals) doesn't apply to a single-bucket filter like this one.
  */
 public final class QaKpiSpecs {
 
@@ -73,11 +62,16 @@ public final class QaKpiSpecs {
             "agg_bmr_bpr_receipt_back", "site", "received_back_records", "issued_records", 100, "%");
 
     // Undispensed beyond 30 days (threshold KPI-QA-011A): the fact never produces a 'Beyond 30 Days'
-    // band, so "beyond 30" is the 'Within 60 days' + 'Beyond 60 days' bands together. Exact case -
-    // the DAX matched case-insensitively, Postgres does not.
-    public static final QaKpiSpec UNDISPENSED_BMR_BPR_BEYOND_60_DAYS = QaKpiSpec.ratioNumeratorWhere(
+    // band, so "beyond 30" is the 'Within 60 days' + 'Beyond 60 days' bands together; beyond 60 days
+    // (KPI-QA-011B) is the 'Beyond 60 days' band alone. Exact case - the DAX matched case-insensitively,
+    // Postgres does not.
+    public static final QaKpiSpec UNDISPENSED_BMR_BPR_BEYOND_30_DAYS = QaKpiSpec.ratioNumeratorWhere(
             "agg_bmr_bpr_receipt_back", "site", "issued_records",
             "duration_band IN ('Within 60 days', 'Beyond 60 days')", "all_records", 100, "%");
+
+    public static final QaKpiSpec UNDISPENSED_BMR_BPR_BEYOND_60_DAYS = QaKpiSpec.ratioNumeratorWhere(
+            "agg_bmr_bpr_receipt_back", "site", "issued_records",
+            "duration_band = 'Beyond 60 days'", "all_records", 100, "%");
 
     public static final QaKpiSpec SUCCESS_RATE_VALIDATION_BATCHES = QaKpiSpec.ratioNumeratorWhere(
             "agg_sap_success_rate_of_validation_batches", "site_name", "ud_batches", "ud_code_slice = 'A0'", "total_batches", 100, "%");
@@ -93,12 +87,19 @@ public final class QaKpiSpecs {
             "agg_sap_pct_batches_with_error_on_incoming_inspection", "site", "decided_batches", "ud_code_slice = 'R'",
             "inspection_lot_count", 100, "%");
 
+    // On-time share: 'On Time' batches over every status's batches (the drill-down's total rows).
     public static final QaKpiSpec SFG_RELEASE_DELAYS = QaKpiSpec.ratioNumeratorWhere(
-            "agg_sap_consolidated_sfg_release_delays", "site_name", "batch_count", "status = 'Delayed'", "released_batches", 100, "%");
+            "agg_sap_consolidated_sfg_release_delays", "site_name", "batch_count", "status = 'On Time'", "batch_count", 100, "%");
 
-    public static final QaKpiSpec PM_CALIBRATION_PLAN_VS_ACTUAL = QaKpiSpec.countWhere(
+    // PM03 = preventive maintenance orders, PM05 = calibration orders (inferred from the order descriptions
+    // in the fact table - PM05 rows say "calibration", PM03 rows never do).
+    public static final QaKpiSpec PM_PLAN_VS_ACTUAL = QaKpiSpec.countWhere(
             "agg_sap_consolidated_pm_calibration_plan_vs_actual", "site_name", "order_count",
-            "order_type IN ('PM03', 'PM05')", "orders");
+            "order_type = 'PM03'", "orders");
+
+    public static final QaKpiSpec CALIBRATION_PLAN_VS_ACTUAL = QaKpiSpec.countWhere(
+            "agg_sap_consolidated_pm_calibration_plan_vs_actual", "site_name", "order_count",
+            "order_type = 'PM05'", "orders");
 
     public static final QaKpiSpec VENDOR_QUALITY_BLOCK = QaKpiSpec.count(
             "agg_vendor_quality_block", "site_name", "quality_blocked_vendors", "vendors");
@@ -137,6 +138,20 @@ public final class QaKpiSpecs {
     public static final QaKpiSpec OPEN_CRITICAL_DEVIATIONS = QaKpiSpec.countWhere(
             "agg_tw_deviations_aging", "site", "open_count", "initial_classification = 'Critical'", "deviations");
 
+    public static final QaKpiSpec PROCEDURAL_ERROR_DEVIATIONS = QaKpiSpec.count(
+            "agg_tw_procedural_error_deviations", "site", "dev_count", "deviations");
+
+    public static final QaKpiSpec INSTRUMENT_ERROR_DEVIATIONS = QaKpiSpec.count(
+            "agg_tw_instrument_error_deviations", "site", "deviation_count", "deviations");
+
+    public static final QaKpiSpec OVERDUE_INVESTIGATIONS = QaKpiSpec.count(
+            "agg_tw_overdue_investigations", "site", "overdue_count", "investigations");
+
+    // Critical at close (final_classification) - the closed-side counterpart of OPEN_CRITICAL_DEVIATIONS, which reads
+    // the classification at open. dev_count is the period's deviations (by open date); open_count is 0 once closed.
+    public static final QaKpiSpec CLOSED_CRITICAL_DEVIATIONS = QaKpiSpec.countWhere(
+            "agg_tw_deviations_aging", "site", "dev_count", "final_classification = 'Critical'", "deviations");
+
     public static final QaKpiSpec EQUIPMENT_ERROR_DEVIATIONS = QaKpiSpec.countWhere(
             "agg_tw_equipment_error_deviations", "site", "dev_count", "root_cause_bucket = 'By Equipment'", "deviations");
 
@@ -167,9 +182,12 @@ public final class QaKpiSpecs {
     public static final QaKpiSpec CONFIRMED_OOS_LOGGED = QaKpiSpec.countWhere(
             "public.agg_tw_valid_oos_rate", "site_name", "oos_count", "product_type_slice = 'All'", "OOS");
 
-    public static final QaKpiSpec VALID_OOS_PER_1000_TESTS = new QaKpiSpec(
-            "public.agg_tw_valid_oos_rate", "site_name", "oos_count", "product_type_slice = 'All'",
-            "test_count", "product_type_slice = 'All'", 1000, "per 1000 tests");
+    // One slice at a time, never summed across: 'All' unless a product type is picked (see QaController.validOosPer1000Tests).
+    public static final String VALID_OOS_PRODUCT_TYPE_COLUMN = "product_type_slice";
+    public static final String VALID_OOS_PRODUCT_TYPE_ALL = "All";
+
+    public static final QaKpiSpec VALID_OOS_PER_1000_TESTS = QaKpiSpec.ratio(
+            "public.agg_tw_valid_oos_rate", "site_name", "oos_count", "test_count", 1000, "per 1000 tests");
 
     // Doc: "capa_count where 'Within SLA' / capa_count_in_scope" - a Ratio, not a plain count (an
     // earlier draft of this spec wrongly used countWhere). resp_dept_slice='All' is required on BOTH
@@ -227,8 +245,10 @@ public final class QaKpiSpecs {
 
     // ---- Compliance, Audit & Regulatory ----
 
-    public static final QaKpiSpec REG_CUSTOMER_AUDIT_SUCCESS_RATE = QaKpiSpec.ratio(
-            "agg_tw_reg_customer_audit_success_rate", "site_name", "concluded_audits", "total_audits", 100, "%");
+    // Denominator is concluded_audits across all slices - total_audits also counts audits not concluded yet.
+    public static final QaKpiSpec REG_CUSTOMER_AUDIT_SUCCESS_RATE = QaKpiSpec.ratioNumeratorWhere(
+            "agg_tw_reg_customer_audit_success_rate", "site_name", "concluded_audits", "audit_conclusion_slice = 'Approved'",
+            "concluded_audits", 100, "%");
 
     public static final QaKpiSpec INTERNAL_AUDIT_OBSERVATION_SEVERITY = QaKpiSpec.ratio(
             "agg_tw_internal_audit_observation_severity", "site", "sum_severity_weight", "observation_count", 1, "avg severity");
@@ -293,13 +313,11 @@ public final class QaKpiSpecs {
 
     // ---- Cross-Functional / Engineering ----
 
-    public static final QaKpiSpec PLAN_VS_ACTUAL_PM_CALIBRATION_ENGINEERING = PM_CALIBRATION_PLAN_VS_ACTUAL;
+    public static final QaKpiSpec PLAN_VS_ACTUAL_PM_ENGINEERING = PM_PLAN_VS_ACTUAL;
+    public static final QaKpiSpec PLAN_VS_ACTUAL_CALIBRATION_ENGINEERING = CALIBRATION_PLAN_VS_ACTUAL;
 
-    // No qa.* table for this - public.agg_lims_instrument_failure_rate (built for QC) is the real
-    // source. "Breakdown Time" per the frontend KPI's own name is a duration, not the rate/frequency
-    // the table's own headline columns (failure_rate, breakdown_frequency on the sibling
-    // agg_lims_breakdowns_frequency table) compute - breakdown_hours is the literal time-based column
-    // that actually matches what this KPI claims to show.
+    // No qa.* table for this - public.agg_lims_breakdowns_frequency (built for QC) is the source.
+    // agg_lims_instrument_utilization's sum_breakdown_hours stays the source for Downtime % only.
     public static final QaKpiSpec BREAKDOWN_TIME_LIMS_INSTRUMENTS = QaKpiSpec.count(
-            "public.agg_lims_instrument_failure_rate", "site_name", "breakdown_hours", "hours");
+            "public.agg_lims_breakdowns_frequency", "site_name", "sum_breakdown_duration_hrs", "hours");
 }

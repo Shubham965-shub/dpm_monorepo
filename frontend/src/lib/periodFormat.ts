@@ -54,8 +54,13 @@ export function formatPeriodTick(periodStart: string, grain: Grain, today: Date 
   if (grain === 'daily') return withYearIfNotCurrent(date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), date, today)
   if (grain === 'weekly') return formatIsoWeekTick(periodStart)
   if (grain === 'monthly') return formatMonthLabel(date, today)
-  if (grain === 'quarterly') return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+  if (grain === 'quarterly') return formatQuarter(date)
   return date.toLocaleDateString('en-US', { year: 'numeric' })
+}
+
+// A quarter point is the whole quarter, so it reads "Q3 2026", not its first month ("Jul 2026").
+function formatQuarter(date: Date): string {
+  return `Q${Math.floor(date.getMonth() / MONTHS_IN_QUARTER) + 1} ${date.getFullYear()}`
 }
 
 /** A fixed Recharts XAxis `interval` (in place of `"preserveStartEnd"`, which lets Recharts choose
@@ -75,9 +80,8 @@ export function evenTickInterval(dataLength: number, maxTicks = 6): number {
 export function formatPeriodLabel(periodStart: string, grain: Grain): string {
   const date = new Date(`${periodStart}T00:00:00`)
   if (grain === 'yearly') return date.toLocaleDateString('en-US', { year: 'numeric' })
-  if (grain === 'monthly' || grain === 'quarterly') {
-    return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
-  }
+  if (grain === 'quarterly') return formatQuarter(date)
+  if (grain === 'monthly') return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
   if (grain === 'weekly') return formatIsoWeekRangeLabel(periodStart)
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
@@ -87,6 +91,6 @@ export function formatPeriodLabel(periodStart: string, grain: Grain): string {
 export function formatNoDataPeriod(periodStart: string, grain: Grain): string {
   const date = new Date(`${periodStart}T00:00:00`)
   if (grain === 'monthly') return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
-  if (grain === 'quarterly') return `Q${Math.floor(date.getMonth() / MONTHS_IN_QUARTER) + 1} ${date.getFullYear()}`
+  if (grain === 'quarterly') return formatQuarter(date)
   return formatPeriodLabel(periodStart, grain)
 }

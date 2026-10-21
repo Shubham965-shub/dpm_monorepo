@@ -49,6 +49,8 @@ export interface KpiDefinition {
   chartType?: 'line' | 'bar' | 'column'
   /** Which view a time-series card opens in; every card can switch to the other. Default 'line'. */
   defaultView?: 'line' | 'bar'
+  /** Bar view only: each bar's amber deepens the older its period is (see ageShadeOpacity). */
+  barAgeShading?: boolean
   /** Open-record snapshot ("as of today"): no from/to is sent, so the backend returns every
    * currently-open record, regardless of the page's date window (see AbstractOpenCapaRepository). */
   snapshot?: boolean

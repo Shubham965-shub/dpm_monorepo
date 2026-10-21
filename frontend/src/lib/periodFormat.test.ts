@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { evenTickInterval, formatNoDataPeriod, formatPeriodTick, formatRangeEnd, formatRangeStart } from './periodFormat'
+import { evenTickInterval, formatNoDataPeriod, formatPeriodLabel, formatPeriodTick, formatRangeEnd, formatRangeStart } from './periodFormat'
 
 describe('formatPeriodTick', () => {
   const TODAY = new Date(2026, 8, 29)
+
+  it('labels a quarter point by its quarter, not its first month', () => {
+    expect(formatPeriodTick('2026-07-01', 'quarterly', TODAY)).toBe('Q3 2026')
+    expect(formatPeriodLabel('2026-07-01', 'quarterly')).toBe('Q3 2026')
+  })
 
   it('adds a short year only to months/days outside the current year', () => {
     expect(formatPeriodTick('2026-09-01', 'monthly', TODAY)).toBe('Sep')

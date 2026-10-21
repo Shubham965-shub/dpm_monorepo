@@ -41,31 +41,6 @@ public class AggTwDeviationsRepository extends AbstractAggRepository<PeriodSum> 
                 rs.getLong("total")),
                 params.toArray());
     }
-
-    /**
-     * Procedural error deviations (a QA KPI served from this QC table - see
-     * DPM_QA_Data_Layer_Handover.md's "KPIs served by DPM_QC tables") needs a dedup findTotals()
-     * above doesn't do: root_cause_bucket is part of this table's own grain, so a deviation with two
-     * procedural causal factors (By BMR-BPR / By STP / By SOP, the 3 sub-buckets collapsing into this
-     * one broad category) occupies two rows, and dev_count_broad repeats identically across them.
-     * Equipment and Instrument error deviations don't need this - they're single-bucket filters with
-     * no overlap - so they go through the plain findTotals() above instead.
-     */
-    public List<PeriodSum> findProceduralErrorDeviationTotals(String site, String grain, LocalDate from, LocalDate to) {
-        String sql = """
-                SELECT period_start, SUM(dev_count_broad) AS total FROM (
-                    SELECT DISTINCT period_start, site, resp_dept, level,
-                        initial_classification, final_classification, recurring_by_cause, dev_count_broad
-                    FROM agg_tw_deviations
-                    WHERE site = ? AND grain = ? AND period_start BETWEEN ? AND ?
-                        AND root_cause_broad_category = 'Procedural error'
-                ) d
-                GROUP BY period_start ORDER BY period_start""";
-        return query(sql, rs -> new PeriodSum(
-                rs.getObject("period_start", LocalDate.class), grain, rs.getLong("total")),
-                site, grain, from, to);
-    }
-
     private static void appendInClause(StringBuilder sql, List<Object> params, String column, Set<String> values) {
         if (!values.isEmpty()) {
             sql.append(" AND ").append(column).append(" IN (").append(placeholders(values)).append(")");

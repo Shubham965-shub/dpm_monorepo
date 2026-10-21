@@ -21,11 +21,7 @@ import java.util.Set;
  * Deliberately excluded (confirmed live, not left out by oversight):
  * - qa-deviation-aging-major-minor: both candidate columns (preliminary_classification,
  *   final_dev_classification) are missing from agg_tw_deviations_aging entirely.
- * - qa-instrument-error-deviations, qa-oos-logged: their candidate columns (cf_sub_category,
- *   event_type) are missing from the public.agg_tw_* fallback tables they actually read.
- * - qa-procedural-error-deviations: reads AggTwDeviationsRepository's own bespoke dedup query
- *   (findProceduralErrorDeviationTotals), not QaAggRepository.findTotals - extraFilters has no path
- *   into that query today.
+ * - qa-oos-logged: its candidate column (event_type) is missing from the public.agg_tw_* fallback table it actually reads.
  * - qa-capa-recurrence-rate, qa-capa-approval-within-sla-no-extension: the doc's candidate
  *   (resp_dept) is actually resp_dept_slice on both tables, which QaKpiSpecs.CAPA_RECURRENCE_RATE/
  *   CAPA_APPROVAL_WITHIN_SLA already pin to the literal 'All' inside their numerator/denominator
@@ -71,10 +67,14 @@ public final class QaKpiFilterColumns {
                     col("grade", "grade"), col("specKind", "spec_kind"))),
             Map.entry("qa-receipt-back-of-all-issued-bmrbprs", of(QaKpiSpecs.RECEIPT_BACK_BMR_BPR, col("bmrBpr", "bmr_bpr"))),
             Map.entry("qa-undispensed-bmrbpr-beyond-3060-days-from-issuance",
+                    of(QaKpiSpecs.UNDISPENSED_BMR_BPR_BEYOND_30_DAYS, col("bmrBpr", "bmr_bpr"))),
+            Map.entry("qa-undispensed-bmrbpr-beyond-60-days-from-issuance",
                     of(QaKpiSpecs.UNDISPENSED_BMR_BPR_BEYOND_60_DAYS, col("bmrBpr", "bmr_bpr"))),
             Map.entry("qa-success-rate-of-validation-batches", of(QaKpiSpecs.SUCCESS_RATE_VALIDATION_BATCHES,
                     col("materialType", "material_type"))),
             Map.entry("qa-open-critical-deviations", of(QaKpiSpecs.OPEN_CRITICAL_DEVIATIONS,
+                    col("respDept", "resp_dept"), col("level", "level"))),
+            Map.entry("qa-closed-critical-deviations", of(QaKpiSpecs.CLOSED_CRITICAL_DEVIATIONS,
                     col("respDept", "resp_dept"), col("level", "level"))),
             Map.entry("qa-equipment-error-deviations", of(QaKpiSpecs.EQUIPMENT_ERROR_DEVIATIONS, col("respDept", "resp_dept"))),
             Map.entry("qa-stability-testing-pending", of(QaKpiSpecs.STABILITY_TESTING_PENDING,
@@ -107,7 +107,9 @@ public final class QaKpiFilterColumns {
             Map.entry("qa-training-completion", of(QaKpiSpecs.TRAINING_COMPLETION,
                     col("deptName", QaKpiSpecs.TRAINING_DEPARTMENT_COLUMN), col("trainingType", "training_type"))),
             Map.entry("qa-average-time-to-implement-capa", of(QaKpiSpecs.CAPA_IMPLEMENT_TIME,
-                    col("respDept", QaKpiSpecs.CAPA_IMPLEMENT_DEPT_COLUMN))));
+                    col("respDept", QaKpiSpecs.CAPA_IMPLEMENT_DEPT_COLUMN))),
+            Map.entry("qa-valid-oos-per-1000-tests", of(QaKpiSpecs.VALID_OOS_PER_1000_TESTS,
+                    col("productType", QaKpiSpecs.VALID_OOS_PRODUCT_TYPE_COLUMN))));
 
     /** Filters that pick between specs rather than narrow a column, so their options are fixed lists. */
     private static final Map<String, Map<String, List<String>>> STATIC_OPTIONS = Map.of(
@@ -119,7 +121,9 @@ public final class QaKpiFilterColumns {
             "qa-closure-of-open-change-controls", Map.of("closureLevel", Set.of("NA")),
             "qa-change-control-approval-internal-external-within-sla", Map.of("ccApprovalState",
                     Set.of("Awaiting Approval", "External Approval Pending", "Internal Approval Pending")),
-            "qa-open-critical-deviations", Map.of("level", Set.of("NA")));
+            "qa-open-critical-deviations", Map.of("level", Set.of("NA")),
+            "qa-closed-critical-deviations", Map.of("level", Set.of("NA")),
+            "qa-valid-oos-per-1000-tests", Map.of("productType", Set.of(QaKpiSpecs.VALID_OOS_PRODUCT_TYPE_ALL)));
 
     public static Set<String> excludedOptions(String kpiId, String queryParam) {
         return EXCLUDED_OPTIONS.getOrDefault(kpiId, Map.of()).getOrDefault(queryParam, Set.of());

@@ -130,6 +130,9 @@ public class GenericDrilldownRepository extends AbstractAggRepository<Map<String
      * mirrors its card's own filters) - shared by the full whereClause below and by
      * findColumnOptions, which deliberately stops here (no q/per-column filter/per-column search -
      * see its own doc comment for why). */
+    /** A fixedCondition may reference the requested period's end; each occurrence is bound to the `to` date. */
+    private static final String PERIOD_END_TOKEN = ":periodEnd";
+
     private static String baseWhereClause(TableSpec spec, List<Object> params, String site, LocalDate from, LocalDate to,
             Map<String, Set<String>> extraFilters) {
         StringBuilder sql = new StringBuilder(" WHERE ")
@@ -143,7 +146,10 @@ public class GenericDrilldownRepository extends AbstractAggRepository<Map<String
             params.add(entry.getValue());
         }
         if (spec.fixedCondition() != null) {
-            sql.append(" AND (").append(spec.fixedCondition()).append(")");
+            sql.append(" AND (").append(spec.fixedCondition().replace(PERIOD_END_TOKEN, "?")).append(")");
+            for (int i = spec.fixedCondition().split(PERIOD_END_TOKEN, -1).length - 1; i > 0; i--) {
+                params.add(to);
+            }
         }
         for (Map.Entry<String, String> entry : spec.filterColumns().entrySet()) {
             Set<String> values = extraFilters.getOrDefault(entry.getKey(), Set.of());
