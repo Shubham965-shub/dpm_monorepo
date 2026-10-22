@@ -24,13 +24,15 @@ NODE_TOKEN="$(az keyvault secret show --vault-name "$KV" -n node-auth-token --qu
 [ -n "$NODE_TOKEN" ] || die "node-auth-token missing in $KV - npm ci needs it for the private feedback widget"
 
 info "building ${FRONTEND_IMAGE}:${TAG} in ${QA_ACR} (ACR Tasks, linux/amd64)"
+# az acr build resolves --file against the working directory, not the context path.
+cd "$REPO_ROOT/frontend"
 az acr build --subscription "$QA_SUBSCRIPTION" --registry "$QA_ACR" \
   --image "${FRONTEND_IMAGE}:${TAG}" --file deploy/Dockerfile --platform linux/amd64 \
   --secret-build-arg NODE_AUTH_TOKEN="$NODE_TOKEN" \
   --build-arg VITE_POSTHOG_KEY="$POSTHOG_KEY" \
   --build-arg VITE_POSTHOG_HOST="$POSTHOG_HOST" \
   --build-arg VITE_FEEDBACK_API_BASE_URL="$FEEDBACK_API_BASE_URL" \
-  "$REPO_ROOT/frontend"
+  .
 
 import_to_prod "$FRONTEND_IMAGE" "$FRONTEND_IMAGE" "$TAG"
 [ "${SKIP_ROLL:-0}" = "1" ] && { info "SKIP_ROLL=1 - image imported, app not rolled"; exit 0; }

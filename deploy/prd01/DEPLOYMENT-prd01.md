@@ -35,7 +35,15 @@ SHAs, never `:latest`; secrets never in files, chat or `az vm run-command` args.
 - `az login` with rights on both registries (`dpmqaacr`, `lighthouseprdacr`), the web apps and KV.
 - Jump VM `vm-lighthouse-build` (deallocated when idle — `/lighthouse:runner-maintenance`) and a
   Bastion tunnel (`/lighthouse:tunnel`), only for psql work and smoke tests from inside the VNet.
-- PostgreSQL 16+ client tools on the VM. No local Docker needed (ACR Tasks builds the images).
+- PostgreSQL 16 client tools on the VM; Docker (OrbStack) on the laptop for the QA dump and, when
+  the ACR Tasks queue is slow, the frontend build.
+- **Zscaler off** for every `az` step: it re-signs `*.azurecr.io`, blob storage and the login
+  endpoint, and the laptop's `az` (Python 3.14) rejects its root CA. KV and ARM may still work, so a
+  half-working `az` is the symptom.
+- If `az webapp create` fails with `Symbol not found: _XML_SetAllocTrackerActivationThreshold`
+  (Homebrew Python vs the macOS libexpat): `brew install expat` and run `az` through a wrapper that
+  sets `DYLD_LIBRARY_PATH=/opt/homebrew/opt/expat/lib` before `exec`-ing az's own Python
+  (`DYLD_*` is stripped when `/usr/bin/env` starts, so exporting it in the shell is not enough).
 
 ## 3. Releasing code
 
@@ -79,7 +87,9 @@ images are still in `lighthouseprdacr`, so no rebuild is needed.
 ## 4. Database copy / cutover (QA `dpm` → PRD01 `helios`)
 
 Scope: the whole QA `dpm` DB except `public.refresh_tokens` rows (structure only — no QA sessions
-carry over) and the one-off `public.dim_kpi_lite_bak_20260924`. On the jump VM:
+carry over) and the one-off `public.dim_kpi_lite_bak_20260924`. The jump VM cannot reach the QA DB
+(QA firewall), so dump on the laptop (`docker run --rm -e PGPASSWORD postgres:16 pg_dump …`), `scp`
+the file to the VM through the tunnel, check its `sha256sum`, and restore on the VM:
 
 1. **Consistent snapshot.** Ask Data Engineering when their QA load finishes and dump after it;
    pause user/admin changes in QA during the dump.
@@ -95,7 +105,8 @@ carry over) and the one-off `public.dim_kpi_lite_bak_20260924`. On the jump VM:
    pg_restore -h lighthouse-pg-prd.postgres.database.azure.com -U lhadmin -d helios \
      --no-owner --no-privileges helios_*.dump
    ```
-   Re-copy later: drop and recreate `helios` first rather than `--clean` over it.
+   Re-copy later: drop and recreate `helios` first rather than `--clean` over it. The one error
+   `schema "public" already exists` is expected and harmless.
 4. **Truth-check:** run `truth-check.sql` against `helios`, `diff` with `truth-check.expected` — it
    must be empty. Check the replica answers and is in sync.
 5. Restart `helios-backend-lhprd` (Hibernate validates the schema at boot, so a mismatch fails
