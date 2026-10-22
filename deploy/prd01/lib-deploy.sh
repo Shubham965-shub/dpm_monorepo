@@ -53,17 +53,15 @@ qa_acr_id() {
   az acr show --subscription "$QA_SUBSCRIPTION" -n "$QA_ACR" --query id -o tsv
 }
 
-qa_tag_exists() { # repository tag
-  az acr repository show-tags --subscription "$QA_SUBSCRIPTION" -n "$QA_ACR" --repository "$1" -o tsv 2>/dev/null \
-    | grep -qx "$2"
-}
-
 # Copy QA_ACR/<src-repo>:<tag> into PROD_ACR/<dest-repo>:<tag>. Authenticates with your own az
 # login via the source registry's resource ID (the QA registry has admin credentials disabled).
 import_to_prod() { # src-repo dest-repo tag
   info "importing ${QA_ACR}/$1:$3 -> ${PROD_ACR}/$2:$3"
+  # Control plane only: listing tags first would hit the registry's data plane, which the corporate
+  # TLS proxy breaks for az, so a missing tag surfaces as this import failing instead.
   az acr import --subscription "$SUB" -n "$PROD_ACR" --force \
-    --registry "$(qa_acr_id)" --source "$1:$3" --image "$2:$3" -o none
+    --registry "$(qa_acr_id)" --source "$1:$3" --image "$2:$3" -o none \
+    || die "import of ${QA_ACR}/$1:$3 failed - is the tag there? (backend: merge the commit into 'qa' so deploy-backend-qa builds it)"
 }
 
 roll_webapp() { # app image tag
