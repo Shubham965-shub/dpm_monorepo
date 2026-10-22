@@ -1,0 +1,69 @@
+name: Deploy frontend (QA)
+
+on:
+  push:
+    branches: [qa]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/deploy-frontend-qa.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-frontend-qa
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: qa
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+          # Scoped to just this one private package namespace (@strides-pharma-science-ltd/
+          # feedback-widget) - matches the pattern InvestigationAI's own deploy-qa-frontend.yml
+          # already uses. The default secrets.GITHUB_TOKEN can't be used here: it's scoped to this
+          # repo only and can't read a package published from a different repo.
+          registry-url: https://npm.pkg.github.com
+          scope: '@strides-pharma-science-ltd'
+
+      - run: npm ci
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
+      - run: npm run lint
+      - run: npm run test
+
+      - name: Build
+        run: npm run build
+        env:
+          VITE_API_URL: ${{ vars.QA_API_URL }}
+          # Shared across Strides apps and not secret (InvestigationAI's own CI bakes the same
+          # value directly into its workflow) - kept as a repo/environment var here instead, same
+          # as QA_API_URL above, so it's settable without a code change. The app key is fixed in
+          # FeedbackLauncher.tsx itself, not env-driven - it doesn't vary by environment.
+          VITE_FEEDBACK_API_BASE_URL: https://feedback-service.graysand-fe5571c1.centralindia.azurecontainerapps.io/api/v1
+          # Same single self-hosted PostHog project InvestigationAI/CPV_Platform both report into
+          # (distinguished by the 'app' super-property, see lib/analytics.ts) - also not secret.
+          # Left unset in a plain local `npm run dev` on purpose (not committed to .env.example as
+          # required) so local testing never pollutes shared analytics; QA builds get it from here.
+          VITE_POSTHOG_KEY: phc_nSFXA6dYnM6N2sRHTJxqPHuhf8yzwa7bkQsBvfAiYuMV
+          VITE_POSTHOG_HOST: https://posthog.strideslighthouse.com
+
+      # Upload only: the build already happened above with the QA API URL baked in.
+      - uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          action: upload
+          app_location: frontend/dist
+          skip_app_build: true
+          skip_api_build: true

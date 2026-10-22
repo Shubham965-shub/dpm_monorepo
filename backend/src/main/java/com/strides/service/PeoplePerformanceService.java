@@ -1,13 +1,18 @@
 package com.strides.service;
 
 import com.strides.dto.DepartmentScope;
+import com.strides.dto.DrilldownPage;
+import com.strides.dto.DrilldownSupport;
 import com.strides.dto.KpiCardResponse;
 import com.strides.model.AggCwTrainingCompletionRateRow;
 import com.strides.repository.AggCwTrainingCompletionRateRepository;
+import com.strides.repository.AggLimsQualificationCycleTimeRepository;
 import com.strides.repository.AggLimsRepeatAnalysisRateRepository;
 import com.strides.repository.AggLimsReviewerProductivityIndexRepository;
 import com.strides.repository.AggLimsRightFirstTimeRepository;
 import com.strides.repository.DepartmentScopeLiterals;
+import com.strides.repository.DrilldownSpecs;
+import com.strides.repository.GenericDrilldownRepository;
 import com.strides.service.kpi.PeriodCombiner;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -35,13 +40,21 @@ public class PeoplePerformanceService {
     @Inject
     AggCwTrainingCompletionRateRepository trainingCompletionRateRepository;
     @Inject
+    AggLimsQualificationCycleTimeRepository qualificationCycleTimeRepository;
+    @Inject
     DepartmentScopeLiterals deptLiterals;
+    @Inject
+    GenericDrilldownService genericDrilldownService;
 
     /** sampleType: comma-separated list to combine, or null/blank for ALL. */
     public List<KpiCardResponse> getRepeatAnalysisRate(String siteName, String sampleType, String grain, LocalDate from, LocalDate to) {
         Set<String> selected = PeriodCombiner.parseSelection(sampleType);
         var totals = repeatAnalysisRateRepository.findTotals(siteName, selected, grain, from, to);
-        return PeriodCombiner.fromTotals(totals, 100, "repeat-analysis-rate", "Repeat Analysis Rate", "%");
+        return PeriodCombiner.fromTotals(totals, 100, "repeat-analysis-rate", "Repeat Analysis Rate", "%", null, "Repeat Tests", "Total Tests");
+    }
+
+    public Map<String, List<String>> getRepeatAnalysisRateFilterOptions(String siteName, String grain, LocalDate from, LocalDate to) {
+        return repeatAnalysisRateRepository.filterOptions(siteName, grain, from, to);
     }
 
     /** Reviewer Productivity's threshold is "% of target" - no target column exists, status left null. */
@@ -54,7 +67,11 @@ public class PeoplePerformanceService {
     public List<KpiCardResponse> getRightFirstTime(String siteName, String sampleType, String grain, LocalDate from, LocalDate to) {
         Set<String> selected = PeriodCombiner.parseSelection(sampleType);
         var totals = rightFirstTimeRepository.findTotals(siteName, selected, grain, from, to);
-        return PeriodCombiner.fromTotals(totals, 100, "rft-documentation", "Right First Time (RFT) Documentation", "%");
+        return PeriodCombiner.fromTotals(totals, 100, "rft-documentation", "Right First Time (RFT) Documentation", "%", null, "RFT Count", "Test Count");
+    }
+
+    public Map<String, List<String>> getRightFirstTimeFilterOptions(String siteName, String grain, LocalDate from, LocalDate to) {
+        return rightFirstTimeRepository.filterOptions(siteName, grain, from, to);
     }
 
     /**
@@ -95,9 +112,149 @@ public class PeoplePerformanceService {
                     String grainValue = rows.get(0).grain();
                     return new KpiCardResponse(
                             "training-completion-rate", "Training Completion Rate", pct, "%",
-                            null, grainValue, periodStart, null);
+                            null, grainValue, periodStart, null,
+                            BigDecimal.valueOf(onTime), BigDecimal.valueOf(overall));
                 })
                 .sorted(Comparator.comparing(KpiCardResponse::periodStart))
                 .toList();
+    }
+
+    /** departmentScope isn't a DB-driven column filter - not part of the option set below. */
+    public Map<String, List<String>> getTrainingCompletionRateFilterOptions(String site, String department,
+            String trainingType, String grain, LocalDate from, LocalDate to) {
+        return trainingCompletionRateRepository.filterOptions(site, grain, from, to,
+                PeriodCombiner.parseSelection(department), PeriodCombiner.parseSelection(trainingType));
+    }
+
+    /** designation: comma-separated list to combine, or null/blank for ALL (designation is now a real identity/role column, confirmed live). */
+    public List<KpiCardResponse> getQualificationCycleTime(String siteName, String designation, String grain, LocalDate from, LocalDate to) {
+        Set<String> selected = PeriodCombiner.parseSelection(designation);
+        var totals = qualificationCycleTimeRepository.findTotals(siteName, selected, grain, from, to);
+        return PeriodCombiner.fromTotals(totals, 1, "qualification-cycle-time", "Qualification Cycle Time", "days", null, "Total Days", "Operators");
+    }
+
+    public Map<String, List<String>> getQualificationCycleTimeFilterOptions(String siteName, String grain, LocalDate from, LocalDate to) {
+        return qualificationCycleTimeRepository.filterOptions(siteName, grain, from, to);
+    }
+
+    public DrilldownPage<Map<String, Object>> getRepeatAnalysisRateDrilldown(String site, String sampleType, LocalDate from, LocalDate to,
+            String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.REPEAT_TEST_RATE, site, from, to,
+                Map.of("sampleType", PeriodCombiner.parseSelection(sampleType)), q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange), page, pageSize);
+    }
+
+    public Map<String, List<String>> getRepeatAnalysisRateDrilldownColumnOptions(String site, String sampleType, LocalDate from, LocalDate to) {
+        return genericDrilldownService.fetchColumnOptions(DrilldownSpecs.REPEAT_TEST_RATE, site, from, to,
+                Map.of("sampleType", PeriodCombiner.parseSelection(sampleType)));
+    }
+
+    /** CSV text for the drill-down table's Export button - see GenericDrilldownService.fetchAllForExport. */
+    public String getRepeatAnalysisRateDrilldownExport(String site, String sampleType, LocalDate from, LocalDate to,
+            String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange) {
+        List<Map<String, Object>> rows = genericDrilldownService.fetchAllForExport(DrilldownSpecs.REPEAT_TEST_RATE, site, from, to,
+                Map.of("sampleType", PeriodCombiner.parseSelection(sampleType)), q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange));
+        List<String> headers = DrilldownSpecs.REPEAT_TEST_RATE.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
+        return DrilldownSupport.toCsv(headers, rows);
+    }
+
+    public DrilldownPage<Map<String, Object>> getReviewerProductivityDrilldown(String site, LocalDate from, LocalDate to,
+            String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.REVIEWER_PRODUCTIVITY_INDEX, site, from, to, Map.of(), q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange), page, pageSize);
+    }
+
+    public Map<String, List<String>> getReviewerProductivityDrilldownColumnOptions(String site, LocalDate from, LocalDate to) {
+        return genericDrilldownService.fetchColumnOptions(DrilldownSpecs.REVIEWER_PRODUCTIVITY_INDEX, site, from, to, Map.of());
+    }
+
+    /** CSV text for the drill-down table's Export button - see GenericDrilldownService.fetchAllForExport. */
+    public String getReviewerProductivityDrilldownExport(String site, LocalDate from, LocalDate to,
+            String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange) {
+        List<Map<String, Object>> rows = genericDrilldownService.fetchAllForExport(DrilldownSpecs.REVIEWER_PRODUCTIVITY_INDEX, site, from, to, Map.of(), q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange));
+        List<String> headers = DrilldownSpecs.REVIEWER_PRODUCTIVITY_INDEX.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
+        return DrilldownSupport.toCsv(headers, rows);
+    }
+
+    public DrilldownPage<Map<String, Object>> getRightFirstTimeDrilldown(String site, String sampleType, LocalDate from, LocalDate to,
+            String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.RFT_DOCUMENTATION, site, from, to,
+                Map.of("sampleType", PeriodCombiner.parseSelection(sampleType)), q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange), page, pageSize);
+    }
+
+    public Map<String, List<String>> getRightFirstTimeDrilldownColumnOptions(String site, String sampleType, LocalDate from, LocalDate to) {
+        return genericDrilldownService.fetchColumnOptions(DrilldownSpecs.RFT_DOCUMENTATION, site, from, to,
+                Map.of("sampleType", PeriodCombiner.parseSelection(sampleType)));
+    }
+
+    /** CSV text for the drill-down table's Export button - see GenericDrilldownService.fetchAllForExport. */
+    public String getRightFirstTimeDrilldownExport(String site, String sampleType, LocalDate from, LocalDate to,
+            String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange) {
+        List<Map<String, Object>> rows = genericDrilldownService.fetchAllForExport(DrilldownSpecs.RFT_DOCUMENTATION, site, from, to,
+                Map.of("sampleType", PeriodCombiner.parseSelection(sampleType)), q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange));
+        List<String> headers = DrilldownSpecs.RFT_DOCUMENTATION.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
+        return DrilldownSupport.toCsv(headers, rows);
+    }
+
+    public DrilldownPage<Map<String, Object>> getTrainingCompletionRateDrilldown(String site, String department, String trainingType,
+            LocalDate from, LocalDate to, String q, List<String> sort, List<String> colFilter, List<String> colSearch,
+            List<String> colRange, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.TRAINING_COMPLETION_RATE, site, from, to, Map.of(
+                "department", PeriodCombiner.parseSelection(department),
+                "trainingType", PeriodCombiner.parseSelection(trainingType)),
+                q, DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange), page, pageSize);
+    }
+
+    public Map<String, List<String>> getTrainingCompletionRateDrilldownColumnOptions(String site, String department, String trainingType, LocalDate from, LocalDate to) {
+        return genericDrilldownService.fetchColumnOptions(DrilldownSpecs.TRAINING_COMPLETION_RATE, site, from, to, Map.of(
+                "department", PeriodCombiner.parseSelection(department),
+                "trainingType", PeriodCombiner.parseSelection(trainingType)));
+    }
+
+    /** CSV text for the drill-down table's Export button - see GenericDrilldownService.fetchAllForExport. */
+    public String getTrainingCompletionRateDrilldownExport(String site, String department, String trainingType, LocalDate from, LocalDate to,
+            String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange) {
+        List<Map<String, Object>> rows = genericDrilldownService.fetchAllForExport(DrilldownSpecs.TRAINING_COMPLETION_RATE, site, from, to, Map.of(
+                "department", PeriodCombiner.parseSelection(department),
+                "trainingType", PeriodCombiner.parseSelection(trainingType)),
+                q, DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange));
+        List<String> headers = DrilldownSpecs.TRAINING_COMPLETION_RATE.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
+        return DrilldownSupport.toCsv(headers, rows);
+    }
+
+    public DrilldownPage<Map<String, Object>> getQualificationCycleTimeDrilldown(String site, String designation, LocalDate from, LocalDate to,
+            String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.QUALIFICATION_CYCLE_TIME, site, from, to,
+                Map.of("designation", PeriodCombiner.parseSelection(designation)), q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange), page, pageSize);
+    }
+
+    public Map<String, List<String>> getQualificationCycleTimeDrilldownColumnOptions(String site, String designation, LocalDate from, LocalDate to) {
+        return genericDrilldownService.fetchColumnOptions(DrilldownSpecs.QUALIFICATION_CYCLE_TIME, site, from, to,
+                Map.of("designation", PeriodCombiner.parseSelection(designation)));
+    }
+
+    /** CSV text for the drill-down table's Export button - see GenericDrilldownService.fetchAllForExport. */
+    public String getQualificationCycleTimeDrilldownExport(String site, String designation, LocalDate from, LocalDate to,
+            String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange) {
+        List<Map<String, Object>> rows = genericDrilldownService.fetchAllForExport(DrilldownSpecs.QUALIFICATION_CYCLE_TIME, site, from, to,
+                Map.of("designation", PeriodCombiner.parseSelection(designation)), q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange));
+        List<String> headers = DrilldownSpecs.QUALIFICATION_CYCLE_TIME.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
+        return DrilldownSupport.toCsv(headers, rows);
     }
 }

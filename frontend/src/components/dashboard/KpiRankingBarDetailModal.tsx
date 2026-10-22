@@ -1,0 +1,150 @@
+import { createPortal } from 'react-dom'
+import { X } from 'lucide-react'
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { TOOLTIP_Z_INDEX } from '@/lib/chartPalette'
+import type { ExtraFilter, KpiDefinition, KpiDomain } from '@/lib/kpiConfig'
+import type { BarRow } from '@/components/kpi/KpiChartCard'
+import type { ExtraFilterState } from '@/components/kpi/ExtraFilterControl'
+import type { ExtraParams, GlobalKpiFilters } from '@/hooks/useKpiData'
+import { FilterPills } from '@/components/kpi/FilterPills'
+import { KpiInfoDropdown } from '@/components/kpi/KpiInfoDropdown'
+import { GrainToggle } from '@/components/kpi/GrainToggle'
+import { useBackdropClose } from '@/hooks/useBackdropClose'
+import type { Grain } from '@/lib/kpiSchemas'
+import { SEVERITY_META, rankingValueDomain } from './types'
+import { KpiDrilldownTable } from './KpiDrilldownTable'
+import {
+  barShapeFor,
+  RankingValueAxis,
+  truncatedCategoryTick,
+  BAR_ROW_HEIGHT_PX,
+  RANKING_BAR_MIN_HEIGHT_PX,
+  Y_AXIS_WIDTH_PX,
+} from './KpiRankingBarCard'
+
+const GREEN = SEVERITY_META['in-control']
+const MODAL_CHART_RIGHT_MARGIN_PX = 24
+// Bigger than the compact card's own RANKING_BAR_MAX_VIEWPORT_PX cap (there's more room in a modal),
+// but still capped - a KPI with many categories would otherwise stretch the chart tall enough that
+// the drill-down table below it is pushed out of view, and the modal becomes one long scroll.
+const RANKING_BAR_MODAL_MAX_HEIGHT_PX = 480
+
+/** Same modal shell as KpiDetailModal/RootCauseHeatmapDetailModal (backdrop, top accent bar,
+ * Back/X header) - the expanded view every other card gets, applied here to KpiRankingBarCard's
+ * category ranking: a bigger version of the same horizontal bar chart rather than a line chart,
+ * since this data has no per-period trend or threshold to plot. The chart itself scrolls within
+ * its own capped box (RANKING_BAR_MODAL_MAX_HEIGHT_PX, mirroring the compact card's own
+ * RANKING_BAR_MAX_VIEWPORT_PX) rather than growing the whole modal - the drill-down table below it
+ * needs to stay reachable without a very long ranking pushing it out of view. */
+export function KpiRankingBarDetailModal({
+  domain,
+  domainLabel,
+  kpi,
+  grain,
+  rankingData,
+  notes,
+  extraStates,
+  onExtraStateChange,
+  optionsFor,
+  filterOptionsLoading,
+  onGrainChange,
+  cardFilters,
+  extraParams,
+  onClose,
+}: {
+  domain: KpiDomain
+  domainLabel: string
+  kpi: KpiDefinition
+  grain: Grain
+  rankingData: BarRow[]
+  notes: string[]
+  extraStates: ExtraFilterState[]
+  onExtraStateChange: (i: number, next: ExtraFilterState) => void
+  optionsFor: (filter: ExtraFilter) => string[]
+  filterOptionsLoading: boolean
+  /** Shares the compact card's grain (see useCardGrain), same as its filters. */
+  onGrainChange: (grain: Grain) => void
+  /** The card's own already-resolved grain/date-range (see useCardGrain) - the drill-down table
+   * (see KpiDrilldownTable) fetches at this same from/to, not a second independent one. */
+  cardFilters: GlobalKpiFilters
+  extraParams: ExtraParams
+  onClose: () => void
+}) {
+  return createPortal(
+    // Portaled straight to document.body: nested inside a card whose ancestor SectionBlock sets an
+    // inline `viewTransitionName` (see SectionSummaryList.tsx), which makes that ancestor a
+    // containing block for `position: fixed` descendants - a plain z-[100] here isn't enough because
+    // it'd only ever cover that section's own box, not the full viewport. Portaling out from under it
+    // sidesteps that entirely (same reason Radix Popover/Tooltip already portal).
+    // z-[100]: above the page's own cards and their z-50 chart tooltips/z-60 Filters popovers, so
+    // an open modal can never z-fight with whatever's still rendered behind it on the page.
+    <div className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto bg-black/40 p-6" {...useBackdropClose(onClose)}>
+      <div className="w-full max-w-4xl rounded-xl bg-card shadow-xl">
+        <div className="h-1.5 w-full rounded-t-xl" style={{ backgroundColor: GREEN.solidHex }} />
+
+        <div className="flex items-center justify-between border-b border-border px-6 py-3">
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-sm">
+            ← Back to Dashboard
+          </button>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+            <X className="size-4" />
+          </button>
+        </div>
+
+        <div className="flex flex-col gap-4 border-b border-border p-6 md:flex-row md:items-start md:justify-between">
+          <div>
+            <div className="text-muted-foreground text-[11px] font-bold tracking-wide uppercase">
+              {domainLabel} · {kpi.id}
+            </div>
+            <h2 className="text-2xl font-bold">{kpi.label}</h2>
+            <div className="mt-3">
+              <KpiInfoDropdown domain={domain} kpi={kpi} />
+            </div>
+          </div>
+          {/* max-w-xs: without a real width to wrap against, FilterPills' own flex-wrap never
+          activates (a flex item with no width constraint just grows to fit one unwrapped row). */}
+          <div className="flex max-w-xs flex-col items-end gap-3">
+            <GrainToggle grain={grain} onChange={onGrainChange} activeHex={GREEN.solidHex} size="modal" />
+            <FilterPills
+              kpi={kpi}
+              extraStates={extraStates}
+              onExtraStateChange={onExtraStateChange}
+              optionsFor={optionsFor}
+              filterOptionsLoading={filterOptionsLoading}
+            />
+          </div>
+        </div>
+
+        <div className="p-6">
+          {notes.map((note) => (
+            <p key={note} className="mb-4 rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-xs text-amber-700">
+              {note}
+            </p>
+          ))}
+          {rankingData.length === 0 ? (
+            <p className="text-muted-foreground text-sm">No data for this selection.</p>
+          ) : (
+            <>
+              {/* Pinned above the chart's own scroll box below, so the scale stays in view down a long ranking. */}
+              <RankingValueAxis rows={rankingData} domain={rankingValueDomain(rankingData)} rightMarginPx={MODAL_CHART_RIGHT_MARGIN_PX} fontSize={11} />
+              <div style={{ maxHeight: RANKING_BAR_MODAL_MAX_HEIGHT_PX }} className="w-full overflow-x-hidden overflow-y-auto [scrollbar-gutter:stable]">
+                <ResponsiveContainer width="100%" height={Math.max(RANKING_BAR_MIN_HEIGHT_PX, rankingData.length * BAR_ROW_HEIGHT_PX)}>
+                  <BarChart data={rankingData} layout="vertical" margin={{ top: 4, right: MODAL_CHART_RIGHT_MARGIN_PX, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                    <XAxis type="number" domain={rankingValueDomain(rankingData)} hide />
+                    <YAxis type="category" dataKey="name" tick={truncatedCategoryTick} width={Y_AXIS_WIDTH_PX} interval={0} />
+                    <Tooltip contentStyle={{ fontSize: 12 }} wrapperStyle={{ zIndex: TOOLTIP_Z_INDEX }} />
+                    <Bar dataKey="value" radius={[0, 3, 3, 0]} shape={barShapeFor(kpi.id)} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </>
+          )}
+        </div>
+
+        {kpi.drilldownPath && <KpiDrilldownTable domain={domain} kpi={kpi} globalFilters={cardFilters} extraParams={extraParams} />}
+      </div>
+    </div>,
+    document.body,
+  )
+}

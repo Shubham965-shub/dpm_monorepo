@@ -7,10 +7,13 @@ import jakarta.inject.Inject;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @ApplicationScoped
 public class AggTwCapaEffectivenessRepository extends AbstractAggRepository<PeriodTotal> {
+
+    private static final String TABLE = "agg_tw_capa_effectiveness";
 
     @Inject
     DepartmentScopeLiterals deptLiterals;
@@ -46,5 +49,11 @@ public class AggTwCapaEffectivenessRepository extends AbstractAggRepository<Peri
                 rs.getLong("numerator"),
                 rs.getLong("denominator")),
                 params.toArray());
+    }
+
+    /** originatedFrom's live option list, scoped by site/grain/date range - see AbstractAggRepository.distinctValues. */
+    public Map<String, List<String>> filterOptions(String site, String grain, LocalDate from, LocalDate to) {
+        return Map.of("originatedFrom",
+                distinctValues(TABLE, "site", "originated_from", site, grain, from, to, Map.of()));
     }
 }

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import {
   Bar,
   BarChart,
@@ -13,14 +13,14 @@ import {
 } from 'recharts'
 import type { KpiDomain, KpiDefinition } from '@/lib/kpiConfig'
 import { useKpiData, type GlobalKpiFilters } from '@/hooks/useKpiData'
-import { CATEGORICAL_PALETTE, MAX_SERIES, STATUS_COLORS } from '@/lib/chartPalette'
-import {
-  ExtraFilterControl,
-  initialExtraFilterState,
-  resolveExtraParams,
-  type ExtraFilterState,
-} from './ExtraFilterControl'
-import type { KpiCardResponse } from '@/lib/kpiSchemas'
+import { useExtraFilters } from '@/hooks/useExtraFilters'
+import { CATEGORICAL_PALETTE, MAX_SERIES, STATUS_COLORS, TOOLTIP_Z_INDEX } from '@/lib/chartPalette'
+import { ExtraFilterControl } from './ExtraFilterControl'
+import { KpiLineTooltip } from './KpiLineTooltip'
+import { evenTickInterval, formatPeriodTick } from '@/lib/periodFormat'
+import { seriesKeyFor } from '@/lib/kpiRowName'
+import { periodStartsBetween } from '@/lib/periodGrid'
+import type { Grain, KpiCardResponse } from '@/lib/kpiSchemas'
 
 interface Series {
   seriesKey: string
@@ -29,14 +29,22 @@ interface Series {
   latestStatus: KpiCardResponse['status']
 }
 
-// Some endpoints (capa-aging-status, human-error-severity, human-error-by-product) return many
-// rows per period under one shared kpiId, differing only by `name` (one per level/classification/
-// material) - kpiId alone is not a unique series identity for those, so it's combined with `name`.
-function seriesKeyFor(row: KpiCardResponse) {
-  return `${row.kpiId}|${row.name}`
+
+/** The period range a chart spans - periods inside it that have no row become empty gaps, not dropped. */
+export interface ChartAxis {
+  grain: Grain
+  from: string
+  to: string
+  /** The KPI's own reporting frequency, when known - staleness is judged at the coarser of this and `grain`. */
+  frequency?: Grain | null
 }
 
-export function toChartData(rows: KpiCardResponse[]) {
+/** A snapshot KPI ("as of today", no date window) has no axis to run - everything else spans its requested range. */
+export function chartAxisFor(kpi: KpiDefinition, filters: { grain: string; from: string; to: string }, frequency?: Grain | null): ChartAxis | undefined {
+  return kpi.snapshot ? undefined : { grain: filters.grain as Grain, from: filters.from, to: filters.to, frequency }
+}
+
+export function toChartData(rows: KpiCardResponse[], axis?: ChartAxis) {
   const seriesByKey = new Map<string, Series>()
   const byPeriod = new Map<string, Record<string, number | string | null>>()
 
@@ -50,7 +58,18 @@ export function toChartData(rows: KpiCardResponse[]) {
     }
     const bucket = byPeriod.get(row.periodStart) ?? { periodStart: row.periodStart }
     bucket[key] = row.value
+    // Stashed alongside the plottable value (not nested under it) so `key` can still be used
+    // directly as a Line/Bar dataKey - KpiLineTooltip looks these companion keys up by seriesKey.
+    if (row.numerator != null) bucket[`${key}__numerator`] = row.numerator
+    if (row.denominator != null) bucket[`${key}__denominator`] = row.denominator
+    if (row.breakdown) bucket[`${key}__breakdown`] = JSON.stringify(row.breakdown)
     byPeriod.set(row.periodStart, bucket)
+  }
+
+  if (axis) {
+    for (const start of periodStartsBetween(axis.grain, axis.from, axis.to)) {
+      if (!byPeriod.has(start)) byPeriod.set(start, { periodStart: start })
+    }
   }
 
   const allSeries = Array.from(seriesByKey.values())
@@ -63,7 +82,7 @@ export function toChartData(rows: KpiCardResponse[]) {
   return { shownSeries, hiddenCount, chartData }
 }
 
-interface BarRow {
+export interface BarRow {
   name: string
   value: number | null
   unit: string
@@ -84,19 +103,14 @@ export function KpiChartCard({ domain, kpi, globalFilters }: {
   kpi: KpiDefinition
   globalFilters: GlobalKpiFilters
 }) {
-  const [extraStates, setExtraStates] = useState<ExtraFilterState[]>(() =>
-    kpi.extraFilters.map(initialExtraFilterState),
-  )
-  const extraParams = kpi.extraFilters.flatMap((filter, i) => resolveExtraParams(filter, extraStates[i]))
-  const requiredSelectMissing = kpi.extraFilters.some(
-    (filter, i) => filter.kind === 'select' && filter.required && resolveExtraParams(filter, extraStates[i]).length === 0,
-  )
+  const { extraStates, setExtraState, extraParams, requiredSelectMissing, optionsFor, filterOptionsLoading } =
+    useExtraFilters(domain, kpi, globalFilters, true)
 
   const isBarChart = kpi.chartType === 'bar'
   const query = useKpiData(domain, kpi, globalFilters, extraParams)
   const { shownSeries, hiddenCount, chartData } = useMemo(
-    () => toChartData(query.data ?? []),
-    [query.data],
+    () => toChartData(query.data ?? [], chartAxisFor(kpi, globalFilters)),
+    [query.data, kpi, globalFilters],
   )
   const barData = useMemo(() => toBarData(query.data ?? []), [query.data])
   const emptyState = emptyStateFor(
@@ -130,7 +144,9 @@ export function KpiChartCard({ domain, kpi, globalFilters }: {
               key={filter.param}
               filter={filter}
               state={extraStates[i]}
-              onChange={(next) => setExtraStates((prev) => prev.map((s, idx) => (idx === i ? next : s)))}
+              options={optionsFor(filter)}
+              loading={filterOptionsLoading}
+              onChange={(next) => setExtraState(i, next)}
             />
           ))}
         </div>
@@ -152,7 +168,7 @@ export function KpiChartCard({ domain, kpi, globalFilters }: {
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                 <XAxis type="number" tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" />
                 <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" width={160} />
-                <Tooltip contentStyle={{ fontSize: 11 }} />
+                <Tooltip contentStyle={{ fontSize: 11 }} wrapperStyle={{ zIndex: TOOLTIP_Z_INDEX }} />
                 <Bar dataKey="value" fill={CATEGORICAL_PALETTE[0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -164,9 +180,15 @@ export function KpiChartCard({ domain, kpi, globalFilters }: {
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                <XAxis dataKey="periodStart" tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" />
+                <XAxis
+                  dataKey="periodStart"
+                  tickFormatter={(v: string) => formatPeriodTick(v, globalFilters.grain as Grain)}
+                  interval={evenTickInterval(chartData.length)}
+                  tick={{ fontSize: 10 }}
+                  stroke="var(--muted-foreground)"
+                />
                 <YAxis tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" width={40} />
-                <Tooltip contentStyle={{ fontSize: 11 }} />
+                <Tooltip filterNull={false} content={<KpiLineTooltip grain={globalFilters.grain as Grain} />} wrapperStyle={{ zIndex: TOOLTIP_Z_INDEX }} />
                 {shownSeries.length >= 2 && <Legend wrapperStyle={{ fontSize: 10 }} />}
                 {shownSeries.map((s, i) => (
                   <Line
@@ -177,7 +199,6 @@ export function KpiChartCard({ domain, kpi, globalFilters }: {
                     stroke={CATEGORICAL_PALETTE[i]}
                     strokeWidth={2}
                     dot={{ r: 3 }}
-                    connectNulls
                   />
                 ))}
               </LineChart>

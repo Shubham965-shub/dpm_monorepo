@@ -5,10 +5,13 @@ import jakarta.enterprise.context.ApplicationScoped;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @ApplicationScoped
 public class AggLimsQualificationCycleTimeRepository extends AbstractAggRepository<PeriodTotal> {
+
+    private static final String TABLE = "agg_lims_qualification_cycle_time";
 
     /**
      * designations empty = no filter (every designation combined; designation is a true
@@ -34,5 +37,11 @@ public class AggLimsQualificationCycleTimeRepository extends AbstractAggReposito
                 rs.getLong("numerator"),
                 rs.getLong("denominator")),
                 params.toArray());
+    }
+
+    /** designation's live option list, scoped by site/grain/date range - see AbstractAggRepository.distinctValues. */
+    public Map<String, List<String>> filterOptions(String siteName, String grain, LocalDate from, LocalDate to) {
+        return Map.of("designation",
+                distinctValues(TABLE, "site_name", "designation", siteName, grain, from, to, Map.of()));
     }
 }

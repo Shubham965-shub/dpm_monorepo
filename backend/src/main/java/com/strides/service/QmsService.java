@@ -1,11 +1,17 @@
 package com.strides.service;
 
+import com.strides.dto.CapaDateBasis;
 import com.strides.dto.DepartmentScope;
+import com.strides.dto.DrilldownSupport;
+import com.strides.dto.InvalidOosTestScope;
 import com.strides.dto.KpiCardResponse;
 import com.strides.model.AggTwHumanErrorSeverityRow;
 import com.strides.model.MedianTatRow;
+import com.strides.model.PeriodTotal;
 import com.strides.model.RootCauseTotal;
+import com.strides.repository.AbstractOpenCapaRepository;
 import com.strides.repository.AggTwCapaAgingStatusRepository;
+import com.strides.repository.AggTwCapaOpenByDueDateRepository;
 import com.strides.repository.AggTwCapaEffectivenessRepository;
 import com.strides.repository.AggTwCapaRecurrenceRateRepository;
 import com.strides.repository.AggTwDeviationsRepository;
@@ -22,7 +28,10 @@ import com.strides.repository.AggTwRciBeyondTimelineRepository;
 import com.strides.repository.AggTwRepeatFailureRateRepository;
 import com.strides.repository.AggTwRootCauseDistributionRepository;
 import com.strides.repository.AggTwValidOosRateRepository;
+import com.strides.dto.DrilldownPage;
 import com.strides.repository.DepartmentScopeLiterals;
+import com.strides.repository.DrilldownSpecs;
+import com.strides.repository.GenericDrilldownRepository;
 import com.strides.service.kpi.PeriodCombiner;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -32,6 +41,7 @@ import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -61,6 +71,8 @@ public class QmsService {
     @Inject
     AggTwCapaAgingStatusRepository capaAgingStatusRepository;
     @Inject
+    AggTwCapaOpenByDueDateRepository capaOpenByDueDateRepository;
+    @Inject
     AggTwCapaEffectivenessRepository capaEffectivenessRepository;
     @Inject
     AggTwCapaRecurrenceRateRepository capaRecurrenceRateRepository;
@@ -76,35 +88,56 @@ public class QmsService {
     AggTwProductWiseFailureRepository productWiseFailureRepository;
     @Inject
     DepartmentScopeLiterals deptLiterals;
+    @Inject
+    GenericDrilldownService genericDrilldownService;
+
+    private static final double PER_1000_TESTS = 1000;
+    private static final String PER_1000_TESTS_UNIT = "per 1000 tests";
 
     /**
-     * invalid_oos_rate is a per-1000-tests figure (see the source DAX); catalogue thresholds are
-     * percent-of-tests, and the two aren't directly comparable without confirming the scale.
-     * sampleCategory: comma-separated list to combine, or null/blank for the table's own
-     * pre-combined 'All' total (see AggTwInvalidOosRateRepository). It does carry a separate
-     * test_count_filtered/invalid_oos_rate_filtered pair, but the filtering criteria behind that
-     * isn't documented anywhere available here, so it's not exposed as a stand-in.
+     * One variant per request (per-1000-tests, not percent - catalogue thresholds don't apply
+     * directly), picked by testScope - All tests by default:
+     *   ALL:        all OOS / every test.
+     *   RISE:       OOS excluding RM/PM product types / commercial tests (IP, FG, SFG, Stability).
+     *   COMMERCIAL: all OOS / the same commercial tests.
      */
-    public List<KpiCardResponse> getInvalidOosRate(String siteName, String sampleCategory, String grain, LocalDate from, LocalDate to) {
-        Set<String> selected = PeriodCombiner.parseSelection(sampleCategory);
-        var totals = invalidOosRateRepository.findTotals(siteName, selected, grain, from, to);
-        return PeriodCombiner.fromTotals(totals, 1000, "invalid-oos-rate", "Invalid OOS Rate", "per 1000 tests");
+    public List<KpiCardResponse> getInvalidOosRate(String siteName, String testScope, String grain, LocalDate from, LocalDate to) {
+        InvalidOosTestScope scope = InvalidOosTestScope.parse(testScope);
+        var totals = invalidOosRateRepository.findTotals(siteName, grain, from, to);
+        return switch (scope) {
+            case ALL -> PeriodCombiner.fromTotals(
+                    totals.stream().map(t -> new PeriodTotal(t.periodStart(), t.grain(), t.oosCount(), t.testCount())).toList(),
+                    PER_1000_TESTS, "invalid-oos-rate", "Invalid OOS Rate (All tests)", PER_1000_TESTS_UNIT, null, "OOS Count", "Test Count");
+            case RISE -> PeriodCombiner.fromTotals(
+                    totals.stream().map(t -> new PeriodTotal(t.periodStart(), t.grain(), t.oosCountRise(), t.testCountCommercial())).toList(),
+                    PER_1000_TESTS, "invalid-oos-rate-rise", "Invalid OOS Rate (RISE)", PER_1000_TESTS_UNIT, null, "OOS Count", "Test Count");
+            case COMMERCIAL -> PeriodCombiner.fromTotals(
+                    totals.stream().map(t -> new PeriodTotal(t.periodStart(), t.grain(), t.oosCount(), t.testCountCommercial())).toList(),
+                    PER_1000_TESTS, "invalid-oos-rate-commercial", "Invalid OOS Rate (Commercial)", PER_1000_TESTS_UNIT, null, "OOS Count", "Test Count");
+        };
+    }
+
+    /** Static, not DB-driven - the variants are fixed formulas over the same row, not a column's values. */
+    public Map<String, List<String>> getInvalidOosRateFilterOptions() {
+        return Map.of("testScope", InvalidOosTestScope.FILTER_OPTIONS);
     }
 
     /**
      * Same per-1000 vs percent scale caveat as Invalid OOS Rate.
-     * KNOWN GAP: no productType/eventType filter is possible even though both columns now exist -
-     * every non-'All' breakdown row has a NULL test_count (confirmed live), so there's no
-     * denominator to recompute a rate from a chosen subset of either dimension. See
-     * AggTwValidOosRateRepository for how the unfiltered ('All','All') total is still returned
-     * correctly. batchCategory/test/sampleType still don't exist as columns at all.
+     * productType: comma-separated list to combine, or null/blank for ALL - see
+     * AggTwValidOosRateRepository for how a subset's rate is recomputed.
      */
-    public List<KpiCardResponse> getConfirmedOosRate(String siteName, String grain, LocalDate from, LocalDate to) {
-        return validOosRateRepository.find(siteName, grain, from, to).stream()
+    public List<KpiCardResponse> getConfirmedOosRate(String siteName, String productType, String grain, LocalDate from, LocalDate to) {
+        return validOosRateRepository.find(siteName, PeriodCombiner.parseSelection(productType), grain, from, to).stream()
                 .map(row -> new KpiCardResponse(
-                        "confirmed-oos-rate", "Confirmed OOS Rate", row.validOosRate(), "per 1000 tests",
-                        null, row.grain(), row.periodStart(), null))
+                        "confirmed-oos-rate", "Confirmed OOS Rate", row.validOosRate(), PER_1000_TESTS_UNIT,
+                        null, row.grain(), row.periodStart(), null,
+                        BigDecimal.valueOf(row.oosCount()), BigDecimal.valueOf(row.testCount())))
                 .toList();
+    }
+
+    public Map<String, List<String>> getConfirmedOosRateFilterOptions(String siteName, String grain, LocalDate from, LocalDate to) {
+        return validOosRateRepository.filterOptions(siteName, grain, from, to);
     }
 
     /**
@@ -112,29 +145,37 @@ public class QmsService {
      * summing both happen in Postgres. Catalogue threshold is month-on-month % change, not a
      * single-value cutoff, so status stays null - raw combined counts only.
      */
-    public List<KpiCardResponse> getOosTrend(String site, String rootCauseBucket, String grain, LocalDate from, LocalDate to) {
+    public List<KpiCardResponse> getOosTrend(String site, String rootCauseBucket, String conclusion, String grain, LocalDate from, LocalDate to) {
         Set<String> selected = PeriodCombiner.parseSelection(rootCauseBucket);
-        var totals = oosTrendRepository.findTotals(site, selected, grain, from, to);
-        return PeriodCombiner.fromSums(totals, "oos-trend", "OOS Trend", "count");
+        var totals = oosTrendRepository.findTotals(site, selected, PeriodCombiner.parseSelection(conclusion), grain, from, to);
+        return PeriodCombiner.fromSums(totals, "oos-trend", "OOS Trend", "count", grain, from, to);
     }
 
-    public List<KpiCardResponse> getOotTrend(String site, String rootCauseBucket, String grain, LocalDate from, LocalDate to) {
+    public Map<String, List<String>> getOosTrendFilterOptions(String site, String grain, LocalDate from, LocalDate to) {
+        return oosTrendRepository.filterOptions(site, grain, from, to);
+    }
+
+    public List<KpiCardResponse> getOotTrend(String site, String rootCauseBucket, String conclusion, String grain, LocalDate from, LocalDate to) {
         Set<String> selected = PeriodCombiner.parseSelection(rootCauseBucket);
-        var totals = ootTrendRepository.findTotals(site, selected, grain, from, to);
-        return PeriodCombiner.fromSums(totals, "oot-trend", "OOT Trend", "count");
+        var totals = ootTrendRepository.findTotals(site, selected, PeriodCombiner.parseSelection(conclusion), grain, from, to);
+        return PeriodCombiner.fromSums(totals, "oot-trend", "OOT Trend", "count", grain, from, to);
+    }
+
+    public Map<String, List<String>> getOotTrendFilterOptions(String site, String grain, LocalDate from, LocalDate to) {
+        return ootTrendRepository.filterOptions(site, grain, from, to);
     }
 
     /**
      * Catalogue threshold is "% of monthly baseline"; no baseline window is defined - raw counts only.
-     * respDept/level/initialClassification/finalClassification/recurringByCause: each an
-     * independent comma-separated combine filter, or null/blank for ALL - same convention as
-     * rootCauseBucket. All 5 columns are a true partition (no "All" catch-all row), so combining
+     * level/initialClassification/finalClassification/recurringByCause: each an independent
+     * comma-separated combine filter, or null/blank for ALL - same convention as rootCauseBucket.
+     * respDept: same, but as repeated params (department names can contain commas). All 5 columns are a true partition (no "All" catch-all row), so combining
      * any subset is a plain SUM in Postgres. departmentScope=QC (additive pattern, see
      * backend/README.md's "Department scope" section) overrides respDept to Quality Control
      * Department alone; departmentScope=ALL (default) leaves respDept as given (blank = every
      * department summed).
      */
-    public List<KpiCardResponse> getDeviations(String site, String rootCauseBucket, String respDept, String level,
+    public List<KpiCardResponse> getDeviations(String site, String rootCauseBucket, List<String> respDept, String level,
             String initialClassification, String finalClassification, String recurringByCause,
             String departmentScope, String grain, LocalDate from, LocalDate to) {
         Set<String> effectiveRespDept = DepartmentScope.parse(departmentScope) == DepartmentScope.QC
@@ -148,7 +189,20 @@ public class QmsService {
                 PeriodCombiner.parseSelection(finalClassification),
                 PeriodCombiner.parseSelection(recurringByCause),
                 grain, from, to);
-        return PeriodCombiner.fromSums(totals, "deviations", "Deviations", "count");
+        return PeriodCombiner.fromSums(totals, "deviations", "Deviations", "count", grain, from, to);
+    }
+
+    /** departmentScope isn't a DB-driven column filter (see sliceValueFor) - not part of the cross-filtered option set below, unlike respDept etc. */
+    public Map<String, List<String>> getDeviationsFilterOptions(String site, String rootCauseBucket, List<String> respDept,
+            String level, String initialClassification, String finalClassification, String recurringByCause,
+            String grain, LocalDate from, LocalDate to) {
+        return deviationsRepository.filterOptions(site, grain, from, to,
+                PeriodCombiner.parseSelection(rootCauseBucket),
+                PeriodCombiner.parseSelection(respDept),
+                PeriodCombiner.parseSelection(level),
+                PeriodCombiner.parseSelection(initialClassification),
+                PeriodCombiner.parseSelection(finalClassification),
+                PeriodCombiner.parseSelection(recurringByCause));
     }
 
     /**
@@ -170,7 +224,7 @@ public class QmsService {
     public List<KpiCardResponse> getInvestigationClosureTat(String site, String departmentScope, List<String> respDept,
             String initiatedThrough, String grain, LocalDate from, LocalDate to) {
         DepartmentScope scope = DepartmentScope.parse(departmentScope);
-        Set<String> selectedDepts = respDept == null ? Set.of() : Set.copyOf(respDept);
+        Set<String> selectedDepts = PeriodCombiner.parseSelection(respDept);
         List<MedianTatRow> rows = investigationClosureTatRepository.findMedians(site, scope, selectedDepts,
                 PeriodCombiner.parseSelection(initiatedThrough), grain, from, to);
         String qcNote = selectedDepts.isEmpty() && scope == DepartmentScope.QC
@@ -198,16 +252,30 @@ public class QmsService {
                 .toList();
     }
 
+    /** departmentScope isn't a DB-driven column filter - not part of the cross-filtered option set below. */
+    public Map<String, List<String>> getInvestigationClosureTatFilterOptions(String site, List<String> respDept,
+            String initiatedThrough, String grain, LocalDate from, LocalDate to) {
+        Set<String> selectedDepts = PeriodCombiner.parseSelection(respDept);
+        return investigationClosureTatRepository.filterOptions(site, grain, from, to,
+                selectedDepts, PeriodCombiner.parseSelection(initiatedThrough));
+    }
+
     /**
-     * respDept/initiatedThrough: each an independent comma-separated combine filter, or
-     * null/blank for ALL. No total-RCI-count column to compute a percentage against - raw
+     * initiatedThrough: comma-separated combine filter; respDept: repeated params (department names
+     * can contain commas); each null/blank for ALL. No total-RCI-count column to compute a percentage against - raw
      * combined overdue count only.
      */
-    public List<KpiCardResponse> getRciBeyondTimeline(String site, String respDept, String initiatedThrough,
+    public List<KpiCardResponse> getRciBeyondTimeline(String site, List<String> respDept, String initiatedThrough,
             String grain, LocalDate from, LocalDate to) {
         var totals = rciBeyondTimelineRepository.findTotals(site,
                 PeriodCombiner.parseSelection(respDept), PeriodCombiner.parseSelection(initiatedThrough), grain, from, to);
-        return PeriodCombiner.fromSums(totals, "rci-beyond-timeline", "RCIs Beyond Timeline", "count");
+        return PeriodCombiner.fromSums(totals, "rci-beyond-timeline", "RCIs Beyond Timeline", "count", grain, from, to);
+    }
+
+    public Map<String, List<String>> getRciBeyondTimelineFilterOptions(String site, List<String> respDept,
+            String initiatedThrough, String grain, LocalDate from, LocalDate to) {
+        return rciBeyondTimelineRepository.filterOptions(site, grain, from, to,
+                PeriodCombiner.parseSelection(respDept), PeriodCombiner.parseSelection(initiatedThrough));
     }
 
     /**
@@ -226,7 +294,12 @@ public class QmsService {
         String note = scope == DepartmentScope.QC
                 ? "QC returns Deviation records only (OOS has no department field) - not a decomposition of ALL, which blends both record types."
                 : null;
-        return PeriodCombiner.fromTotals(totals, 100, "repeat-failure-rate", "Repeat Failure Rate", "%", note);
+        return PeriodCombiner.fromTotals(totals, 100, "repeat-failure-rate", "Repeat Failure Rate", "%", note, "Recurring Records", "Total Records");
+    }
+
+    /** departmentScope isn't a DB-driven column filter - not part of the option set below. */
+    public Map<String, List<String>> getRepeatFailureRateFilterOptions(String site, String grain, LocalDate from, LocalDate to) {
+        return repeatFailureRateRepository.filterOptions(site, grain, from, to);
     }
 
     /** recordType: comma-separated list (Deviation, Out Of Specification, Out of Trend) to combine, or null/blank for ALL. */
@@ -236,6 +309,11 @@ public class QmsService {
 
     public List<KpiCardResponse> getConsolidatedRootCause(String site, String recordType, String grain, LocalDate from, LocalDate to) {
         return rootCauseShares(site, recordType, grain, from, to, "root-cause-consolidated-");
+    }
+
+    /** Shared by both root-cause and root-cause-consolidated - same underlying table/column. */
+    public Map<String, List<String>> getRootCauseFilterOptions(String site, String grain, LocalDate from, LocalDate to) {
+        return rootCauseDistributionRepository.filterOptions(site, grain, from, to);
     }
 
     /**
@@ -248,7 +326,7 @@ public class QmsService {
         return rootCauseDistributionRepository.findTotals(site, selected, grain, from, to).stream()
                 .flatMap(total -> dimensionCounts(total).entrySet().stream().map(dimension ->
                         new KpiCardResponse(
-                                kpiIdPrefix + dimension.getKey().toLowerCase().replaceAll("[^a-z0-9]+", "-"),
+                                kpiIdPrefix + dimension.getKey().toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "-"),
                                 "Root Cause: " + dimension.getKey(), BigDecimal.valueOf(dimension.getValue()), "count",
                                 null, total.grain(), total.periodStart(), null)))
                 .toList();
@@ -274,45 +352,77 @@ public class QmsService {
     }
 
     /**
-     * recordStatus: comma-separated list to combine, or null/blank for ALL - summed away in Postgres.
-     * level: comma-separated list of aging tiers (L1-L5) to include, or null/blank for ALL - a
-     * selected level always stays its own row rather than being blended with others, since it's a
-     * distinct axis, not a value to sum away. Matches Power BI's "Level" slicer.
-     * The catalogue's "% overdue beyond 60 days" doesn't map cleanly onto these levels, so raw
-     * per-level counts are returned without a synthesized status.
+     * Open-CAPA snapshot (Power BI's CAPA Status/Aging page). from/to both null = every currently
+     * open CAPA, no date filter - see AbstractOpenCapaRepository. recordStatus/level: comma-separated
+     * lists, or null/blank for ALL. minAgingDays/maxAgingDays: per-CAPA aging range, either bound optional.
+     * departmentScope: QC | ALL (default ALL) - see backend/README.md's "Department scope" section;
+     * respDeptSlice (one department, or null/blank) overrides it.
      */
-    /**
-     * minAgingDays/maxAgingDays: numeric range on avg_aging_days (either bound optional), matching
-     * Power BI's "Aging (Days)" slicer. CAVEAT: agg_tw_capa_aging_status is already pre-aggregated
-     * per (period, level, record_status) - there's no individual-CAPA-record aging value to filter
-     * on, so this range applies to the combined GROUP's average, not each underlying record.
-     */
-    /** departmentScope: QC | ALL (default ALL) - slice pattern on resp_dept_slice, see backend/README.md's "Department scope" section. */
-    public List<KpiCardResponse> getCapaAgingStatus(String site, String departmentScope, String recordStatus, String level,
-            Double minAgingDays, Double maxAgingDays, String grain, LocalDate from, LocalDate to) {
-        DepartmentScope scope = DepartmentScope.parse(departmentScope);
-        Set<String> selectedStatuses = PeriodCombiner.parseSelection(recordStatus);
-        Set<String> selectedLevels = PeriodCombiner.parseSelection(level);
-        return capaAgingStatusRepository.findByLevel(site, scope, selectedStatuses, selectedLevels, minAgingDays, maxAgingDays, grain, from, to)
-                .stream()
-                .map(nc -> new KpiCardResponse(
-                        "capa-aging-status", nc.name(), BigDecimal.valueOf(nc.count()), "count",
-                        null, grain, to, null))
-                .toList();
+    private static AbstractOpenCapaRepository.Filter openCapaFilter(String site, String departmentScope, String respDeptSlice,
+            String recordStatus, String level, Double minAgingDays, Double maxAgingDays, String grain, LocalDate from, LocalDate to) {
+        return new AbstractOpenCapaRepository.Filter(site, DepartmentScope.parse(departmentScope), respDeptSlice,
+                PeriodCombiner.parseSelection(recordStatus), PeriodCombiner.parseSelection(level),
+                minAgingDays, maxAgingDays, grain, from, to);
     }
 
     /**
-     * departmentScope: QC | ALL (default ALL) - slice pattern on resp_dept_slice, see
-     * backend/README.md's "Department scope" section. Matches Power BI's "Open CAPA by Date
-     * Opened" trend - period_start is the CAPA's date-opened month.
+     * One row per level (a separate axis, never summed away). The catalogue's "% overdue beyond 60
+     * days" doesn't map cleanly onto these levels, so raw per-level counts are returned without a
+     * synthesized status.
      */
-    public List<KpiCardResponse> getCapaOpenByDateOpened(String site, String departmentScope, String recordStatus,
+    public List<KpiCardResponse> getCapaAgingStatus(String site, String departmentScope, String recordStatus, String level,
+            Double minAgingDays, Double maxAgingDays, String grain, LocalDate from, LocalDate to) {
+        var filter = openCapaFilter(site, departmentScope, null, recordStatus, level, minAgingDays, maxAgingDays, grain, from, to);
+        LocalDate asOf = to != null ? to : LocalDate.now();
+        return capaAgingStatusRepository.findByLevel(filter)
+                .stream()
+                .map(nc -> new KpiCardResponse(
+                        "capa-aging-status", nc.name(), BigDecimal.valueOf(nc.count()), "count",
+                        null, grain, asOf, null))
+                .toList();
+    }
+
+    /** period_start is the CAPA's date-opened period. */
+    public List<KpiCardResponse> getCapaOpenByDateOpened(String site, String departmentScope, String recordStatus, String level,
+            Double minAgingDays, Double maxAgingDays, String grain, LocalDate from, LocalDate to) {
+        var filter = openCapaFilter(site, departmentScope, null, recordStatus, level, minAgingDays, maxAgingDays, grain, from, to);
+        return PeriodCombiner.fromSums(capaAgingStatusRepository.findByDateOpened(filter),
+                "capa-open-by-date-opened", "Open CAPA by Date Opened", "count");
+    }
+
+    /**
+     * Power BI's CAPA Status/Aging column charts merged into one: open CAPAs per period of
+     * dateBasis (Date Opened by default, or Due Date), one row per (period, level) - `name` is the level.
+     * No aging-days range here (business request, 2026-09-29).
+     */
+    public List<KpiCardResponse> getCapaAging(String site, String dateBasis, String departmentScope, String respDeptSlice,
+            String recordStatus, String level, String grain, LocalDate from, LocalDate to) {
+        var filter = openCapaFilter(site, departmentScope, respDeptSlice, recordStatus, level, null, null, grain, from, to);
+        return openCapaRepository(dateBasis).findPeriodLevelTotals(filter).stream()
+                .map(t -> new KpiCardResponse("capa-aging", t.tier(), BigDecimal.valueOf(t.total()), "count",
+                        null, t.grain(), t.periodStart(), null))
+                .toList();
+    }
+
+    private AbstractOpenCapaRepository openCapaRepository(String dateBasis) {
+        return CapaDateBasis.parse(dateBasis) == CapaDateBasis.DUE ? capaOpenByDueDateRepository : capaAgingStatusRepository;
+    }
+
+    /** Shared by capa-aging-status and capa-open-by-date-opened (same table). */
+    public Map<String, List<String>> getCapaAgingStatusFilterOptions(String site, String recordStatus, String level,
+            String grain, LocalDate from, LocalDate to) {
+        return capaAgingStatusRepository.filterOptions(site, grain, from, to, null,
+                PeriodCombiner.parseSelection(recordStatus), PeriodCombiner.parseSelection(level));
+    }
+
+    /** dateBasis' own fixed options, plus respDeptSlice/recordStatus/level from whichever table dateBasis picks. */
+    public Map<String, List<String>> getCapaAgingFilterOptions(String site, String dateBasis, String respDeptSlice, String recordStatus,
             String level, String grain, LocalDate from, LocalDate to) {
-        Set<String> selectedStatuses = PeriodCombiner.parseSelection(recordStatus);
-        Set<String> selectedLevels = PeriodCombiner.parseSelection(level);
-        var totals = capaAgingStatusRepository.findByDateOpened(site, DepartmentScope.parse(departmentScope),
-                selectedStatuses, selectedLevels, grain, from, to);
-        return PeriodCombiner.fromSums(totals, "capa-open-by-date-opened", "Open CAPA by Date Opened", "count");
+        Map<String, List<String>> options = new LinkedHashMap<>();
+        options.put("dateBasis", CapaDateBasis.FILTER_OPTIONS);
+        options.putAll(openCapaRepository(dateBasis).filterOptions(site, grain, from, to, respDeptSlice,
+                PeriodCombiner.parseSelection(recordStatus), PeriodCombiner.parseSelection(level)));
+        return options;
     }
 
     /**
@@ -326,16 +436,33 @@ public class QmsService {
         Set<String> selected = PeriodCombiner.parseSelection(originatedFrom);
         var totals = capaEffectivenessRepository.findTotals(site, DepartmentScope.parse(departmentScope), selected, grain, from, to);
         String note = "Change Control records may fan out under resp_dept (child_id join) - department slices are not guaranteed to sum to ALL here.";
-        return PeriodCombiner.fromTotals(totals, 100, "capa-effectiveness", "CAPA Effectiveness", "%", note);
+        return PeriodCombiner.fromTotals(totals, 100, "capa-effectiveness", "CAPA Effectiveness", "%", note, "Passing Records", "Total Records");
     }
 
-    /** departmentScope: QC | ALL (default ALL) - slice pattern on resp_dept_slice, see backend/README.md's "Department scope" section. */
-    public List<KpiCardResponse> getCapaRecurrenceRate(String site, String departmentScope, String grain, LocalDate from, LocalDate to) {
-        return capaRecurrenceRateRepository.find(site, DepartmentScope.parse(departmentScope), grain, from, to).stream()
+    public Map<String, List<String>> getCapaEffectivenessFilterOptions(String site, String grain, LocalDate from, LocalDate to) {
+        return capaEffectivenessRepository.filterOptions(site, grain, from, to);
+    }
+
+    /**
+     * departmentScope: QC | ALL (default ALL), used only when respDept is blank - slice pattern on
+     * resp_dept_slice, see backend/README.md's "Department scope" section. respDept: repeated params,
+     * takes priority over departmentScope when given - selected departments are summed (see
+     * AggTwCapaRecurrenceRateRepository.find).
+     */
+    public List<KpiCardResponse> getCapaRecurrenceRate(String site, String departmentScope, List<String> respDept,
+            String grain, LocalDate from, LocalDate to) {
+        Set<String> selectedDepts = PeriodCombiner.parseSelection(respDept);
+        return capaRecurrenceRateRepository.find(site, DepartmentScope.parse(departmentScope), selectedDepts, grain, from, to).stream()
                 .map(row -> new KpiCardResponse(
                         "capa-recurrence-rate", "CAPA Recurrence Rate", row.recurrencePct(), "%",
-                        null, row.grain(), row.periodStart(), null))
+                        null, row.grain(), row.periodStart(), null,
+                        BigDecimal.valueOf(row.recurringCount()), BigDecimal.valueOf(row.capaCount())))
                 .toList();
+    }
+
+    /** respDept's live option list - see AbstractAggRepository.distinctValues. */
+    public Map<String, List<String>> getCapaRecurrenceRateFilterOptions(String site, String grain, LocalDate from, LocalDate to) {
+        return capaRecurrenceRateRepository.filterOptions(site, grain, from, to);
     }
 
     /**
@@ -352,7 +479,8 @@ public class QmsService {
         return humanErrorRateRepository.find(site, DepartmentScope.parse(departmentScope), grain, from, to).stream()
                 .map(row -> new KpiCardResponse(
                         "human-error-rate", "Human Error Rate", row.humanErrorRate(), "per 1000 tests",
-                        null, row.grain(), row.periodStart(), null))
+                        null, row.grain(), row.periodStart(), null,
+                        BigDecimal.valueOf(row.humanErrorCount()), BigDecimal.valueOf(row.testCount())))
                 .toList();
     }
 
@@ -360,17 +488,23 @@ public class QmsService {
         return humanErrorRateRepository.find(site, DepartmentScope.parse(departmentScope), grain, from, to).stream()
                 .map(row -> new KpiCardResponse(
                         "repeat-human-error-rate", "Repeat Human Error Rate", row.repeatHumanErrorRate(), "per 1000 tests",
-                        null, row.grain(), row.periodStart(), null))
+                        null, row.grain(), row.periodStart(), null,
+                        BigDecimal.valueOf(row.recurringCount()), BigDecimal.valueOf(row.testCount())))
                 .toList();
     }
 
     /**
      * Per-classification raw counts, plus one "Overall" entry per period totaling all severities.
+     * finalClassification: one class only (and no Overall entry - there is nothing to total), or
+     * null/blank for every class. It's also a kpi_threshold_snapshot filter slot for KPI-028, so a
+     * picked class is coloured against its own limits rather than the far higher "All" ones.
      * departmentScope: QC | ALL (default ALL) - slice pattern on failure_category_slice, see
      * backend/README.md's "Department scope" section.
      */
-    public List<KpiCardResponse> getHumanErrorSeverity(String site, String departmentScope, String grain, LocalDate from, LocalDate to) {
-        List<AggTwHumanErrorSeverityRow> rows = humanErrorSeverityRepository.find(site, DepartmentScope.parse(departmentScope), grain, from, to);
+    public List<KpiCardResponse> getHumanErrorSeverity(String site, String finalClassification, String departmentScope,
+            String grain, LocalDate from, LocalDate to) {
+        List<AggTwHumanErrorSeverityRow> rows = humanErrorSeverityRepository.find(site, finalClassification,
+                DepartmentScope.parse(departmentScope), grain, from, to);
 
         List<KpiCardResponse> perClassification = rows.stream()
                 .map(row -> new KpiCardResponse(
@@ -391,7 +525,12 @@ public class QmsService {
                 .sorted(Comparator.comparing(KpiCardResponse::periodStart))
                 .toList();
 
-        return Stream.concat(perClassification.stream(), overall.stream()).toList();
+        boolean oneClass = finalClassification != null && !finalClassification.isBlank();
+        return oneClass ? perClassification : Stream.concat(perClassification.stream(), overall.stream()).toList();
+    }
+
+    public Map<String, List<String>> getHumanErrorSeverityFilterOptions(String site, String grain, LocalDate from, LocalDate to) {
+        return humanErrorSeverityRepository.filterOptions(site, grain, from, to);
     }
 
     /**
@@ -408,13 +547,17 @@ public class QmsService {
      */
     public List<KpiCardResponse> getHumanErrorByProduct(String site, List<String> material, String departmentScope,
             String grain, LocalDate from, LocalDate to) {
-        Set<String> selected = material == null ? Set.of() : Set.copyOf(material);
+        Set<String> selected = PeriodCombiner.parseSelection(material);
         return humanErrorByProductRepository.findByProduct(site, DepartmentScope.parse(departmentScope), selected, grain, from, to)
                 .stream()
                 .map(nc -> new KpiCardResponse(
                         "human-error-by-product", nc.name(), BigDecimal.valueOf(nc.count()), "count",
                         null, grain, to, null))
                 .toList();
+    }
+
+    public Map<String, List<String>> getHumanErrorByProductFilterOptions(String site, String grain, LocalDate from, LocalDate to) {
+        return humanErrorByProductRepository.filterOptions(site, grain, from, to);
     }
 
     /** No total-tests denominator in this table to compute a percentage - raw count only. */
@@ -441,5 +584,416 @@ public class QmsService {
                         "product-wise-failure", nc.name(), BigDecimal.valueOf(nc.count()), "count",
                         null, grain, to, null))
                 .toList();
+    }
+
+    public Map<String, List<String>> getProductWiseFailureFilterOptions(String site, String materialType,
+            String disposition, List<String> product, String grain, LocalDate from, LocalDate to) {
+        Set<String> selectedProducts = PeriodCombiner.parseSelection(product);
+        return productWiseFailureRepository.filterOptions(site, grain, from, to,
+                PeriodCombiner.parseSelection(materialType), PeriodCombiner.parseSelection(disposition), selectedProducts);
+    }
+
+    public DrilldownPage<Map<String, Object>> getInvalidOosRateDrilldown(String site, LocalDate from, LocalDate to,
+            String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.INVALID_OOS_RATE, site, from, to, Map.of(), q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange), page, pageSize);
+    }
+
+    public Map<String, List<String>> getInvalidOosRateDrilldownColumnOptions(String site, LocalDate from, LocalDate to) {
+        return genericDrilldownService.fetchColumnOptions(DrilldownSpecs.INVALID_OOS_RATE, site, from, to, Map.of());
+    }
+
+    /** CSV text for the drill-down table's Export button - see GenericDrilldownService.fetchAllForExport. */
+    public String getInvalidOosRateDrilldownExport(String site, LocalDate from, LocalDate to, String q,
+            List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange) {
+        List<Map<String, Object>> rows = genericDrilldownService.fetchAllForExport(DrilldownSpecs.INVALID_OOS_RATE, site, from, to, Map.of(),
+                q, DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange));
+        List<String> headers = DrilldownSpecs.INVALID_OOS_RATE.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
+        return DrilldownSupport.toCsv(headers, rows);
+    }
+
+    public DrilldownPage<Map<String, Object>> getConfirmedOosRateDrilldown(String site, String productType, LocalDate from, LocalDate to,
+            String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.VALID_OOS_RATE, site, from, to,
+                Map.of("productType", PeriodCombiner.parseSelection(productType)), q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange), page, pageSize);
+    }
+
+    public Map<String, List<String>> getConfirmedOosRateDrilldownColumnOptions(String site, String productType, LocalDate from, LocalDate to) {
+        return genericDrilldownService.fetchColumnOptions(DrilldownSpecs.VALID_OOS_RATE, site, from, to,
+                Map.of("productType", PeriodCombiner.parseSelection(productType)));
+    }
+
+    public String getConfirmedOosRateDrilldownExport(String site, String productType, LocalDate from, LocalDate to, String q,
+            List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange) {
+        List<Map<String, Object>> rows = genericDrilldownService.fetchAllForExport(DrilldownSpecs.VALID_OOS_RATE, site, from, to,
+                Map.of("productType", PeriodCombiner.parseSelection(productType)),
+                q, DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange));
+        List<String> headers = DrilldownSpecs.VALID_OOS_RATE.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
+        return DrilldownSupport.toCsv(headers, rows);
+    }
+
+    public DrilldownPage<Map<String, Object>> getOosTrendDrilldown(String site, LocalDate from, LocalDate to,
+            String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.OOS_TREND, site, from, to, Map.of(), q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange), page, pageSize);
+    }
+
+    public Map<String, List<String>> getOosTrendDrilldownColumnOptions(String site, LocalDate from, LocalDate to) {
+        return genericDrilldownService.fetchColumnOptions(DrilldownSpecs.OOS_TREND, site, from, to, Map.of());
+    }
+
+    public String getOosTrendDrilldownExport(String site, LocalDate from, LocalDate to, String q,
+            List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange) {
+        List<Map<String, Object>> rows = genericDrilldownService.fetchAllForExport(DrilldownSpecs.OOS_TREND, site, from, to, Map.of(),
+                q, DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange));
+        List<String> headers = DrilldownSpecs.OOS_TREND.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
+        return DrilldownSupport.toCsv(headers, rows);
+    }
+
+    public DrilldownPage<Map<String, Object>> getOotTrendDrilldown(String site, LocalDate from, LocalDate to,
+            String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.OOT_TREND, site, from, to, Map.of(), q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange), page, pageSize);
+    }
+
+    public Map<String, List<String>> getOotTrendDrilldownColumnOptions(String site, LocalDate from, LocalDate to) {
+        return genericDrilldownService.fetchColumnOptions(DrilldownSpecs.OOT_TREND, site, from, to, Map.of());
+    }
+
+    public String getOotTrendDrilldownExport(String site, LocalDate from, LocalDate to, String q,
+            List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange) {
+        List<Map<String, Object>> rows = genericDrilldownService.fetchAllForExport(DrilldownSpecs.OOT_TREND, site, from, to, Map.of(),
+                q, DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange));
+        List<String> headers = DrilldownSpecs.OOT_TREND.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
+        return DrilldownSupport.toCsv(headers, rows);
+    }
+
+    public DrilldownPage<Map<String, Object>> getDeviationsDrilldown(String site, String respDept, String level,
+            String initialClassification, String finalClassification, LocalDate from, LocalDate to,
+            String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange,
+            int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.DEVIATIONS, site, from, to, Map.of(
+                "respDept", PeriodCombiner.parseSelection(respDept),
+                "level", PeriodCombiner.parseSelection(level),
+                "initialClassification", PeriodCombiner.parseSelection(initialClassification),
+                "finalClassification", PeriodCombiner.parseSelection(finalClassification)),
+                q, DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange), page, pageSize);
+    }
+
+    public Map<String, List<String>> getDeviationsDrilldownColumnOptions(String site, String respDept, String level,
+            String initialClassification, String finalClassification, LocalDate from, LocalDate to) {
+        return genericDrilldownService.fetchColumnOptions(DrilldownSpecs.DEVIATIONS, site, from, to, Map.of(
+                "respDept", PeriodCombiner.parseSelection(respDept),
+                "level", PeriodCombiner.parseSelection(level),
+                "initialClassification", PeriodCombiner.parseSelection(initialClassification),
+                "finalClassification", PeriodCombiner.parseSelection(finalClassification)));
+    }
+
+    /** CSV text for the drill-down table's Export button - see GenericDrilldownService.fetchAllForExport. */
+    public String getDeviationsDrilldownExport(String site, String respDept, String level, String initialClassification,
+            String finalClassification, LocalDate from, LocalDate to, String q, List<String> sort,
+            List<String> colFilter, List<String> colSearch, List<String> colRange) {
+        List<Map<String, Object>> rows = genericDrilldownService.fetchAllForExport(DrilldownSpecs.DEVIATIONS, site, from, to, Map.of(
+                "respDept", PeriodCombiner.parseSelection(respDept),
+                "level", PeriodCombiner.parseSelection(level),
+                "initialClassification", PeriodCombiner.parseSelection(initialClassification),
+                "finalClassification", PeriodCombiner.parseSelection(finalClassification)),
+                q, DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange));
+        List<String> headers = DrilldownSpecs.DEVIATIONS.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
+        return DrilldownSupport.toCsv(headers, rows);
+    }
+
+    public DrilldownPage<Map<String, Object>> getInvestigationClosureTatDrilldown(String site, String initiatedThrough,
+            LocalDate from, LocalDate to, String q, List<String> sort, List<String> colFilter, List<String> colSearch,
+            List<String> colRange, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.INVESTIGATION_CLOSURE_TAT, site, from, to,
+                Map.of("initiatedThrough", PeriodCombiner.parseSelection(initiatedThrough)), q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange), page, pageSize);
+    }
+
+    public Map<String, List<String>> getInvestigationClosureTatDrilldownColumnOptions(String site, String initiatedThrough,
+            LocalDate from, LocalDate to) {
+        return genericDrilldownService.fetchColumnOptions(DrilldownSpecs.INVESTIGATION_CLOSURE_TAT, site, from, to,
+                Map.of("initiatedThrough", PeriodCombiner.parseSelection(initiatedThrough)));
+    }
+
+    public String getInvestigationClosureTatDrilldownExport(String site, String initiatedThrough, LocalDate from, LocalDate to,
+            String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange) {
+        List<Map<String, Object>> rows = genericDrilldownService.fetchAllForExport(DrilldownSpecs.INVESTIGATION_CLOSURE_TAT, site, from, to,
+                Map.of("initiatedThrough", PeriodCombiner.parseSelection(initiatedThrough)),
+                q, DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange));
+        List<String> headers = DrilldownSpecs.INVESTIGATION_CLOSURE_TAT.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
+        return DrilldownSupport.toCsv(headers, rows);
+    }
+
+    public DrilldownPage<Map<String, Object>> getRciBeyondTimelineDrilldown(String site, String initiatedThrough,
+            LocalDate from, LocalDate to, String q, List<String> sort, List<String> colFilter, List<String> colSearch,
+            List<String> colRange, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.RCI_BEYOND_TIMELINE, site, from, to,
+                Map.of("initiatedThrough", PeriodCombiner.parseSelection(initiatedThrough)), q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange), page, pageSize);
+    }
+
+    public Map<String, List<String>> getRciBeyondTimelineDrilldownColumnOptions(String site, String initiatedThrough,
+            LocalDate from, LocalDate to) {
+        return genericDrilldownService.fetchColumnOptions(DrilldownSpecs.RCI_BEYOND_TIMELINE, site, from, to,
+                Map.of("initiatedThrough", PeriodCombiner.parseSelection(initiatedThrough)));
+    }
+
+    public String getRciBeyondTimelineDrilldownExport(String site, String initiatedThrough, LocalDate from, LocalDate to,
+            String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange) {
+        List<Map<String, Object>> rows = genericDrilldownService.fetchAllForExport(DrilldownSpecs.RCI_BEYOND_TIMELINE, site, from, to,
+                Map.of("initiatedThrough", PeriodCombiner.parseSelection(initiatedThrough)),
+                q, DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange));
+        List<String> headers = DrilldownSpecs.RCI_BEYOND_TIMELINE.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
+        return DrilldownSupport.toCsv(headers, rows);
+    }
+
+    public DrilldownPage<Map<String, Object>> getRepeatFailureRateDrilldown(String site, String recordType,
+            LocalDate from, LocalDate to, String q, List<String> sort, List<String> colFilter, List<String> colSearch,
+            List<String> colRange, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.REPEAT_FAILURE_RATE, site, from, to,
+                Map.of("recordType", PeriodCombiner.parseSelection(recordType)), q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange), page, pageSize);
+    }
+
+    public Map<String, List<String>> getRepeatFailureRateDrilldownColumnOptions(String site, String recordType,
+            LocalDate from, LocalDate to) {
+        return genericDrilldownService.fetchColumnOptions(DrilldownSpecs.REPEAT_FAILURE_RATE, site, from, to,
+                Map.of("recordType", PeriodCombiner.parseSelection(recordType)));
+    }
+
+    public String getRepeatFailureRateDrilldownExport(String site, String recordType, LocalDate from, LocalDate to,
+            String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange) {
+        List<Map<String, Object>> rows = genericDrilldownService.fetchAllForExport(DrilldownSpecs.REPEAT_FAILURE_RATE, site, from, to,
+                Map.of("recordType", PeriodCombiner.parseSelection(recordType)),
+                q, DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange));
+        List<String> headers = DrilldownSpecs.REPEAT_FAILURE_RATE.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
+        return DrilldownSupport.toCsv(headers, rows);
+    }
+
+    public DrilldownPage<Map<String, Object>> getRepeatHumanErrorRateDrilldown(String site, LocalDate from, LocalDate to,
+            String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.REPEAT_HUMAN_ERROR_RATE, site, from, to, Map.of(), q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange), page, pageSize);
+    }
+
+    public Map<String, List<String>> getRepeatHumanErrorRateDrilldownColumnOptions(String site, LocalDate from, LocalDate to) {
+        return genericDrilldownService.fetchColumnOptions(DrilldownSpecs.REPEAT_HUMAN_ERROR_RATE, site, from, to, Map.of());
+    }
+
+    public String getRepeatHumanErrorRateDrilldownExport(String site, LocalDate from, LocalDate to, String q,
+            List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange) {
+        List<Map<String, Object>> rows = genericDrilldownService.fetchAllForExport(DrilldownSpecs.REPEAT_HUMAN_ERROR_RATE, site, from, to, Map.of(),
+                q, DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange));
+        List<String> headers = DrilldownSpecs.REPEAT_HUMAN_ERROR_RATE.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
+        return DrilldownSupport.toCsv(headers, rows);
+    }
+
+    public DrilldownPage<Map<String, Object>> getHumanErrorRateDrilldown(String site, LocalDate from, LocalDate to,
+            String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.HUMAN_ERROR_RATE, site, from, to, Map.of(), q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange), page, pageSize);
+    }
+
+    public Map<String, List<String>> getHumanErrorRateDrilldownColumnOptions(String site, LocalDate from, LocalDate to) {
+        return genericDrilldownService.fetchColumnOptions(DrilldownSpecs.HUMAN_ERROR_RATE, site, from, to, Map.of());
+    }
+
+    public String getHumanErrorRateDrilldownExport(String site, LocalDate from, LocalDate to, String q,
+            List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange) {
+        List<Map<String, Object>> rows = genericDrilldownService.fetchAllForExport(DrilldownSpecs.HUMAN_ERROR_RATE, site, from, to, Map.of(),
+                q, DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange));
+        List<String> headers = DrilldownSpecs.HUMAN_ERROR_RATE.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
+        return DrilldownSupport.toCsv(headers, rows);
+    }
+
+    public DrilldownPage<Map<String, Object>> getHumanErrorSeverityDrilldown(String site, String finalClassification,
+            LocalDate from, LocalDate to, String q, List<String> sort, List<String> colFilter, List<String> colSearch,
+            List<String> colRange, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.HUMAN_ERROR_SEVERITY, site, from, to,
+                Map.of("finalClassification", PeriodCombiner.parseSelection(finalClassification)), q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange), page, pageSize);
+    }
+
+    public Map<String, List<String>> getHumanErrorSeverityDrilldownColumnOptions(String site, String finalClassification,
+            LocalDate from, LocalDate to) {
+        return genericDrilldownService.fetchColumnOptions(DrilldownSpecs.HUMAN_ERROR_SEVERITY, site, from, to,
+                Map.of("finalClassification", PeriodCombiner.parseSelection(finalClassification)));
+    }
+
+    public String getHumanErrorSeverityDrilldownExport(String site, String finalClassification, LocalDate from, LocalDate to,
+            String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange) {
+        List<Map<String, Object>> rows = genericDrilldownService.fetchAllForExport(DrilldownSpecs.HUMAN_ERROR_SEVERITY, site, from, to,
+                Map.of("finalClassification", PeriodCombiner.parseSelection(finalClassification)),
+                q, DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange));
+        List<String> headers = DrilldownSpecs.HUMAN_ERROR_SEVERITY.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
+        return DrilldownSupport.toCsv(headers, rows);
+    }
+
+    public DrilldownPage<Map<String, Object>> getHumanErrorByProductDrilldown(String site, String material,
+            LocalDate from, LocalDate to, String q, List<String> sort, List<String> colFilter, List<String> colSearch,
+            List<String> colRange, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.HUMAN_ERROR_BY_PRODUCT, site, from, to,
+                Map.of("material", PeriodCombiner.parseSelection(material)), q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange), page, pageSize);
+    }
+
+    public Map<String, List<String>> getHumanErrorByProductDrilldownColumnOptions(String site, String material,
+            LocalDate from, LocalDate to) {
+        return genericDrilldownService.fetchColumnOptions(DrilldownSpecs.HUMAN_ERROR_BY_PRODUCT, site, from, to,
+                Map.of("material", PeriodCombiner.parseSelection(material)));
+    }
+
+    public String getHumanErrorByProductDrilldownExport(String site, String material, LocalDate from, LocalDate to,
+            String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange) {
+        List<Map<String, Object>> rows = genericDrilldownService.fetchAllForExport(DrilldownSpecs.HUMAN_ERROR_BY_PRODUCT, site, from, to,
+                Map.of("material", PeriodCombiner.parseSelection(material)),
+                q, DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange));
+        List<String> headers = DrilldownSpecs.HUMAN_ERROR_BY_PRODUCT.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
+        return DrilldownSupport.toCsv(headers, rows);
+    }
+
+    public DrilldownPage<Map<String, Object>> getMethodFailureRateDrilldown(String site, LocalDate from, LocalDate to,
+            String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.METHOD_FAILURE_RATE, site, from, to, Map.of(), q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange), page, pageSize);
+    }
+
+    public Map<String, List<String>> getMethodFailureRateDrilldownColumnOptions(String site, LocalDate from, LocalDate to) {
+        return genericDrilldownService.fetchColumnOptions(DrilldownSpecs.METHOD_FAILURE_RATE, site, from, to, Map.of());
+    }
+
+    public String getMethodFailureRateDrilldownExport(String site, LocalDate from, LocalDate to, String q,
+            List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange) {
+        List<Map<String, Object>> rows = genericDrilldownService.fetchAllForExport(DrilldownSpecs.METHOD_FAILURE_RATE, site, from, to, Map.of(),
+                q, DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange));
+        List<String> headers = DrilldownSpecs.METHOD_FAILURE_RATE.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
+        return DrilldownSupport.toCsv(headers, rows);
+    }
+
+    public DrilldownPage<Map<String, Object>> getCapaEffectivenessDrilldown(String site, String originatedFrom,
+            LocalDate from, LocalDate to, String q, List<String> sort, List<String> colFilter, List<String> colSearch,
+            List<String> colRange, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.CAPA_EFFECTIVENESS, site, from, to,
+                Map.of("originatedFrom", PeriodCombiner.parseSelection(originatedFrom)), q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange), page, pageSize);
+    }
+
+    public Map<String, List<String>> getCapaEffectivenessDrilldownColumnOptions(String site, String originatedFrom,
+            LocalDate from, LocalDate to) {
+        return genericDrilldownService.fetchColumnOptions(DrilldownSpecs.CAPA_EFFECTIVENESS, site, from, to,
+                Map.of("originatedFrom", PeriodCombiner.parseSelection(originatedFrom)));
+    }
+
+    public String getCapaEffectivenessDrilldownExport(String site, String originatedFrom, LocalDate from, LocalDate to,
+            String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange) {
+        List<Map<String, Object>> rows = genericDrilldownService.fetchAllForExport(DrilldownSpecs.CAPA_EFFECTIVENESS, site, from, to,
+                Map.of("originatedFrom", PeriodCombiner.parseSelection(originatedFrom)),
+                q, DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange));
+        List<String> headers = DrilldownSpecs.CAPA_EFFECTIVENESS.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
+        return DrilldownSupport.toCsv(headers, rows);
+    }
+
+    /** Shared by capa-recurrence-rate and capa-aging - both read fact_tw_capa_aging_status (see DrilldownSpecs). */
+    public DrilldownPage<Map<String, Object>> getCapaRecurrenceRateDrilldown(String site, LocalDate from, LocalDate to,
+            String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.CAPA_AGING_STATUS, site, from, to, Map.of(), q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange), page, pageSize);
+    }
+
+    public Map<String, List<String>> getCapaRecurrenceRateDrilldownColumnOptions(String site, LocalDate from, LocalDate to) {
+        return genericDrilldownService.fetchColumnOptions(DrilldownSpecs.CAPA_AGING_STATUS, site, from, to, Map.of());
+    }
+
+    public String getCapaRecurrenceRateDrilldownExport(String site, LocalDate from, LocalDate to, String q,
+            List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange) {
+        List<Map<String, Object>> rows = genericDrilldownService.fetchAllForExport(DrilldownSpecs.CAPA_AGING_STATUS, site, from, to, Map.of(),
+                q, DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange));
+        List<String> headers = DrilldownSpecs.CAPA_AGING_STATUS.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
+        return DrilldownSupport.toCsv(headers, rows);
+    }
+
+    public DrilldownPage<Map<String, Object>> getCapaAgingDrilldown(String site, String level, LocalDate from, LocalDate to,
+            String q, List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.CAPA_AGING_STATUS, site, from, to,
+                Map.of("level", PeriodCombiner.parseSelection(level)), q,
+                DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange), page, pageSize);
+    }
+
+    public Map<String, List<String>> getCapaAgingDrilldownColumnOptions(String site, String level, LocalDate from, LocalDate to) {
+        return genericDrilldownService.fetchColumnOptions(DrilldownSpecs.CAPA_AGING_STATUS, site, from, to,
+                Map.of("level", PeriodCombiner.parseSelection(level)));
+    }
+
+    public String getCapaAgingDrilldownExport(String site, String level, LocalDate from, LocalDate to, String q,
+            List<String> sort, List<String> colFilter, List<String> colSearch, List<String> colRange) {
+        List<Map<String, Object>> rows = genericDrilldownService.fetchAllForExport(DrilldownSpecs.CAPA_AGING_STATUS, site, from, to,
+                Map.of("level", PeriodCombiner.parseSelection(level)),
+                q, DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange));
+        List<String> headers = DrilldownSpecs.CAPA_AGING_STATUS.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
+        return DrilldownSupport.toCsv(headers, rows);
+    }
+
+    public DrilldownPage<Map<String, Object>> getProductWiseFailureDrilldown(String site, String materialType, String disposition,
+            LocalDate from, LocalDate to, String q, List<String> sort, List<String> colFilter, List<String> colSearch,
+            List<String> colRange, int page, int pageSize) {
+        return genericDrilldownService.fetch(DrilldownSpecs.PRODUCT_WISE_FAILURE, site, from, to, Map.of(
+                "materialType", PeriodCombiner.parseSelection(materialType),
+                "disposition", PeriodCombiner.parseSelection(disposition)),
+                q, DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange), page, pageSize);
+    }
+
+    public Map<String, List<String>> getProductWiseFailureDrilldownColumnOptions(String site, String materialType,
+            String disposition, LocalDate from, LocalDate to) {
+        return genericDrilldownService.fetchColumnOptions(DrilldownSpecs.PRODUCT_WISE_FAILURE, site, from, to, Map.of(
+                "materialType", PeriodCombiner.parseSelection(materialType),
+                "disposition", PeriodCombiner.parseSelection(disposition)));
+    }
+
+    public String getProductWiseFailureDrilldownExport(String site, String materialType, String disposition,
+            LocalDate from, LocalDate to, String q, List<String> sort, List<String> colFilter, List<String> colSearch,
+            List<String> colRange) {
+        List<Map<String, Object>> rows = genericDrilldownService.fetchAllForExport(DrilldownSpecs.PRODUCT_WISE_FAILURE, site, from, to, Map.of(
+                "materialType", PeriodCombiner.parseSelection(materialType),
+                "disposition", PeriodCombiner.parseSelection(disposition)),
+                q, DrilldownSupport.parseSort(sort), DrilldownSupport.parseColumnFilters(colFilter),
+                DrilldownSupport.parseColumnSearches(colSearch), DrilldownSupport.parseColumnRanges(colRange));
+        List<String> headers = DrilldownSpecs.PRODUCT_WISE_FAILURE.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
+        return DrilldownSupport.toCsv(headers, rows);
     }
 }

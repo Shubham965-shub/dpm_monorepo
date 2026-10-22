@@ -1,5 +1,6 @@
 import { LoginPage } from '@/components/LoginPage'
 import { DashboardPage } from '@/components/dashboard/DashboardPage'
+import { CoachTourProvider } from '@/components/dashboard/CoachMarks'
 import { useAuth } from '@/hooks/useAuth'
 
 function App() {
@@ -17,7 +18,11 @@ function App() {
     return <LoginPage />
   }
 
-  return <DashboardPage />
+  return (
+    <CoachTourProvider>
+      <DashboardPage />
+    </CoachTourProvider>
+  )
 }
 
 export default App

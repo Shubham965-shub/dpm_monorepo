@@ -1,4 +1,4 @@
-import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios'
+import axios, { AxiosError, isAxiosError, type InternalAxiosRequestConfig } from 'axios'
 import type { ZodType } from 'zod'
 import { clearSession, getAccessToken, getRefreshToken, setAccessToken, setRefreshToken } from './session'
 import { refreshResponseSchema } from './authSchemas'
@@ -15,17 +15,60 @@ apiClient.interceptors.request.use((config) => {
 
 let refreshInFlight: Promise<string> | null = null
 
-async function refreshAccessToken(): Promise<string> {
-  const refreshToken = getRefreshToken()
-  if (!refreshToken) {
-    throw new Error('No refresh token available')
-  }
-  // Plain axios (not apiClient) so a failed refresh can't recurse back into this same interceptor.
-  const { data } = await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/refresh`, { refreshToken })
-  const parsed = refreshResponseSchema.parse(data)
-  setAccessToken(parsed.accessToken)
-  setRefreshToken(parsed.refreshToken)
-  return parsed.accessToken
+/** The stored session is definitively gone (the backend rejected the refresh token) - not a network blip. */
+export class SessionExpiredError extends Error {}
+
+const sessionExpiredListeners = new Set<() => void>()
+
+/** Lets AuthProvider drop the cached user and show the login page; returns an unsubscribe. */
+export function onSessionExpired(listener: () => void): () => void {
+  sessionExpiredListeners.add(listener)
+  return () => sessionExpiredListeners.delete(listener)
+}
+
+// Every tab shares one single-use refresh token, and the backend treats a replayed rotated token as
+// theft - so tabs take turns. navigator.locks only exists in secure contexts (https/localhost); on
+// plain http this falls back to the stored-token check below, which narrows but can't close the race.
+const REFRESH_LOCK_NAME = 'dpm-auth-refresh'
+
+function withCrossTabLock<T>(fn: () => Promise<T>): Promise<T> {
+  return navigator.locks ? navigator.locks.request(REFRESH_LOCK_NAME, fn) : fn()
+}
+
+/** Spends the stored refresh token once for a new token pair - shared by the 401 retry below and restoreSession. */
+export function refreshSession(): Promise<string> {
+  const refreshTokenAtStart = getRefreshToken()
+  return withCrossTabLock(async () => {
+    const refreshToken = getRefreshToken()
+    const accessToken = getAccessToken()
+    // Another tab rotated while this one waited - use its result rather than replaying the old token.
+    if (refreshToken && accessToken && refreshToken !== refreshTokenAtStart) {
+      return accessToken
+    }
+    if (!refreshToken) {
+      throw expireSession()
+    }
+    try {
+      // Plain axios (not apiClient) so a failed refresh can't recurse back into this same interceptor.
+      const { data } = await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/refresh`, { refreshToken })
+      const parsed = refreshResponseSchema.parse(data)
+      setAccessToken(parsed.accessToken)
+      setRefreshToken(parsed.refreshToken)
+      return parsed.accessToken
+    } catch (error) {
+      // Only a 401 means the token is dead; a network error or 5xx keeps it for the next attempt.
+      if (isAxiosError(error) && error.response?.status === 401) {
+        throw expireSession()
+      }
+      throw error
+    }
+  })
+}
+
+function expireSession(): SessionExpiredError {
+  clearSession()
+  sessionExpiredListeners.forEach((listener) => listener())
+  return new SessionExpiredError('Session expired')
 }
 
 // A 401 from one of these auth endpoints themselves must propagate directly to its caller
@@ -44,17 +87,16 @@ apiClient.interceptors.response.use(
     }
 
     config._retried = true
-    try {
-      refreshInFlight ??= refreshAccessToken().finally(() => {
-        refreshInFlight = null
-      })
-      const token = await refreshInFlight
-      config.headers.Authorization = `Bearer ${token}`
-      return apiClient(config)
-    } catch (refreshError) {
-      clearSession()
-      throw refreshError
-    }
+    // A request sent before another one's refresh finished only needs a retry with the new token.
+    const currentToken = getAccessToken()
+    const token =
+      currentToken && config.headers.Authorization !== `Bearer ${currentToken}`
+        ? currentToken
+        : await (refreshInFlight ??= refreshSession().finally(() => {
+            refreshInFlight = null
+          }))
+    config.headers.Authorization = `Bearer ${token}`
+    return apiClient(config)
   },
 )
 

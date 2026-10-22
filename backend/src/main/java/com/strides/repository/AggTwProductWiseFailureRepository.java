@@ -4,11 +4,15 @@ import com.strides.model.NamedCount;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @ApplicationScoped
 public class AggTwProductWiseFailureRepository extends AbstractAggRepository<NamedCount> {
+
+    private static final String TABLE = "agg_tw_product_wise_failure";
 
     /**
      * materialTypes/dispositions empty = no filter on that dimension (every value combined; both
@@ -48,5 +52,24 @@ public class AggTwProductWiseFailureRepository extends AbstractAggRepository<Nam
                 rs.getString("product_slice"),
                 rs.getLong("total")),
                 params.toArray());
+    }
+
+    /**
+     * materialType/disposition/product live option lists, cross-filtered against each other - see
+     * AbstractAggRepository.distinctValues. product_slice's own 'All' pre-combined row is excluded
+     * automatically (distinctValues strips ALL_SLICE), same as findByProduct's own exclusion above.
+     */
+    public Map<String, List<String>> filterOptions(String site, String grain, LocalDate from, LocalDate to,
+            Set<String> materialTypes, Set<String> dispositions, Set<String> products) {
+        Map<String, Set<String>> selected = new LinkedHashMap<>();
+        selected.put("material_type", materialTypes);
+        selected.put("disposition", dispositions);
+        selected.put("product_slice", products);
+
+        Map<String, List<String>> options = new LinkedHashMap<>();
+        options.put("materialType", distinctValues(TABLE, "site", "material_type", site, grain, from, to, without(selected, "material_type")));
+        options.put("disposition", distinctValues(TABLE, "site", "disposition", site, grain, from, to, without(selected, "disposition")));
+        options.put("product", distinctValues(TABLE, "site", "product_slice", site, grain, from, to, without(selected, "product_slice")));
+        return options;
     }
 }

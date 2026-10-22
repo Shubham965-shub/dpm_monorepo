@@ -5,7 +5,7 @@ See root `CLAUDE.md` for cross-cutting rules (no magic numbers, reuse-before-new
 ## MVC layering
 Packages under `com.strides`:
 - `controller` — REST endpoints (`@Path` resources). Request/response handling and query-param validation only, no business logic.
-- `service` — business logic: RAG-status evaluation (via `service.kpi.KpiZoneRule`/`KpiStatusEvaluator`), per-period aggregation, orchestrates repositories.
+- `service` — business logic: RAG-status evaluation (`KpiThresholdService` + `service.kpi.KpiThresholdEvaluator`, limits from `kpi_threshold_snapshot`), per-period aggregation, orchestrates repositories.
 - `model` — read-only row records, one per `agg_*`/`fact_*` Postgres table (no JPA `@Entity` — these tables have no primary key, so they're read via plain JDBC, not Hibernate).
 - `repository` — the only layer allowed to talk to the database. One repository per table, extending `AbstractAggRepository` for the JDBC boilerplate.
 

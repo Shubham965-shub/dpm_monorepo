@@ -5,10 +5,13 @@ import jakarta.enterprise.context.ApplicationScoped;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @ApplicationScoped
 public class AggLimsSlaAdherenceRepository extends AbstractAggRepository<PeriodTotal> {
+
+    private static final String TABLE = "agg_lims_sla_adherence";
 
     /** sampleCategories empty = no filter (every category combined). Sums happen in Postgres. */
     public List<PeriodTotal> findTotals(String siteName, Set<String> sampleCategories, String grain, LocalDate from, LocalDate to) {
@@ -29,5 +32,11 @@ public class AggLimsSlaAdherenceRepository extends AbstractAggRepository<PeriodT
                 rs.getLong("numerator"),
                 rs.getLong("denominator")),
                 params.toArray());
+    }
+
+    /** sampleCategory's live option list, scoped by site/grain/date range - see AbstractAggRepository.distinctValues. */
+    public Map<String, List<String>> filterOptions(String siteName, String grain, LocalDate from, LocalDate to) {
+        return Map.of("sampleCategory",
+                distinctValues(TABLE, "site_name", "sample_category", siteName, grain, from, to, Map.of()));
     }
 }

@@ -1,72 +1,10 @@
-import type { HeatmapRow, RagStatus } from './types'
+import type { WorkloadProfile } from './teamHealth'
 
 // Matches KPI_DOMAINS' keys in kpiConfig.ts (the backend's Qms/PeoplePerformance/InstrumentHealth/
 // LabPerformance controllers).
 export type SectionKey = 'qms' | 'people-performance' | 'instrument-health' | 'lab-performance'
 
-export interface HeatmapMockSection {
-  key: string
-  title: string
-  rows: HeatmapRow[]
-}
-
-const DEMO_MONTHS = ['Jun', 'Jul', 'Aug']
-const DEMO_STATUS_CYCLE: RagStatus[] = ['action', 'alert', 'in-control']
-
-// Deterministic (no Math.random), purely illustrative status pattern - this heatmap is a static
-// prototype view (see OverallHeatmapDemo.tsx's DemoDataBadge), not wired to useHeatmapData/the
-// real backend. Row/section counts intentionally match the Figma wireframe's own placeholder
-// numbers, not the real KPI_DOMAINS catalogue (kpiConfig.ts) - see SectionSummaryList.tsx further
-// down this page for the real-catalogue-backed view.
-function demoHeatmapRows(count: number, seedOffset: number): HeatmapRow[] {
-  return Array.from({ length: count }, (_, i) => ({
-    slug: `demo-${seedOffset}-${i}`,
-    name: `Demo KPI ${i + 1}`,
-    cells: DEMO_MONTHS.map((month, m) => ({
-      month,
-      status: DEMO_STATUS_CYCLE[(seedOffset + i + m) % DEMO_STATUS_CYCLE.length],
-    })),
-  }))
-}
-
-export const HEATMAP_MOCK: HeatmapMockSection[] = [
-  { key: 'lab-performance', title: 'Lab Performance', rows: demoHeatmapRows(6, 0) },
-  { key: 'instrument-health', title: 'Instrument Health', rows: demoHeatmapRows(5, 1) },
-  { key: 'qms', title: 'QMS Dashboard', rows: demoHeatmapRows(31, 2) },
-  { key: 'people-performance', title: 'People Performance', rows: demoHeatmapRows(6, 3) },
-]
-
-// The composite "QC Score" and its per-section score/trend have no backend counterpart at all
-// (no endpoint, no aggregation logic) - this is a UI placeholder pending a product decision on
-// how that composite should be computed. Single source shared by QcScoreCard and
-// SectionSummaryList so the same mocked numbers aren't duplicated in two files.
-export const SECTION_SCORE_MOCK: Record<
-  SectionKey,
-  {
-    shortLabel: string
-    category: string
-    score: number
-    deltaPts: number
-    starred: boolean
-    // Exact hex from Figma (file T5oSGlK2eTYF8KvKP5M9lF, node 5024:20119 "Frame 128") - the
-    // QcScoreCard breakdown's number color and its underline bar color aren't always the same hue.
-    numberHex: string
-    barHex: string
-  }
-> = {
-  'lab-performance': { shortLabel: 'Lab', category: 'Operational Efficiency', score: 76, deltaPts: -2.1, starred: false, numberHex: '#bb4d00', barHex: '#f59e0b' },
-  'instrument-health': { shortLabel: 'Instrument', category: 'Asset Reliability', score: 82, deltaPts: 1.4, starred: false, numberHex: '#bb4d00', barHex: '#ef4444' },
-  qms: { shortLabel: 'QMS', category: 'Compliance System', score: 69, deltaPts: -4.8, starred: false, numberHex: '#c10007', barHex: '#ef4444' },
-  'people-performance': { shortLabel: 'People', category: 'Workforce', score: 89, deltaPts: 2.2, starred: false, numberHex: '#008236', barHex: '#028662' },
-}
-
-export const QC_SCORE_MOCK = {
-  overall: 79,
-  label: 'Acceptable',
-  bestEver: { score: 91, period: 'February 2026' },
-}
-
-// Same caveat as QC Score - no "positive signals" feed exists server-side yet. Note the
+// No "positive signals" feed exists server-side yet. Note the
 // Training Completion Rate signal in particular: the real endpoint
 // (GET /api/people-performance/training-completion-rate) exists, but its source table
 // (agg_cw_training_completion_rate) is documented as empty in backend/README.md, so this
@@ -82,6 +20,243 @@ export const POSITIVE_SIGNALS_MOCK = [
   },
 ]
 
+// The roster (who shows up) is real - GET /api/auth/me/analysts, scoped to the logged-in
+// supervisor's own direct reports (see useMyAnalysts, TeamWorkloadOverview). Each person's own
+// KPI/task picture below is still placeholder: no KPI/task-assignment system exists server-side
+// yet to source it from (confirmed against every agg_*/fact_* table - none carry a per-analyst
+// dimension). TeamWorkloadOverview cycles through this array by roster index to pair each real
+// analyst with one of these profiles (ported as-is from the team-overview.html design reference,
+// just decoupled from its own hardcoded names - the content itself, not just its shape, is the
+// reference), rather than inventing a second ad-hoc placeholder scheme.
+export const WORKLOAD_PROFILES: WorkloadProfile[] = [
+  {
+    kpis: [
+      { name: 'Batch release TAT', target: '≤ 3 days', current: '2.6 days', status: 'ok' },
+      { name: 'Deviation closure within 30 days', target: '≥ 90%', current: '93%', status: 'ok' },
+    ],
+    openTasks: [
+      { task: 'Release batches 24B130 to 24B133', linkedKpi: 'Batch release TAT', priority: 'Medium', due: 'Tomorrow', status: 'In progress' },
+      { task: 'Review open deviations, line 3', linkedKpi: 'Deviation closure within 30 days', priority: 'Low', due: '10 Oct', status: 'Not started' },
+    ],
+    doneTasks: [
+      { task: 'Weekly release summary', linkedKpi: 'Batch release TAT', completedOn: '2 Oct 2026', onTime: true },
+      { task: 'Close DV-1190', linkedKpi: 'Deviation closure within 30 days', completedOn: '29 Sep 2026', onTime: true },
+    ],
+  },
+  {
+    kpis: [
+      { name: 'OOS closure TAT', target: '≤ 5 days', current: '7.1 days', status: 'breach', critical: true },
+      { name: 'Lab investigation aging', target: '≤ 10 days', current: '11.5 days', status: 'warn' },
+    ],
+    openTasks: [
+      { task: 'Close OOS-2291 investigation', linkedKpi: 'OOS closure TAT', priority: 'High', due: 'Today', status: 'In progress' },
+      { task: 'Escalate aged investigation LI-0873', linkedKpi: 'Lab investigation aging', priority: 'High', due: '7 Oct', status: 'Not started' },
+      { task: 'Review analyst retraining plan', linkedKpi: 'Lab investigation aging', priority: 'Medium', due: '11 Oct', status: 'Not started' },
+    ],
+    doneTasks: [
+      { task: 'Close OOS-2274', linkedKpi: 'OOS closure TAT', completedOn: '2 Oct 2026', onTime: false },
+      { task: 'Root-cause review, LI-0861', linkedKpi: 'Lab investigation aging', completedOn: '26 Sep 2026', onTime: true },
+    ],
+  },
+  {
+    kpis: [
+      { name: 'Plant OEE', target: '≥ 78%', current: '74%', status: 'warn', critical: true },
+      { name: 'Right-first-time', target: '≥ 97%', current: '97.6%', status: 'ok' },
+      { name: 'Batch release adherence', target: '≥ 95%', current: '96%', status: 'ok' },
+    ],
+    openTasks: [
+      { task: 'Review OEE loss plan with team leaders', linkedKpi: 'Plant OEE', priority: 'High', due: 'Today', status: 'In progress' },
+      { task: 'Monthly performance review', linkedKpi: 'Right-first-time', priority: 'Medium', due: '9 Oct', status: 'Not started' },
+    ],
+    doneTasks: [
+      { task: 'September KPI review', linkedKpi: 'Plant OEE', completedOn: '1 Oct 2026', onTime: true },
+      { task: 'Approve line 2 improvement plan', linkedKpi: 'Plant OEE', completedOn: '24 Sep 2026', onTime: true },
+    ],
+  },
+  {
+    kpis: [
+      { name: 'Critical equipment downtime', target: '≤ 3%', current: '2.4%', status: 'ok', critical: true },
+      { name: 'Calibration compliance', target: '≥ 98%', current: '99%', status: 'ok' },
+    ],
+    openTasks: [
+      { task: 'Plan shutdown maintenance, line 1', linkedKpi: 'Critical equipment downtime', priority: 'Medium', due: '12 Oct', status: 'Not started' },
+    ],
+    doneTasks: [
+      { task: 'Calibrate compression machine C-02', linkedKpi: 'Calibration compliance', completedOn: '1 Oct 2026', onTime: true },
+      { task: 'Spare parts audit', linkedKpi: 'Critical equipment downtime', completedOn: '27 Sep 2026', onTime: true },
+    ],
+  },
+  {
+    kpis: [
+      { name: 'Yield, solid dosage', target: '≥ 96%', current: '94.8%', status: 'warn', critical: true },
+      { name: 'Material variance', target: '≤ 0.5%', current: '0.9%', status: 'breach' },
+      { name: 'Line clearance compliance', target: '100%', current: '100%', status: 'ok' },
+    ],
+    openTasks: [
+      { task: 'Investigate yield loss, batch 24B118', linkedKpi: 'Yield, solid dosage', priority: 'High', due: 'Today', status: 'In progress' },
+      { task: 'Review material variance, granulation', linkedKpi: 'Material variance', priority: 'High', due: '8 Oct', status: 'Not started' },
+    ],
+    doneTasks: [
+      { task: 'Weekly yield report', linkedKpi: 'Yield, solid dosage', completedOn: '2 Oct 2026', onTime: true },
+      { task: 'Line clearance audit', linkedKpi: 'Line clearance compliance', completedOn: '28 Sep 2026', onTime: true },
+      { task: 'Variance review, September', linkedKpi: 'Material variance', completedOn: '22 Sep 2026', onTime: false },
+    ],
+  },
+  {
+    kpis: [
+      { name: 'Safety observation closure', target: '≥ 95%', current: '96%', status: 'ok', critical: true },
+      { name: 'GMP training compliance', target: '≥ 95%', current: '91%', status: 'warn' },
+    ],
+    openTasks: [
+      { task: 'Schedule refresher training, packing team', linkedKpi: 'GMP training compliance', priority: 'Medium', due: '10 Oct', status: 'Not started' },
+      { task: 'Close 2 open safety observations', linkedKpi: 'Safety observation closure', priority: 'Medium', due: '8 Oct', status: 'In progress' },
+    ],
+    doneTasks: [
+      { task: 'Monthly PPE walk', linkedKpi: 'Safety observation closure', completedOn: '3 Oct 2026', onTime: true },
+      { task: 'Training matrix update', linkedKpi: 'GMP training compliance', completedOn: '30 Sep 2026', onTime: false },
+    ],
+  },
+  {
+    kpis: [
+      { name: 'Deviation closure within 30 days', target: '≥ 90%', current: '71%', status: 'breach', critical: true },
+      { name: 'CAPA on-time closure', target: '≥ 90%', current: '84%', status: 'warn' },
+      { name: 'Change control TAT', target: '≤ 15 days', current: '12 days', status: 'ok' },
+    ],
+    openTasks: [
+      { task: 'Close 5 aged deviations', linkedKpi: 'Deviation closure within 30 days', priority: 'High', due: 'Today', status: 'In progress' },
+      { task: 'Review overdue CAPAs', linkedKpi: 'CAPA on-time closure', priority: 'High', due: '7 Oct', status: 'Not started' },
+      { task: 'Update change control tracker', linkedKpi: 'Change control TAT', priority: 'Low', due: '12 Oct', status: 'Not started' },
+    ],
+    doneTasks: [
+      { task: 'Close DV-1167', linkedKpi: 'Deviation closure within 30 days', completedOn: '19 Sep 2026', onTime: false },
+      { task: 'Approve CC-0412', linkedKpi: 'Change control TAT', completedOn: '27 Sep 2026', onTime: true },
+    ],
+  },
+  {
+    kpis: [
+      { name: 'Stock cover, key materials', target: '≥ 30 days', current: '34 days', status: 'ok' },
+      { name: 'On-time in-full dispatch', target: '≥ 98%', current: '99.1%', status: 'ok' },
+      { name: 'Dispatch damage rate', target: '≤ 0.2%', current: '0.3%', status: 'warn' },
+    ],
+    openTasks: [
+      { task: 'Plan dispatch for export order EX-4410', linkedKpi: 'On-time in-full dispatch', priority: 'Medium', due: '7 Oct', status: 'In progress' },
+      { task: 'Review packing damage causes', linkedKpi: 'Dispatch damage rate', priority: 'Medium', due: '11 Oct', status: 'Not started' },
+    ],
+    doneTasks: [
+      { task: 'Monthly stock ageing report', linkedKpi: 'Stock cover, key materials', completedOn: '1 Oct 2026', onTime: true },
+      { task: 'Carrier scorecard update', linkedKpi: 'On-time in-full dispatch', completedOn: '25 Sep 2026', onTime: true },
+    ],
+  },
+  {
+    kpis: [
+      { name: 'Sample testing TAT', target: '≤ 48 h', current: '52 h', status: 'warn' },
+      { name: 'Stability pull-out adherence', target: '100%', current: '100%', status: 'ok' },
+    ],
+    openTasks: [
+      { task: 'Clear pending HPLC samples', linkedKpi: 'Sample testing TAT', priority: 'High', due: 'Tomorrow', status: 'In progress' },
+      { task: 'Prepare stability pull-out list, October', linkedKpi: 'Stability pull-out adherence', priority: 'Medium', due: '9 Oct', status: 'Not started' },
+    ],
+    doneTasks: [
+      { task: 'Stability pull-out, September', linkedKpi: 'Stability pull-out adherence', completedOn: '30 Sep 2026', onTime: true },
+      { task: 'Weekly TAT report', linkedKpi: 'Sample testing TAT', completedOn: '2 Oct 2026', onTime: false },
+    ],
+  },
+  {
+    kpis: [{ name: 'Document review TAT', target: '≤ 2 days', current: '1.8 days', status: 'ok' }],
+    openTasks: [{ task: 'Review 12 batch records', linkedKpi: 'Document review TAT', priority: 'Medium', due: '7 Oct', status: 'In progress' }],
+    doneTasks: [
+      { task: 'Review SOP revisions', linkedKpi: 'Document review TAT', completedOn: '2 Oct 2026', onTime: true },
+      { task: 'Batch record review, 24B112', linkedKpi: 'Document review TAT', completedOn: '26 Sep 2026', onTime: true },
+      { task: 'Log book audit', linkedKpi: 'Document review TAT', completedOn: '20 Sep 2026', onTime: true },
+    ],
+  },
+  {
+    kpis: [{ name: 'Data entry accuracy', target: '≥ 99%', current: '97.2%', status: 'breach', critical: true }],
+    openTasks: [
+      { task: 'Correct entries flagged in audit trail review', linkedKpi: 'Data entry accuracy', priority: 'High', due: 'Today', status: 'In progress' },
+      { task: 'Data integrity refresher', linkedKpi: 'Data entry accuracy', priority: 'Medium', due: '9 Oct', status: 'Not started' },
+    ],
+    doneTasks: [
+      { task: 'Daily log reconciliation', linkedKpi: 'Data entry accuracy', completedOn: '3 Oct 2026', onTime: false },
+      { task: 'Weekly accuracy check', linkedKpi: 'Data entry accuracy', completedOn: '28 Sep 2026', onTime: false },
+    ],
+  },
+  {
+    kpis: [{ name: 'Raw material sampling TAT', target: '≤ 24 h', current: '20 h', status: 'ok' }],
+    openTasks: [
+      { task: 'Sample incoming excipient lots', linkedKpi: 'Raw material sampling TAT', priority: 'Medium', due: 'Today', status: 'In progress' },
+      { task: 'Update sampling log', linkedKpi: 'Raw material sampling TAT', priority: 'Low', due: '8 Oct', status: 'Not started' },
+    ],
+    doneTasks: [
+      { task: 'Sample lot RM-5521', linkedKpi: 'Raw material sampling TAT', completedOn: '3 Oct 2026', onTime: true },
+      { task: 'Weekly sampling summary', linkedKpi: 'Raw material sampling TAT', completedOn: '28 Sep 2026', onTime: true },
+    ],
+  },
+  {
+    kpis: [
+      { name: 'Calibration due closure', target: '≥ 98%', current: '94%', status: 'warn' },
+      { name: 'Audit observation closure', target: '≥ 90%', current: '92%', status: 'ok' },
+    ],
+    openTasks: [
+      { task: 'Calibrate 6 overdue instruments', linkedKpi: 'Calibration due closure', priority: 'High', due: 'Tomorrow', status: 'In progress' },
+      { task: 'Close audit observation AO-208', linkedKpi: 'Audit observation closure', priority: 'Medium', due: '12 Oct', status: 'Not started' },
+    ],
+    doneTasks: [
+      { task: 'Calibration schedule, October', linkedKpi: 'Calibration due closure', completedOn: '1 Oct 2026', onTime: true },
+      { task: 'Close AO-199', linkedKpi: 'Audit observation closure', completedOn: '24 Sep 2026', onTime: true },
+    ],
+  },
+  {
+    kpis: [
+      { name: 'Water system monitoring compliance', target: '100%', current: '100%', status: 'ok', critical: true },
+      { name: 'Environmental monitoring excursions', target: '≤ 2 per month', current: '3', status: 'warn' },
+    ],
+    openTasks: [
+      { task: 'Investigate EM excursion, grade C area', linkedKpi: 'Environmental monitoring excursions', priority: 'High', due: 'Today', status: 'In progress' },
+      { task: 'Monthly water trend report', linkedKpi: 'Water system monitoring compliance', priority: 'Medium', due: '10 Oct', status: 'Not started' },
+    ],
+    doneTasks: [
+      { task: 'Water sampling, week 39', linkedKpi: 'Water system monitoring compliance', completedOn: '28 Sep 2026', onTime: true },
+      { task: 'EM trend review, September', linkedKpi: 'Environmental monitoring excursions', completedOn: '2 Oct 2026', onTime: true },
+    ],
+  },
+  {
+    kpis: [
+      { name: 'Pending reviews', target: '≤ 5', current: '9', status: 'breach' },
+      { name: 'Report issue TAT', target: '≤ 2 days', current: '1.7 days', status: 'ok' },
+    ],
+    openTasks: [
+      { task: 'Clear backlog of pending reviews', linkedKpi: 'Pending reviews', priority: 'High', due: 'Tomorrow', status: 'In progress' },
+      { task: 'Issue analytical reports, week 41', linkedKpi: 'Report issue TAT', priority: 'Medium', due: '9 Oct', status: 'Not started' },
+    ],
+    doneTasks: [
+      { task: 'Issue reports, week 40', linkedKpi: 'Report issue TAT', completedOn: '2 Oct 2026', onTime: true },
+      { task: 'Review pending data sets', linkedKpi: 'Pending reviews', completedOn: '27 Sep 2026', onTime: false },
+    ],
+  },
+  {
+    kpis: [],
+    openTasks: [
+      { task: 'Complete GMP induction modules', linkedKpi: '—', priority: 'Medium', due: '9 Oct', status: 'In progress' },
+      { task: 'Shadow QC lab walkthrough', linkedKpi: '—', priority: 'Low', due: '12 Oct', status: 'Not started' },
+    ],
+    doneTasks: [
+      { task: 'Onboarding module 1', linkedKpi: '—', completedOn: '30 Sep 2026', onTime: true },
+      { task: 'Safety induction', linkedKpi: '—', completedOn: '25 Sep 2026', onTime: true },
+    ],
+  },
+]
+
+/** Same 5 incidents read three ways - the Analyst/Supervisor/Leadership reference screenshots each
+ * frame the SAME underlying pending action differently (who raised/escalated it, and at what
+ * severity), since that framing is relative to the viewer's place in the hierarchy (e.g. an item
+ * an Analyst sees as "Assigned by HOD" reads as "Raised by CXO" one level up at Supervisor, and as
+ * "Concern Raised by CXO" one level up again at Leadership). */
+interface PendingActionSource {
+  label: string
+  severity: 'critical' | 'warning'
+}
+
 export interface NeedsAttentionItem {
   id: string
   status: 'no-action' | 'escalated'
@@ -91,41 +266,16 @@ export interface NeedsAttentionItem {
   detail: string
   assignee: string
   action: 'nudge' | 'act-now'
+  /** Only 'analyst', 'supervisor', and 'leadership' have a reference screenshot (see
+   * NeedsAttentionPanel's persona "Pending Actions" view) - CXO falls back to the status/action
+   * fields above. */
+  pendingActionSource: Record<'analyst' | 'supervisor' | 'leadership', PendingActionSource>
 }
 
-// Same caveat as QC Score / Positive Signals - there's no "agenda" or nudge/escalation endpoint
-// server-side yet. Placeholder until that workflow exists.
+// Same caveat as Positive Signals - there's no "agenda" or nudge/escalation endpoint
+// server-side yet. Placeholder until that workflow exists. Ordered chronologically (Jan -> Aug),
+// matching both persona reference screenshots exactly.
 export const NEEDS_ATTENTION_MOCK: NeedsAttentionItem[] = [
-  {
-    id: 'sample-tat-jul',
-    status: 'no-action',
-    category: 'Lab Performance',
-    date: 'Jul 26',
-    kpiName: 'Sample TAT',
-    detail: '29.02 hrs vs 24 hrs Action limit',
-    assignee: 'Ravi',
-    action: 'nudge',
-  },
-  {
-    id: 'sample-tat-aug',
-    status: 'no-action',
-    category: 'Lab Performance',
-    date: 'Aug 26',
-    kpiName: 'Sample TAT',
-    detail: '33.44 hrs vs 24 hrs Action limit',
-    assignee: 'Ravi',
-    action: 'nudge',
-  },
-  {
-    id: 'sla-adherence-aug',
-    status: 'no-action',
-    category: 'Lab Performance',
-    date: 'Aug 26',
-    kpiName: 'SLA Adherence',
-    detail: '83.63% vs 95% Action limit',
-    assignee: 'Ravi',
-    action: 'nudge',
-  },
   {
     id: 'difot-jan',
     status: 'escalated',
@@ -135,6 +285,11 @@ export const NEEDS_ATTENTION_MOCK: NeedsAttentionItem[] = [
     detail: '79.9% vs 96% Action limit',
     assignee: 'Ravi',
     action: 'act-now',
+    pendingActionSource: {
+      analyst: { label: 'Assigned by HOD (CXO Concern)', severity: 'critical' },
+      supervisor: { label: 'Raised by CXO', severity: 'critical' },
+      leadership: { label: 'Concern Raised by CXO', severity: 'critical' },
+    },
   },
   {
     id: 'tests-analyst-mar',
@@ -145,109 +300,55 @@ export const NEEDS_ATTENTION_MOCK: NeedsAttentionItem[] = [
     detail: '12.89 nos vs 15 nos Action limit',
     assignee: 'Ravi',
     action: 'act-now',
+    pendingActionSource: {
+      analyst: { label: 'Assigned by HOD (CXO Concern)', severity: 'critical' },
+      supervisor: { label: 'Raised by CXO', severity: 'critical' },
+      leadership: { label: 'Concern Raised by CXO', severity: 'critical' },
+    },
   },
-]
-
-export interface KpiThresholdMock {
-  /** Must match a real kpi.id in KPI_DOMAINS (kpiConfig.ts) for this domain. */
-  id: string
-  domainKey: SectionKey
-  // Target/Alert/Action zone-boundary thresholds (the dashed reference lines + "T:/A:/Act:"
-  // legend on SeverityKpiCard). Sourced directly from Figma (file T5oSGlK2eTYF8KvKP5M9lF, node
-  // 5024:13253 "KPI List") via get_design_context for the KPIs Figma actually shows worked
-  // examples for (see the "Figma-sourced" vs "extrapolated" grouping below) - not guessed, since
-  // neither the backend nor kpiConfig.ts has a threshold concept yet (see backend/README.md's
-  // "Known data gaps"). Placeholder until the backend computes real zone boundaries - value/trend
-  // themselves are real (useDomainTrendKpis fetches them live and classifies severity against
-  // these thresholds - see types.ts's classifySeverity), only these three numbers are mock.
-  target: number
-  alertThreshold: number
-  actionThreshold: number
-}
-
-// Covers every real KPI_DOMAINS entry (kpiConfig.ts) EXCEPT the 3 chartType:'bar' QMS KPIs
-// (capa-aging-status, human-error-by-product, product-wise-failure) - those are category rankings
-// summed across the whole date range (see KpiChartCard's toBarData comment), not a per-period
-// single value/trend, so a target/alert/action zone doesn't apply to them; they stay on the plain
-// real-data ranking-bar card with no thresholds (see SectionSummaryList.tsx's "uncovered"
-// fallback).
-//
-// Threshold numbers were sanity-checked against real observed values (see backend/DB_details.py-
-// style live curl of each endpoint, trailing 3 months, site=KRSG) so the target/alert/action scale
-// at least sits in the same ballpark as what the KPI actually reports - direction (higher/lower-
-// is-better) inferred from each KPI's meaning. Still placeholders (no real business-defined zone
-// boundary exists anywhere), just no longer off by 10-100x from the real unit/scale.
-export const KPI_THRESHOLD_MOCK: KpiThresholdMock[] = [
-  // --- Lab Performance (real unit: days/tests/%/samples/sequences,injections per analyst) ---
-  { id: 'sample-tat', domainKey: 'lab-performance', target: 24, alertThreshold: 28, actionThreshold: 34 },
-  // Real ~8-9 tests/analyst/day - original 12/16/18 assumed a much higher scale.
-  { id: 'tests-per-analyst', domainKey: 'lab-performance', target: 12, alertThreshold: 9, actionThreshold: 6 },
-  // Real ~51-63% - original 82/90/98 assumed adherence was already high; real KRSG data runs low.
-  { id: 'sla-adherence', domainKey: 'lab-performance', target: 85, alertThreshold: 70, actionThreshold: 55 },
-  // Real data is a raw sample COUNT per priority tier (100s), not a %.
-  { id: 'priority-sample-compliance', domainKey: 'lab-performance', target: 500, alertThreshold: 300, actionThreshold: 150 },
-  // Real ~56-86 sequences/analyst - original 20/30/40 was far too low.
-  { id: 'hplc-sequences-per-analyst', domainKey: 'lab-performance', target: 90, alertThreshold: 70, actionThreshold: 50 },
-  // Real ~7-11 injections/analyst - original 70/95/120 was ~10x too high.
-  { id: 'hplc-injections-per-analyst', domainKey: 'lab-performance', target: 12, alertThreshold: 9, actionThreshold: 6 },
-
-  // --- Instrument Health (real unit: breakdowns/day, %, ratio, days) ---
-  // Real ~1.4-1.6 breakdowns/DAY - original 3/6/10 assumed a monthly count.
-  { id: 'breakdown-frequency', domainKey: 'instrument-health', target: 0.8, alertThreshold: 1.2, actionThreshold: 1.8 },
-  // downtime/availability/utilization require an instGroup value (Dissolution/GC/HPLC) - each
-  // defaults to the first real option rather than blocking (see kpiConfig.ts's
-  // requiredSelectDefaults); real ranges below checked across all 3 groups, trailing 3 months.
-  // Real ~1.2-17.7% across groups (Dissolution best, GC worst) - close to the original 2/5/8 scale.
-  { id: 'downtime', domainKey: 'instrument-health', target: 2, alertThreshold: 5, actionThreshold: 8 },
-  // Real ~3-47% (Dissolution's "actual_available_time/(rows*24)" formula runs far lower than a
-  // typical uptime % - see InstrumentHealthService's javadoc) - original 98/93/88 assumed near-100%.
-  { id: 'availability', domainKey: 'instrument-health', target: 40, alertThreshold: 25, actionThreshold: 10 },
-  // Real ~52-96% (Dissolution highest, GC/HPLC ~50-60) - close to the original 85/75/65 scale.
-  { id: 'utilization', domainKey: 'instrument-health', target: 85, alertThreshold: 75, actionThreshold: 65 },
-  { id: 'calibration-compliance', domainKey: 'instrument-health', target: 100, alertThreshold: 95, actionThreshold: 90 },
-  { id: 'pm-adherence', domainKey: 'instrument-health', target: 95, alertThreshold: 88, actionThreshold: 80 },
-  // Real ~0.09-0.19 (a ratio, not %) - original 1/2/4 was ~10x too high.
-  { id: 'failure-rate', domainKey: 'instrument-health', target: 0.05, alertThreshold: 0.10, actionThreshold: 0.20 },
-  // Real 1 data point at 55 days - original 20/30/45 had too low a ceiling.
-  { id: 'qualification-cycle-time', domainKey: 'instrument-health', target: 25, alertThreshold: 40, actionThreshold: 60 },
-
-  // --- People Performance (real unit: %, "weight" index) ---
-  // Real ~1.6-5.2% - original 5/10/15 assumed a higher baseline.
-  { id: 'repeat-analysis-rate', domainKey: 'people-performance', target: 2, alertThreshold: 4, actionThreshold: 7 },
-  // Real ~10,000-18,000 ("weight" unit) - original 10/15/20 was off by ~1000x.
-  { id: 'reviewer-productivity', domainKey: 'people-performance', target: 18000, alertThreshold: 14000, actionThreshold: 9000 },
-  { id: 'rft-documentation', domainKey: 'people-performance', target: 98, alertThreshold: 92, actionThreshold: 85 },
-  { id: 'training-completion-rate', domainKey: 'people-performance', target: 95, alertThreshold: 85, actionThreshold: 75 },
-
-  // --- QMS's 17 non-bar-chart real KPIs (3 chartType:'bar' KPIs excluded, see file-level
-  // comment). Units confirmed live: rates are "per 1000 tests", most breakdowns are "count". ---
-  { id: 'invalid-oos-rate', domainKey: 'qms', target: 1.0, alertThreshold: 1.5, actionThreshold: 2.5 },
-  { id: 'confirmed-oos-rate', domainKey: 'qms', target: 0.5, alertThreshold: 1.0, actionThreshold: 2.0 },
-  // Real ~46-50 count/month - original 5/10/11 was ~5x too low.
-  { id: 'oos-trend', domainKey: 'qms', target: 40, alertThreshold: 48, actionThreshold: 55 },
-  // Real ~72-99 count/month - original 5/10/18 was ~5x too low.
-  { id: 'oot-trend', domainKey: 'qms', target: 70, alertThreshold: 90, actionThreshold: 110 },
-  // Real ~42-95 count/month - original 20/35/50 was too low a ceiling.
-  { id: 'deviations', domainKey: 'qms', target: 40, alertThreshold: 70, actionThreshold: 100 },
-  { id: 'investigation-closure-tat', domainKey: 'qms', target: 15, alertThreshold: 25, actionThreshold: 28 },
-  // Real ~500 count - original 5/10/15 was ~50x too low (this endpoint sums across a wide window).
-  { id: 'rci-beyond-timeline', domainKey: 'qms', target: 400, alertThreshold: 480, actionThreshold: 550 },
-  { id: 'repeat-failure-rate', domainKey: 'qms', target: 5, alertThreshold: 10, actionThreshold: 15 },
-  // root-cause(-consolidated) are per-category breakdowns (14 series/period, real per-category
-  // counts 0-2) - the card uses the first series as primary, so thresholds are scaled to a single
-  // category's count, not a cross-category total.
-  { id: 'root-cause', domainKey: 'qms', target: 1, alertThreshold: 3, actionThreshold: 6 },
-  { id: 'root-cause-consolidated', domainKey: 'qms', target: 1, alertThreshold: 3, actionThreshold: 6 },
-  { id: 'capa-open-by-date-opened', domainKey: 'qms', target: 10, alertThreshold: 20, actionThreshold: 30 },
-  { id: 'capa-effectiveness', domainKey: 'qms', target: 90, alertThreshold: 80, actionThreshold: 72 },
-  // Real ~19-33% - original 5/10/15 was too low a ceiling.
-  { id: 'capa-recurrence-rate', domainKey: 'qms', target: 15, alertThreshold: 25, actionThreshold: 35 },
-  // Real ~1.06-1.9 per 1000 tests - original 2/4/6 was too high a ceiling.
-  { id: 'human-error-rate', domainKey: 'qms', target: 1.0, alertThreshold: 1.5, actionThreshold: 2.2 },
-  // Real ~0-0.12 per 1000 tests - original 1/2/3 was ~10x too high.
-  { id: 'repeat-human-error-rate', domainKey: 'qms', target: 0.05, alertThreshold: 0.1, actionThreshold: 0.2 },
-  // Real value is always null (a category-status breakdown, no single numeric reading) - severity
-  // never resolves for this one regardless of these numbers; kept for shape consistency only.
-  { id: 'human-error-severity', domainKey: 'qms', target: 3, alertThreshold: 6, actionThreshold: 9 },
-  { id: 'method-failure-rate', domainKey: 'qms', target: 5, alertThreshold: 10, actionThreshold: 15 },
+  {
+    id: 'sample-tat-jul',
+    status: 'no-action',
+    category: 'Lab Performance',
+    date: 'Jul 26',
+    kpiName: 'Sample TAT',
+    detail: '29.02 hrs vs 24 hrs Action limit',
+    assignee: 'Ravi',
+    action: 'nudge',
+    pendingActionSource: {
+      analyst: { label: 'Escalated by Group Leader', severity: 'warning' },
+      supervisor: { label: 'Escalated by HOD', severity: 'warning' },
+      leadership: { label: 'Escalated by Group Leader', severity: 'warning' },
+    },
+  },
+  {
+    id: 'sample-tat-aug',
+    status: 'no-action',
+    category: 'Lab Performance',
+    date: 'Aug 26',
+    kpiName: 'Sample TAT',
+    detail: '33.44 hrs vs 24 hrs Action limit',
+    assignee: 'Ravi',
+    action: 'nudge',
+    pendingActionSource: {
+      analyst: { label: 'Raised by HOD', severity: 'warning' },
+      supervisor: { label: 'Escalated by HOD', severity: 'warning' },
+      leadership: { label: 'No Action Taken', severity: 'warning' },
+    },
+  },
+  {
+    id: 'sla-adherence-aug',
+    status: 'no-action',
+    category: 'Lab Performance',
+    date: 'Aug 26',
+    kpiName: 'Sample SLA Adherence',
+    detail: '83.63% vs 95% Action limit',
+    assignee: 'Ravi',
+    action: 'nudge',
+    pendingActionSource: {
+      analyst: { label: 'Raised by HOD', severity: 'warning' },
+      supervisor: { label: 'Escalated by HOD', severity: 'warning' },
+      leadership: { label: 'No Action Taken', severity: 'warning' },
+    },
+  },
 ]

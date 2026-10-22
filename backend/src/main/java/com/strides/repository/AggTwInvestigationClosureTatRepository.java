@@ -6,11 +6,15 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @ApplicationScoped
 public class AggTwInvestigationClosureTatRepository extends AbstractAggRepository<MedianTatRow> {
+
+    private static final String TABLE = "agg_tw_investigation_closure_tat";
 
     @Inject
     DepartmentScopeLiterals deptLiterals;
@@ -60,5 +64,18 @@ public class AggTwInvestigationClosureTatRepository extends AbstractAggRepositor
                 rs.getBigDecimal("median_tat_days"),
                 rs.getLong("record_count")),
                 params.toArray());
+    }
+
+    /** respDept/initiatedThrough live option lists, cross-filtered against each other - see AbstractAggRepository.distinctValues. */
+    public Map<String, List<String>> filterOptions(String site, String grain, LocalDate from, LocalDate to,
+            Set<String> respDepts, Set<String> initiatedThroughs) {
+        Map<String, Set<String>> selected = new LinkedHashMap<>();
+        selected.put("resp_dept_slice", respDepts);
+        selected.put("initiated_through_slice", initiatedThroughs);
+
+        Map<String, List<String>> options = new LinkedHashMap<>();
+        options.put("respDept", distinctValues(TABLE, "site", "resp_dept_slice", site, grain, from, to, without(selected, "resp_dept_slice")));
+        options.put("initiatedThrough", distinctValues(TABLE, "site", "initiated_through_slice", site, grain, from, to, without(selected, "initiated_through_slice")));
+        return options;
     }
 }

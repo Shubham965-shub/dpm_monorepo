@@ -1,37 +1,50 @@
+import { useEffect, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import {
+  Bar,
+  BarChart,
   CartesianGrid,
+  Cell,
   Legend,
   Line,
   LineChart,
-  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from 'recharts'
-import { CATEGORICAL_PALETTE, MAX_SERIES } from '@/lib/chartPalette'
-import type { GRAINS } from '@/lib/kpiSchemas'
-import type { KpiDefinition } from '@/lib/kpiConfig'
-import type { KpiMetrics } from '@/hooks/useDomainTrendKpis'
-import { ExtraFilterControl, type ExtraFilterState } from '@/components/kpi/ExtraFilterControl'
-import { ALERT_LINE_HEX, isLowerBetter, SEVERITY_META, TARGET_LINE_HEX, type Severity } from './types'
+import { CATEGORICAL_PALETTE, MAX_SERIES, TOOLTIP_Z_INDEX } from '@/lib/chartPalette'
+import type { Grain } from '@/lib/kpiSchemas'
+import { evenTickInterval, formatPeriodTick } from '@/lib/periodFormat'
+import { formatAxisTick, percentChange } from '@/lib/format'
+import type { ExtraFilter, KpiDefinition, KpiDomain } from '@/lib/kpiConfig'
+import { computeValueDomain, type KpiMetrics } from '@/hooks/useDomainTrendKpis'
+import type { ExtraFilterState } from '@/components/kpi/ExtraFilterControl'
+import type { ExtraParams, GlobalKpiFilters } from '@/hooks/useKpiData'
+import { FilterPills } from '@/components/kpi/FilterPills'
+import { KpiLineTooltip } from '@/components/kpi/KpiLineTooltip'
+import { ageShadeOpacity } from '@/lib/ageShade'
+import { KpiInfoDropdown } from '@/components/kpi/KpiInfoDropdown'
+import { GrainToggle } from '@/components/kpi/GrainToggle'
+import { KpiAsOf, NoDataNote } from '@/components/kpi/KpiAsOf'
+import { ViewModeToggle, type ViewMode } from '@/components/kpi/ViewModeToggle'
+import { PeriodRangePicker, type DateRange } from '@/components/kpi/PeriodRangePicker'
+import { useBackdropClose } from '@/hooks/useBackdropClose'
+import { useCoachTour } from './CoachMarks'
+import { ALERT_LIMIT_HEX, SEVERITY_META, boundaryHex, boundaryLines, boundaryZones, severityMeta, type Severity } from './types'
+import { renderBoundaryOverlay } from './boundaryOverlay'
+import { KpiDrilldownTable } from './KpiDrilldownTable'
 
-type Grain = (typeof GRAINS)[number]
-const GRAIN_OPTIONS: { value: Grain; label: string }[] = [
-  { value: 'daily', label: 'D' },
-  { value: 'weekly', label: 'W' },
-  { value: 'monthly', label: 'M' },
-  { value: 'quarterly', label: 'Q' },
-  { value: 'yearly', label: 'Y' },
-]
+const MODAL_OVERLAY_STYLE = { strokeWidth: 1, labelFontSize: 10 }
+
 
 function ThresholdRow({ label, value, unit, colorHex }: { label: string; value: number | null; unit: string | null; colorHex: string }) {
   return (
-    <div className="flex items-center justify-between border-b border-border py-3 last:border-b-0">
+    <div className="flex flex-col gap-1 border-b border-border py-3 last:border-b-0">
       <span className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">{label}</span>
-      <span className="text-lg font-black" style={{ color: colorHex }}>
-        {value != null ? value.toFixed(1) : '—'} <span className="text-muted-foreground text-xs font-normal">{unit}</span>
+      <span className="text-2xl font-black" style={{ color: colorHex }}>
+        {value != null ? value.toFixed(1) : '—'} <span className="text-muted-foreground text-sm font-normal">{unit}</span>
       </span>
     </div>
   )
@@ -41,49 +54,96 @@ function ThresholdRow({ label, value, unit, colorHex }: { label: string; value: 
  * `grain` state as the card it was opened from, so switching the grain here (a real refetch, see
  * SeverityKpiCard) updates the compact card too once this closes. */
 export function KpiDetailModal({
+  domain,
   domainLabel,
   kpi,
   metrics,
-  target,
-  alertThreshold,
-  actionThreshold,
   severity,
   grain,
   onGrainChange,
+  viewMode,
+  onViewModeChange,
+  dateRange,
+  onDateRangeChange,
+  onClearDateRange,
   extraStates,
   onExtraStateChange,
+  optionsFor,
+  filterOptionsLoading,
+  filterExtra,
+  cardFilters,
+  extraParams,
   onClose,
 }: {
+  domain: KpiDomain
   domainLabel: string
   kpi: KpiDefinition
   metrics: KpiMetrics
-  target: number
-  alertThreshold: number
-  actionThreshold: number
-  severity: Severity
+  /** null = no configured threshold (neutral styling). */
+  severity: Severity | null
   grain: Grain
   onGrainChange: (g: Grain) => void
+  viewMode: ViewMode
+  onViewModeChange: (mode: ViewMode) => void
+  /** A manually-picked period range (see PeriodRangePicker) - shares the compact card's own pick
+   * (see useCardGrain), same as grain/filters, so it survives this modal closing. null = following
+   * the grain's own default trailing window. */
+  dateRange: DateRange | null
+  onDateRangeChange: (range: DateRange) => void
+  onClearDateRange: () => void
   /** Shares the compact card's extraStates/setter (see SeverityKpiCard) so a filter change here
    * shows up on the card once this closes, instead of the modal keeping its own separate copy. */
   extraStates: ExtraFilterState[]
   onExtraStateChange: (i: number, next: ExtraFilterState) => void
+  /** Shares the compact card's live filter-options fetch (see useExtraFilters) rather than the modal re-fetching its own copy. */
+  optionsFor: (filter: ExtraFilter) => string[]
+  filterOptionsLoading: boolean
+  /** A non-standard control shown alongside the filter pills (e.g. Root Cause Breakdown's dimension picker). */
+  filterExtra?: ReactNode
+  /** The card's own already-resolved grain/date-range (see useCardGrain) - the record-level drill-
+   * down table (see KpiDrilldownTable) fetches at this same from/to, not a second independent one. */
+  cardFilters: GlobalKpiFilters
+  /** The card's own current filter selections (see useExtraFilters), resolved to raw query params -
+   * shared with the drill-down table's own fetch so its rows match what the chart above is showing. */
+  extraParams: ExtraParams
   onClose: () => void
 }) {
-  const { chartData, shownSeries, latestValue, previousValue, unit } = metrics
-  const meta = SEVERITY_META[severity]
-  const delta = previousValue != null && latestValue != null ? latestValue - previousValue : null
-  const lowerBetter = isLowerBetter(target, actionThreshold)
+  const { requestTour } = useCoachTour()
+  // Fires once per mount, i.e. once per time this modal opens - the tour it drives (see
+  // coachMarks.ts's 'drill' family) is a one-time "first ever detail view" tour, not per-KPI.
+  useEffect(() => {
+    requestTour('drill')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const { chartData, shownSeries, latestValue, previousValue, unit, thresholds } = metrics
+  const meta = severityMeta(severity)
+  const deltaPct = previousValue != null && latestValue != null ? percentChange(latestValue, previousValue) : null
+  const lines = boundaryLines(thresholds)
+  const valueDomain = computeValueDomain(chartData, shownSeries, lines.map((line) => line.y))
+  // Bars start at 0 (a zoomed baseline misrepresents bar height), as on the card.
+  const barDomain: [number, number] = [Math.min(0, valueDomain[0]), valueDomain[1]]
+  const zones = boundaryZones(thresholds, viewMode === 'line' ? valueDomain : barDomain)
+  // The config's own Direction column (higher_is_better / higher_is_worse / band).
+  const directionLabel =
+    thresholds?.direction === 'higher_is_worse' ? 'Lower the better'
+      : thresholds?.direction === 'higher_is_better' ? 'Higher the better'
+        : thresholds?.direction === 'band' ? 'Within band' : 'No threshold configured'
   const seriesColor = (i: number) => (shownSeries.length <= 1 ? meta.solidHex : CATEGORICAL_PALETTE[i % MAX_SERIES])
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-6"
-      onClick={onClose}
+      // Portaled straight to document.body: nested inside a card whose ancestor SectionBlock sets
+      // an inline `viewTransitionName` (see SectionSummaryList.tsx), which makes that ancestor a
+      // containing block for `position: fixed` descendants - a plain z-[100] on this div isn't
+      // enough because it'd only ever cover that section's own box, not the full viewport. Portaling
+      // out from under it sidesteps that entirely (same reason Radix Popover/Tooltip already portal).
+      // z-[100]: above the page's own cards and their z-50 chart tooltips/z-60 Filters popovers, so
+      // an open modal can never z-fight with whatever's still rendered behind it on the page.
+      className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto bg-black/40 p-6"
+      {...useBackdropClose(onClose)}
     >
-      <div
-        className="w-full max-w-4xl rounded-xl bg-card shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="w-full max-w-4xl rounded-xl bg-card shadow-xl">
         <div className="h-1.5 w-full rounded-t-xl" style={{ backgroundColor: meta.solidHex }} />
 
         <div className="flex items-center justify-between border-b border-border px-6 py-3">
@@ -106,47 +166,54 @@ export function KpiDetailModal({
                 {latestValue != null ? latestValue.toFixed(1) : '—'}
               </span>
               <span className="text-muted-foreground text-sm">{unit}</span>
-              {delta != null && (
+              <KpiAsOf latestPeriodStart={metrics.latestPeriodStart} staleSince={metrics.staleSince} grain={grain} className="text-xs" />
+              {deltaPct != null && (
                 <span className="text-sm font-semibold" style={{ color: meta.solidHex }}>
-                  {delta >= 0 ? '↑' : '↓'} {Math.abs(delta).toFixed(1)} {unit} vs prev period
+                  {deltaPct >= 0 ? '↑' : '↓'} {Math.abs(deltaPct).toFixed(1)}% vs prev period
                 </span>
               )}
               <span className="rounded-full px-3 py-1 text-xs font-bold text-white" style={{ backgroundColor: meta.solidHex }}>
                 {meta.label}
               </span>
             </div>
-            <div className="text-muted-foreground mt-2 text-xs">
-              KPI:{' '}
-              <strong className="text-foreground">{lowerBetter ? 'Lower the better' : 'Higher the better'}</strong>
+            <div className="mt-3 flex items-center gap-x-6">
+              <KpiInfoDropdown domain={domain} kpi={kpi} className="coach-modal-info" />
+              <span
+                className="shrink-0 text-sm font-bold tracking-wider whitespace-nowrap capitalize"
+                style={{ color: thresholds ? SEVERITY_META['in-control'].solidHex : undefined }}
+              >
+                KPI: {directionLabel}
+              </span>
             </div>
           </div>
 
-          <div className="flex overflow-hidden rounded-md border border-input">
-            {GRAIN_OPTIONS.map((g) => (
-              <button
-                key={g.value}
-                onClick={() => onGrainChange(g.value)}
-                className="px-2.5 py-1 text-xs font-bold"
-                style={g.value === grain ? { backgroundColor: meta.solidHex, color: 'white' } : { color: 'var(--muted-foreground)' }}
-              >
-                {g.label}
-              </button>
-            ))}
+          {/* max-w-xs: without a real width to wrap against, FilterPills' own flex-wrap never
+          activates (a flex item with no width constraint just grows to fit one unwrapped row) - a
+          KPI with several filters (e.g. Deviations' 6) would spill its pill row out past the
+          modal's own edge instead of wrapping onto a second line under the others. */}
+          <div className="flex max-w-xs shrink-0 flex-col items-end gap-3">
+            <div className="flex items-center gap-2">
+              <ViewModeToggle mode={viewMode} onChange={onViewModeChange} activeHex={meta.solidHex} borderHex={meta.paleHex} />
+              <GrainToggle grain={grain} onChange={onGrainChange} activeHex={meta.solidHex} size="modal" className="coach-modal-grain" />
+            </div>
+            <PeriodRangePicker
+              key={grain}
+              grain={grain}
+              value={dateRange}
+              onChange={onDateRangeChange}
+              onClear={onClearDateRange}
+              activeHex={meta.solidHex}
+            />
+            <FilterPills
+              kpi={kpi}
+              extraStates={extraStates}
+              onExtraStateChange={onExtraStateChange}
+              optionsFor={optionsFor}
+              filterOptionsLoading={filterOptionsLoading}
+              extra={filterExtra}
+            />
           </div>
         </div>
-
-        {kpi.extraFilters.length > 0 && (
-          <div className="flex flex-wrap gap-4 border-b border-border bg-muted/40 px-6 py-3">
-            {kpi.extraFilters.map((filter, i) => (
-              <ExtraFilterControl
-                key={filter.param}
-                filter={filter}
-                state={extraStates[i]}
-                onChange={(next) => onExtraStateChange(i, next)}
-              />
-            ))}
-          </div>
-        )}
 
         <div className="flex items-center justify-between px-6 pt-5">
           <h3 className="text-base font-semibold">Trend Chart</h3>
@@ -159,60 +226,88 @@ export function KpiDetailModal({
           </button>
         </div>
 
-        <div className="p-6">
-          <div className="h-72 w-full rounded-lg border border-border p-4">
+        <NoDataNote chartData={chartData} seriesKeys={shownSeries.map((s) => s.seriesKey)} grain={grain} className="px-6 pt-2 text-xs" />
+
+        {/* Thresholds sit beside the chart (stacked under it on narrow screens), not below it. */}
+        <div className="grid gap-4 p-6 md:grid-cols-[minmax(0,1fr)_14rem]">
+          <div className="coach-modal-chart h-80 w-full rounded-lg border border-border p-4">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData} margin={{ top: 8, right: 48, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                <XAxis dataKey="periodStart" tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" />
-                <YAxis tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" width={40} />
-                <Tooltip contentStyle={{ fontSize: 11 }} />
-                {shownSeries.length >= 2 && <Legend wrapperStyle={{ fontSize: 10 }} />}
-                <ReferenceLine
-                  y={target}
-                  stroke={TARGET_LINE_HEX}
-                  strokeDasharray="4 3"
-                  label={{ value: `T:${target}`, position: 'right', fill: TARGET_LINE_HEX, fontSize: 10 }}
-                />
-                <ReferenceLine
-                  y={alertThreshold}
-                  stroke={ALERT_LINE_HEX}
-                  strokeDasharray="4 3"
-                  label={{ value: `AL:${alertThreshold}`, position: 'right', fill: ALERT_LINE_HEX, fontSize: 10 }}
-                />
-                <ReferenceLine
-                  y={actionThreshold}
-                  stroke={meta.solidHex}
-                  strokeDasharray="4 3"
-                  label={{ value: `ACT:${actionThreshold}`, position: 'right', fill: meta.solidHex, fontSize: 10 }}
-                />
-                {shownSeries.map((s, i) => (
-                  <Line
-                    key={s.seriesKey}
-                    type="monotone"
-                    dataKey={s.seriesKey}
-                    name={s.label}
-                    stroke={seriesColor(i)}
-                    strokeWidth={2}
-                    dot={{ r: 3 }}
-                    connectNulls
+              {viewMode === 'line' ? (
+                <LineChart data={chartData} margin={{ top: 8, right: 48, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                  <XAxis
+                    dataKey="periodStart"
+                    tickFormatter={(v: string) => formatPeriodTick(v, grain)}
+                    interval={evenTickInterval(chartData.length)}
+                    tick={{ fontSize: 10 }}
+                    stroke="var(--muted-foreground)"
                   />
-                ))}
-              </LineChart>
+                  <YAxis domain={valueDomain} tickFormatter={(v: number) => formatAxisTick(v, valueDomain)} tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" width={40} />
+                  <Tooltip filterNull={false} content={<KpiLineTooltip grain={grain} rows={chartData} />} wrapperStyle={{ zIndex: TOOLTIP_Z_INDEX }} />
+                  {shownSeries.length >= 2 && <Legend wrapperStyle={{ fontSize: 10 }} />}
+                  {renderBoundaryOverlay(zones, lines, MODAL_OVERLAY_STYLE)}
+                  {shownSeries.map((s, i) => (
+                    <Line
+                      key={s.seriesKey}
+                      type="monotone"
+                      dataKey={s.seriesKey}
+                      name={s.label}
+                      stroke={seriesColor(i)}
+                      strokeWidth={2}
+                      dot={{ r: 3 }}
+                      />
+                  ))}
+                </LineChart>
+              ) : (
+                <BarChart data={chartData} margin={{ top: 8, right: 48, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                  <XAxis
+                    dataKey="periodStart"
+                    tickFormatter={(v: string) => formatPeriodTick(v, grain)}
+                    interval={evenTickInterval(chartData.length)}
+                    tick={{ fontSize: 10 }}
+                    stroke="var(--muted-foreground)"
+                  />
+                  <YAxis domain={barDomain} tickFormatter={(v: number) => formatAxisTick(v, barDomain)} tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" width={40} />
+                  <Tooltip filterNull={false} content={<KpiLineTooltip grain={grain} rows={chartData} />} wrapperStyle={{ zIndex: TOOLTIP_Z_INDEX }} />
+                  {shownSeries.length >= 2 && <Legend wrapperStyle={{ fontSize: 10 }} />}
+                  {renderBoundaryOverlay(zones, lines, MODAL_OVERLAY_STYLE)}
+                  {shownSeries.map((s, i) => (
+                    <Bar key={s.seriesKey} dataKey={s.seriesKey} name={s.label} fill={seriesColor(i)} radius={[2, 2, 0, 0]}>
+                  {kpi.barAgeShading && chartData.map((row) => (
+                    <Cell key={String(row.periodStart)} fill={ALERT_LIMIT_HEX} fillOpacity={ageShadeOpacity(String(row.periodStart), String(chartData[0].periodStart))} />
+                  ))}
+                </Bar>
+                  ))}
+                </BarChart>
+              )}
             </ResponsiveContainer>
           </div>
 
-          <div className="mt-4 rounded-lg border border-border p-4">
+          <div className="rounded-lg border border-border p-4">
             <div className="text-muted-foreground text-xs font-bold tracking-wide uppercase">Threshold Status</div>
             <div className="mt-1 flex flex-col">
-              <ThresholdRow label="Target" value={target} unit={unit} colorHex={TARGET_LINE_HEX} />
-              <ThresholdRow label="Alert Limit" value={alertThreshold} unit={unit} colorHex={ALERT_LINE_HEX} />
-              <ThresholdRow label="Action Limit" value={actionThreshold} unit={unit} colorHex={meta.solidHex} />
+              {lines.length === 0 && <p className="text-muted-foreground py-3 text-xs">No threshold configured</p>}
+              {[...lines].sort((a, b) => b.y - a.y).map((line) => (
+                <ThresholdRow key={line.name} label={line.name} value={line.y} unit={unit} colorHex={boundaryHex(line.tone)} />
+              ))}
               <ThresholdRow label="Current" value={latestValue} unit={unit} colorHex={meta.solidHex} />
             </div>
           </div>
         </div>
+
+        {kpi.drilldownPath && (
+          <KpiDrilldownTable
+            domain={domain}
+            kpi={kpi}
+            globalFilters={cardFilters}
+            extraParams={extraParams}
+            periodRows={metrics.rows}
+            extraStates={extraStates}
+          />
+        )}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

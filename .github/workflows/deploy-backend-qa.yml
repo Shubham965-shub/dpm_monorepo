@@ -1,0 +1,47 @@
+name: Deploy backend (QA)
+
+on:
+  push:
+    branches: [qa]
+    paths:
+      - 'backend/**'
+      - 'deploy/qa/**'
+      - '.github/workflows/deploy-backend-qa.yml'
+  workflow_dispatch:
+
+# One rollout at a time; a newer push waits for a running one rather than cancelling it mid-deploy.
+concurrency:
+  group: deploy-backend-qa
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: qa
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      # Service principal LH-Github (Contributor on the QA subscription); the secret is set by
+      # deploy/qa/set-github-azure-credentials.sh.
+      - uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Install Container Apps CLI extension
+        run: az extension add --name containerapp --upgrade --yes
+
+      - name: Build jar and image
+        id: build
+        run: deploy/qa/build-push-backend.sh "${GITHUB_SHA::12}"
+
+      - name: Roll out to Container App
+        run: deploy/qa/deploy-backend.sh "${{ steps.build.outputs.image }}"

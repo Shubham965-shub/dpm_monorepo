@@ -58,9 +58,10 @@ public class RefreshTokenService {
 
     /**
      * Validates and rotates a presented refresh token: the old row is revoked and a new one issued
-     * in the same transaction. Returns empty if the token is unknown/expired. If the token was
-     * already revoked (i.e. already used once before), that's a signal of theft - every other
-     * active refresh token for that user is revoked too, forcing a full re-login on all devices.
+     * in the same transaction. Returns empty if the token is unknown/expired/revoked or its user is
+     * deactivated. If the token was already rotated once before (it has a successor), that's a
+     * signal of theft - every other active refresh token for that user is revoked too, forcing a
+     * full re-login on all devices.
      */
     @Transactional
     public Optional<IssuedToken> rotate(String rawToken) {
@@ -70,11 +71,19 @@ public class RefreshTokenService {
         }
         UUID userId = existing.getUser().getId();
         if (existing.isRevoked()) {
-            LOG.warnf("Refresh token reuse detected for user %s - revoking all active sessions", userId);
-            revokeAllActiveForUser(userId);
+            // Revoked by logout (no successor) just fails - a stale tab after logout must not wipe
+            // the user's sessions on other devices.
+            if (existing.getReplacedById() != null) {
+                LOG.warnf("Refresh token reuse detected for user %s - revoking all active sessions", userId);
+                revokeAllActiveForUser(userId);
+            }
             return Optional.empty();
         }
         if (existing.isExpired()) {
+            return Optional.empty();
+        }
+        if (!existing.getUser().isActive()) {
+            existing.setRevokedAt(OffsetDateTime.now());
             return Optional.empty();
         }
 
@@ -93,7 +102,7 @@ public class RefreshTokenService {
 
     /**
      * Kills every active session for this user. Called on reuse detection (above), and must also
-     * be called anywhere a password is changed/reset - otherwise a refresh token issued before the
+     * be called anywhere a password is changed/reset or a user is deactivated - otherwise a refresh token issued before the
      * change stays valid for its full remaining 7-day TTL, completely defeating the point of a
      * password change as an incident response ("someone else might have my password").
      */

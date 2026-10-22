@@ -1,17 +1,17 @@
 import { useMemo, useState } from 'react'
-import { ChevronDown, Maximize2, SlidersHorizontal } from 'lucide-react'
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { cn } from '@/lib/utils'
+import { Maximize2 } from 'lucide-react'
+import { Bar, BarChart, CartesianGrid, Rectangle, ResponsiveContainer, Tooltip, XAxis, YAxis, type BarShapeProps } from 'recharts'
+import { CAPA_AGING_LEVEL_COLORS, TOOLTIP_Z_INDEX } from '@/lib/chartPalette'
 import type { KpiDomain, KpiDefinition } from '@/lib/kpiConfig'
 import { useKpiData, type GlobalKpiFilters } from '@/hooks/useKpiData'
-import { toBarData, emptyStateFor } from '@/components/kpi/KpiChartCard'
-import {
-  ExtraFilterControl,
-  initialExtraFilterState,
-  resolveExtraParams,
-  type ExtraFilterState,
-} from '@/components/kpi/ExtraFilterControl'
-import { SEVERITY_META } from './types'
+import { useExtraFilters } from '@/hooks/useExtraFilters'
+import { useCardGrain } from '@/hooks/useCardGrain'
+import type { KpiVisibilityLens } from '@/lib/roleAccess'
+import { toBarData, emptyStateFor, type BarRow } from '@/components/kpi/KpiChartCard'
+import { FiltersPopoverButton } from '@/components/kpi/FiltersPopoverButton'
+import { GrainToggle } from '@/components/kpi/GrainToggle'
+import { SEVERITY_META, kpiAnchorId, rankingValueDomain } from './types'
+import { KpiRankingBarDetailModal } from './KpiRankingBarDetailModal'
 
 // This is real, live-fetched data with no computed severity/status (unlike SeverityKpiCard's real
 // value classified against a mock threshold) - always green, never a red/amber judgment this data
@@ -19,17 +19,66 @@ import { SEVERITY_META } from './types'
 // SeverityKpiCard so the two card types read as one design system, not two.
 const GREEN = SEVERITY_META['in-control']
 
-const BAR_ROW_HEIGHT_PX = 28
-const RANKING_BAR_MIN_HEIGHT_PX = 140
-const RANKING_BAR_MAX_VIEWPORT_PX = 260
-const Y_AXIS_WIDTH_PX = 140
+export function barFillFor(kpiId: string, categoryName: string): string {
+  return kpiId === 'capa-aging-status' ? (CAPA_AGING_LEVEL_COLORS[categoryName] ?? GREEN.solidHex) : GREEN.solidHex
+}
+
+// Recharts' <Cell> (the older way to color individual bars) is deprecated in favor of a custom
+// `shape` - this renders the same default Rectangle, just with a per-category fill.
+export function barShapeFor(kpiId: string) {
+  return function CapaBarShape(props: BarShapeProps) {
+    const name = typeof props.payload?.name === 'string' ? props.payload.name : ''
+    return <Rectangle {...props} fill={barFillFor(kpiId, name)} />
+  }
+}
+
+export const BAR_ROW_HEIGHT_PX = 28
+export const RANKING_BAR_MIN_HEIGHT_PX = 140
+// Matches SeverityKpiCard's own fixed chart height (its "h-40" = 160px), so every card in the grid
+// stays the same size regardless of category count - extra rows scroll (overflow-y-auto below)
+// rather than growing the card.
+const RANKING_BAR_MAX_VIEWPORT_PX = 160
+const CARD_CHART_RIGHT_MARGIN_PX = 12
+export const Y_AXIS_WIDTH_PX = 140
 const Y_AXIS_MAX_CHARS = 22
+// The value axis is drawn as its own strip above the bars (RankingValueAxis) so it stays in view
+// while the bars scroll - just tall enough for one row of tick labels.
+const VALUE_AXIS_STRIP_HEIGHT_PX = 24
+
+/**
+ * The ranking's value (x) axis on its own, above the bars - pinned in place (the bar chart itself
+ * scrolls) instead of sitting at the bottom of a long list. Built from the same rows, domain,
+ * right margin and label width as the bar chart below it, so its ticks land exactly over the bars;
+ * the bar series is only there because Recharts computes no ticks for an axis with nothing to plot
+ * (the strip has no plot height, and the bars are transparent besides).
+ */
+export function RankingValueAxis({
+  rows,
+  domain,
+  rightMarginPx,
+  fontSize,
+}: {
+  rows: BarRow[]
+  domain: [number, number]
+  rightMarginPx: number
+  fontSize: number
+}) {
+  return (
+    <ResponsiveContainer width="100%" height={VALUE_AXIS_STRIP_HEIGHT_PX}>
+      <BarChart data={rows} layout="vertical" margin={{ top: 0, right: rightMarginPx, left: 0, bottom: 0 }}>
+        <XAxis type="number" orientation="top" domain={domain} tick={{ fontSize }} stroke="var(--muted-foreground)" height={VALUE_AXIS_STRIP_HEIGHT_PX} />
+        <YAxis type="category" dataKey="name" width={Y_AXIS_WIDTH_PX} tick={false} axisLine={false} />
+        <Bar dataKey="value" fillOpacity={0} isAnimationActive={false} />
+      </BarChart>
+    </ResponsiveContainer>
+  )
+}
 
 // Long real category names (e.g. full product/material names) would otherwise wrap onto multiple
 // lines and visually collide with the row above/below - recharts doesn't reserve extra height for
 // wrapped tick text. Truncating to a fixed single-line length avoids that; the full name is still
 // available via the bar's own hover tooltip.
-function truncatedCategoryTick(props: { x?: string | number; y?: string | number; payload?: { value?: unknown } }) {
+export function truncatedCategoryTick(props: { x?: string | number; y?: string | number; payload?: { value?: unknown } }) {
   const { x, y, payload } = props
   const text = String(payload?.value ?? '')
   const label = text.length > Y_AXIS_MAX_CHARS ? `${text.slice(0, Y_AXIS_MAX_CHARS - 1)}…` : text
@@ -42,28 +91,28 @@ function truncatedCategoryTick(props: { x?: string | number; y?: string | number
 
 /** Same card chrome/left-accent as SeverityKpiCard, for the 3 chartType:'bar' KPIs (category
  * rankings summed over the whole date range, e.g. CAPA Aging Status) that structurally can't use
- * SeverityKpiCard's per-period trend shape - see mockData.ts's KPI_THRESHOLD_MOCK caveat. Real
+ * SeverityKpiCard's per-period trend shape or a per-period threshold. Real
  * data via useKpiData; filters collapse behind a toggle so the default view stays compact. */
 export function KpiRankingBarCard({
   domain,
   kpi,
   globalFilters,
+  lens,
 }: {
   domain: KpiDomain
   kpi: KpiDefinition
   globalFilters: GlobalKpiFilters
+  /** Picks the card's default D/W/M/Q/Y grain - see useCardGrain. */
+  lens: KpiVisibilityLens
 }) {
-  const [extraStates, setExtraStates] = useState<ExtraFilterState[]>(() =>
-    kpi.extraFilters.map(initialExtraFilterState),
-  )
-  const [filtersOpen, setFiltersOpen] = useState(false)
-  const extraParams = kpi.extraFilters.flatMap((filter, i) => resolveExtraParams(filter, extraStates[i]))
-  const requiredSelectMissing = kpi.extraFilters.some(
-    (filter, i) => filter.kind === 'select' && filter.required && resolveExtraParams(filter, extraStates[i]).length === 0,
-  )
+  const [detailOpen, setDetailOpen] = useState(false)
+  const { grain, setGrain, cardFilters } = useCardGrain(kpi.id, lens, globalFilters)
+  const filters = useExtraFilters(domain, kpi, cardFilters, detailOpen)
+  const { extraStates, setExtraState, extraParams, requiredSelectMissing, optionsFor, filterOptionsLoading } = filters
 
-  const query = useKpiData(domain, kpi, globalFilters, extraParams)
+  const query = useKpiData(domain, kpi, cardFilters, extraParams)
   const rankingData = useMemo(() => toBarData(query.data ?? []), [query.data])
+  const valueDomain = rankingValueDomain(rankingData)
   const emptyState = emptyStateFor(requiredSelectMissing, query, rankingData.length === 0)
   // Reconciliation caveats (e.g. departmentScope=QC's narrowed scope) the backend flags as a
   // per-row note - see backend/README.md's "Department scope" section.
@@ -74,43 +123,20 @@ export function KpiRankingBarCard({
 
   return (
     <div
+      id={kpiAnchorId(kpi.id)}
       className="flex flex-col gap-2 rounded-xl border-t border-r border-b p-3"
       style={{ backgroundColor: GREEN.cardBg, borderColor: GREEN.solidHex, borderLeftWidth: 3, borderLeftColor: GREEN.solidHex }}
     >
       <div className="flex items-start justify-between gap-2">
-        <h3 className="line-clamp-2 text-[11px] font-semibold text-gray-700">{kpi.label}</h3>
+        <h3 className="line-clamp-2 text-xl font-semibold text-gray-700">{kpi.label}</h3>
         <div className="flex shrink-0 items-center gap-1">
-          {kpi.extraFilters.length > 0 && (
-            <button
-              onClick={() => setFiltersOpen((v) => !v)}
-              className={cn(
-                'flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-medium',
-                filtersOpen ? 'border-input bg-muted text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground',
-              )}
-            >
-              <SlidersHorizontal className="size-3" />
-              Filters
-              <ChevronDown className={cn('size-3 transition-transform', filtersOpen && 'rotate-180')} />
-            </button>
-          )}
-          <button className="text-muted-foreground hover:text-foreground" title="Expand view (not yet built)">
+          <GrainToggle grain={grain} onChange={setGrain} activeHex={GREEN.solidHex} borderHex={GREEN.paleHex} />
+          <FiltersPopoverButton kpi={kpi} filters={filters} />
+          <button className="text-muted-foreground hover:text-foreground" onClick={() => setDetailOpen(true)} title="Expand view">
             <Maximize2 className="size-3.5" />
           </button>
         </div>
       </div>
-
-      {filtersOpen && kpi.extraFilters.length > 0 && (
-        <div className="flex flex-wrap gap-3 rounded-md bg-muted/40 p-2">
-          {kpi.extraFilters.map((filter, i) => (
-            <ExtraFilterControl
-              key={filter.param}
-              filter={filter}
-              state={extraStates[i]}
-              onChange={(next) => setExtraStates((prev) => prev.map((s, idx) => (idx === i ? next : s)))}
-            />
-          ))}
-        </div>
-      )}
 
       {notes.map((note) => (
         <p key={note} className="rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-700">
@@ -118,24 +144,48 @@ export function KpiRankingBarCard({
         </p>
       ))}
 
-      <div style={{ maxHeight: RANKING_BAR_MAX_VIEWPORT_PX }} className="w-full overflow-y-auto">
+      {/* Both reserve the scroll box's scrollbar width, so the strip and the bars are the same width and line up. */}
+      {!emptyState && (
+        <div className="w-full overflow-hidden [scrollbar-gutter:stable]">
+          <RankingValueAxis rows={rankingData} domain={valueDomain} rightMarginPx={CARD_CHART_RIGHT_MARGIN_PX} fontSize={9} />
+        </div>
+      )}
+      <div style={{ maxHeight: RANKING_BAR_MAX_VIEWPORT_PX }} className="w-full overflow-x-hidden overflow-y-auto [scrollbar-gutter:stable]">
         {emptyState ? (
           <div className="h-32">{emptyState}</div>
         ) : (
           <ResponsiveContainer width="100%" height={Math.max(RANKING_BAR_MIN_HEIGHT_PX, rankingData.length * BAR_ROW_HEIGHT_PX)}>
-            <BarChart data={rankingData} layout="vertical" margin={{ top: 4, right: 12, left: 0, bottom: 0 }}>
+            <BarChart data={rankingData} layout="vertical" margin={{ top: 4, right: CARD_CHART_RIGHT_MARGIN_PX, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-              {/* Without an explicit domain, Recharts can auto-pick a non-zero floor when every
-              category's value sits well above 0 - bars then start partway across the plot area
-              instead of flush against the axis, reading as a big empty gap on the left. */}
-              <XAxis type="number" domain={[0, 'dataMax']} tick={{ fontSize: 9 }} stroke="var(--muted-foreground)" />
+              {/* Starts at 0 explicitly - Recharts can otherwise auto-pick a non-zero floor, leaving a
+              gap before every bar. Hidden: the visible axis is the pinned strip above (RankingValueAxis). */}
+              <XAxis type="number" domain={valueDomain} hide />
               <YAxis type="category" dataKey="name" tick={truncatedCategoryTick} width={Y_AXIS_WIDTH_PX} interval={0} />
-              <Tooltip contentStyle={{ fontSize: 11 }} />
-              <Bar dataKey="value" fill={GREEN.solidHex} radius={[0, 3, 3, 0]} />
+              <Tooltip contentStyle={{ fontSize: 11 }} wrapperStyle={{ zIndex: TOOLTIP_Z_INDEX }} />
+              <Bar dataKey="value" radius={[0, 3, 3, 0]} shape={barShapeFor(kpi.id)} />
             </BarChart>
           </ResponsiveContainer>
         )}
       </div>
+
+      {detailOpen && (
+        <KpiRankingBarDetailModal
+          domain={domain}
+          domainLabel={domain.label}
+          grain={grain}
+          onGrainChange={setGrain}
+          kpi={kpi}
+          rankingData={rankingData}
+          notes={notes}
+          extraStates={extraStates}
+          onExtraStateChange={setExtraState}
+          optionsFor={optionsFor}
+          filterOptionsLoading={filterOptionsLoading}
+          cardFilters={cardFilters}
+          extraParams={extraParams}
+          onClose={() => setDetailOpen(false)}
+        />
+      )}
     </div>
   )
 }

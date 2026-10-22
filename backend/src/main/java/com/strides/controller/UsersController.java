@@ -52,6 +52,13 @@ public class UsersController {
         return service.listRoles();
     }
 
+    /** The fixed set of assignable department names, for the admin UI's department picklist. */
+    @GET
+    @Path("/departments")
+    public List<String> listDepartments() {
+        return service.listDepartments();
+    }
+
     @POST
     public Response create(@Valid CreateUserRequest request) {
         CreateUserResponse created = service.createUser(request);
