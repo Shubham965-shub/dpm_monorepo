@@ -7,6 +7,7 @@ import {
   resolveRoleTab,
   resolveAnalystSupervisorView,
   hasDepartmentAccess,
+  isAdmin,
   LENS_LABEL,
   type RoleTab,
   type AnalystSupervisorView,
@@ -14,6 +15,8 @@ import {
   type KpiVisibilityLens,
 } from '@/lib/roleAccess'
 import { QaDashboardPage } from './QaDashboardPage'
+import { AdminDepartmentDashboardPage } from './AdminDepartmentDashboardPage'
+import { ADMIN_DEPARTMENTS, adminDepartmentById } from '@/lib/adminDepartments'
 import { DEFAULT_DASHBOARD_FILTERS, FilterBar, type DashboardFilters } from './FilterBar'
 import { DEFAULT_LEADERSHIP_TRAILING_DAYS, LeadershipFilterBar, type LeadershipTrailingDays } from './LeadershipFilterBar'
 import { OverallHeatmapDemo, LEADERSHIP_HEATMAP_RANGES, heatmapRangesForGrain } from './OverallHeatmapDemo'
@@ -66,6 +69,10 @@ export function DashboardPage() {
   // role-derived value here, which also doesn't re-sync - a department change takes effect on next
   // login, consistent with the rest of this page's role resolution).
   const [view, setView] = useState<SubNavView>(() => (canViewQc ? 'dashboard' : canViewQa ? 'qa' : 'dashboard'))
+  // MFG/Engg/SC&P exist only as admin-visible scaffolds (see adminDepartments.ts) - no department access grants
+  // them, so their nav tabs are only ever passed to ADMIN and AdminDepartmentDashboardPage re-checks it.
+  const canViewAdminDepartments = isAdmin(user?.roles ?? [])
+  const adminDepartment = adminDepartmentById(view)
   // Only ADMIN (roleTabAccess.locked === false) can actually change these - everyone else is
   // confined to their resolved tab/view (see lib/roleAccess.ts). ADMIN can preview all 4 lens
   // variants (CXO, Leadership, Analyst, Supervisor) via this free-toggle local state.
@@ -88,11 +95,11 @@ export function DashboardPage() {
     activeRole === 'CXO' ? 'cxo' : activeRole === 'Leadership' ? 'leadership' : operationsLensChoice
   // No further Analyst/Supervisor split while previewing QA (see QaDashboardPage/qaLensForRoleTab) -
   // QA's Operations tab always resolves straight to Supervisor, so the toggle would have no effect.
-  const showAnalystSupervisorToggle = activeRole === 'Operations' && view !== 'qa'
+  const showAnalystSupervisorToggle = activeRole === 'Operations' && view !== 'qa' && !adminDepartment
   // QA's CXO tab splits further into CXO/Cluster Head (see qaLensForRoleTab) - only ADMIN's free
   // preview needs a toggle for this; a real CXO or Cluster Head user is already locked to their own
   // lens by resolveQaLens before this tab/toggle ever enters the picture.
-  const showQaCxoClusterHeadToggle = view === 'qa' && activeRole === 'CXO' && !roleTabAccess.locked
+  const showQaCxoClusterHeadToggle = (view === 'qa' || adminDepartment !== undefined) && activeRole === 'CXO' && !roleTabAccess.locked
   const secondaryToggle = showAnalystSupervisorToggle
     ? {
         value: operationsLensChoice as KpiVisibilityLens,
@@ -167,6 +174,7 @@ export function DashboardPage() {
         secondaryToggle={secondaryToggle}
         showDashboardTab={canViewQc}
         showQaTab={canViewQa}
+        adminTabs={canViewAdminDepartments ? ADMIN_DEPARTMENTS.map((d) => ({ view: d.id, label: d.navLabel })) : []}
       />
 
       {view === 'qa' ? (
@@ -175,6 +183,11 @@ export function DashboardPage() {
         // actual render guard, not just the nav's) still renders nothing.
         canViewQa ? (
           <QaDashboardPage activeRoleTab={activeRole} cxoClusterHeadView={adminQaCxoView} />
+        ) : null
+      ) : adminDepartment ? (
+        // Nav tab is admin-only (adminTabs above); the page itself re-checks, same as QA's own render guard.
+        canViewAdminDepartments ? (
+          <AdminDepartmentDashboardPage department={adminDepartment} activeRoleTab={activeRole} cxoClusterHeadView={adminQaCxoView} />
         ) : null
       ) : view === 'performance' ? (
         <PerformanceWorkInProgress />

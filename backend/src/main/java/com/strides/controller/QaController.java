@@ -6,26 +6,17 @@ import com.strides.dto.KpiCardResponse;
 import com.strides.dto.KpiParams;
 import com.strides.repository.GenericDrilldownRepository;
 import com.strides.repository.QaDrilldownSpecs;
-import com.strides.repository.QaKpiFilterColumns;
 import com.strides.repository.QaKpiSpecs;
 import com.strides.security.RequiresDepartment;
-import com.strides.service.QaKpiService;
-import jakarta.inject.Inject;
 import jakarta.ws.rs.BeanParam;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
-import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.MultivaluedMap;
 import jakarta.ws.rs.core.Response;
-import jakarta.ws.rs.core.UriInfo;
 import java.time.LocalDate;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * One thin GET per QA KPI with a real data source today, each path matching the frontend's own
@@ -35,14 +26,11 @@ import java.util.Set;
  *
  * Most KPIs read through QaKpiService.fetch(QaKpiSpec, ...) against the `qa` schema (see
  * QaKpiSpecs for the full per-KPI query shape and the caveats/flags on several of them).
- * instrument-error-deviations and procedural-error-deviations are the two exceptions that read
- * `public.agg_tw_deviations` instead (see QaKpiService's own two dedicated methods) - the handover
- * doc's own "KPIs served by DPM_QC tables" section.
  */
 @Path("/api/qa")
 @Produces(MediaType.APPLICATION_JSON)
 @RequiresDepartment(Department.QA)
-public class QaController {
+public class QaController extends QaStyleKpiResource {
 
     private static final String CLOSURE_OPEN_CCS_KPI_ID = "qa-closure-of-open-change-controls";
     private static final String IA_RESPONSE_KPI_ID = "qa-ia-response-on-time";
@@ -59,63 +47,6 @@ public class QaController {
     private static final String CAPA_RECURRENCE_KPI_ID = "qa-capa-recurrence-rate";
     private static final String CC_APPROVAL_KPI_ID = "qa-change-control-approval-internal-external-within-sla";
     private static final String TRAINING_COMPLETION_KPI_ID = "qa-training-completion";
-
-    @Inject
-    QaKpiService service;
-
-    /** Per-request proxy (standard Quarkus REST context injection) - avoids threading UriInfo through
-     * every one of this controller's ~30 single-line KPI methods just for the handful with extra
-     * filter columns (see QaKpiFilterColumns); the shared fetch()/filterOptions() below are the only
-     * two places that read it. */
-    @Context
-    UriInfo uriInfo;
-
-    private List<KpiCardResponse> fetch(com.strides.repository.QaKpiSpec spec, String kpiId, String name, KpiParams.DateRange p) {
-        String grain = RequiredParams.require(p.grain, "grain");
-        LocalDate from = RequiredParams.require(p.from, "from");
-        LocalDate to = RequiredParams.require(p.to, "to");
-        Map<String, Set<String>> extraFilters = selectedFilters(kpiId, uriInfo.getQueryParameters());
-        return extraFilters.isEmpty()
-                ? service.fetch(spec, kpiId, name, p.site, grain, from, to)
-                : service.fetch(spec, kpiId, name, p.site, grain, from, to, Map.of(), extraFilters);
-    }
-
-    /** Current filter selections for kpiId's registered extra columns (QaKpiFilterColumns), keyed
-     * by column name - empty when this KPI has none registered, so fetch() takes its zero-filter
-     * path unchanged. Reuses KpiThresholdResponseFilter's own repeated/comma-separated param parsing
-     * (same request-query convention documented in backend/README.md's "Filter syntax") rather than
-     * duplicating it. */
-    private static Map<String, Set<String>> selectedFilters(String kpiId, MultivaluedMap<String, String> params) {
-        QaKpiFilterColumns.Mapping mapping = QaKpiFilterColumns.forKpiId(kpiId);
-        if (mapping == null) {
-            return Map.of();
-        }
-        Map<String, Set<String>> selected = new LinkedHashMap<>();
-        for (QaKpiFilterColumns.Column column : mapping.columns()) {
-            List<String> values = KpiThresholdResponseFilter.selectedValues(params, column.queryParam());
-            if (!values.isEmpty()) {
-                selected.put(column.column(), Set.copyOf(values));
-            }
-        }
-        return selected;
-    }
-
-    /** One generic filter-options endpoint for every QA KPI with registered extra filter columns
-     * (see QaKpiFilterColumns) - diverges from QC's one-bespoke-method-per-KPI convention
-     * (LabPerformanceController/AggLimsTurnAroundTimeRepository.filterOptions) because QA's own KPI
-     * plumbing is already data-driven across KPIs; kpiPath is the same id qaKpiConfig.ts's `path`
-     * uses (QA's path and kpiId are always identical - see QaKpiSpecs' own doc comment). Returns an
-     * empty map (not a 404) for a KPI with no registered columns, matching useExtraFilters' own
-     * "gated on kpi.extraFilters being populated" contract - the frontend only calls this when it
-     * already expects a non-trivial result.
-     */
-    @GET
-    @Path("/{kpiPath}/filter-options")
-    public Map<String, List<String>> filterOptions(@PathParam("kpiPath") String kpiPath, @BeanParam KpiParams.DateRange p) {
-        Map<String, Set<String>> selected = selectedFilters(kpiPath, uriInfo.getQueryParameters());
-        return service.filterOptions(kpiPath, p.site, RequiredParams.require(p.grain, "grain"),
-                RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"), selected);
-    }
 
     @GET
     @Path("/qa-stability-testing-pending")
@@ -330,14 +261,8 @@ public class QaController {
     @GET
     @Path("/qa-valid-oos-per-1000-tests")
     public List<KpiCardResponse> validOosPer1000Tests(@BeanParam KpiParams.DateRange p) {
-        String kpiId = "qa-valid-oos-per-1000-tests";
-        Map<String, Set<String>> picked = selectedFilters(kpiId, uriInfo.getQueryParameters());
-        Map<String, String> fixed = picked.containsKey(QaKpiSpecs.VALID_OOS_PRODUCT_TYPE_COLUMN)
-                ? Map.of()
-                : Map.of(QaKpiSpecs.VALID_OOS_PRODUCT_TYPE_COLUMN, QaKpiSpecs.VALID_OOS_PRODUCT_TYPE_ALL);
-        return service.fetch(QaKpiSpecs.VALID_OOS_PER_1000_TESTS, kpiId, "Valid OOS per 1000 Tests", p.site,
-                RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"),
-                fixed, picked);
+        return fetchPinnedUnlessPicked(QaKpiSpecs.VALID_OOS_PER_1000_TESTS, "qa-valid-oos-per-1000-tests", "Valid OOS per 1000 Tests", p,
+                Map.of(QaKpiSpecs.VALID_OOS_PRODUCT_TYPE_COLUMN, QaKpiSpecs.VALID_OOS_PRODUCT_TYPE_ALL));
     }
 
     @GET
@@ -350,14 +275,8 @@ public class QaController {
     @GET
     @Path("/qa-average-time-to-implement-capa")
     public List<KpiCardResponse> capaImplementTime(@BeanParam KpiParams.DateRange p) {
-        String kpiId = "qa-average-time-to-implement-capa";
-        Map<String, Set<String>> picked = selectedFilters(kpiId, uriInfo.getQueryParameters());
-        Map<String, String> fixed = picked.containsKey(QaKpiSpecs.CAPA_IMPLEMENT_DEPT_COLUMN)
-                ? Map.of()
-                : Map.of(QaKpiSpecs.CAPA_IMPLEMENT_DEPT_COLUMN, QaKpiSpecs.CAPA_IMPLEMENT_DEPT_ALL);
-        return service.fetch(QaKpiSpecs.CAPA_IMPLEMENT_TIME, kpiId, "Average Time to Implement CAPA", p.site,
-                RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"),
-                fixed, picked);
+        return fetchPinnedUnlessPicked(QaKpiSpecs.CAPA_IMPLEMENT_TIME, CAPA_IMPLEMENT_KPI_ID, "Average Time to Implement CAPA", p,
+                Map.of(QaKpiSpecs.CAPA_IMPLEMENT_DEPT_COLUMN, QaKpiSpecs.CAPA_IMPLEMENT_DEPT_ALL));
     }
 
     @GET
