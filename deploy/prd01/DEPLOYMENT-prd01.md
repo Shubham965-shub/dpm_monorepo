@@ -18,6 +18,8 @@ Pass `--subscription STRIDES-RISE-LH-PRD01` on every PRD01 `az` command (the def
 - Database `helios` on `lighthouse-pg-prd` (replica `lighthouse-pg-prd-r1`): a one-off copy of the
   QA `dpm` DB (schemas `public`, `qa`, `manufacturing`). No extensions beyond `plpgsql`.
 - Secrets in `kv-lighthouse-prd01` via Key Vault references and managed identities (`get` only).
+- Backend heap capped at `BACKEND_JAVA_TOOL_OPTIONS` (`-Xmx1g`, via the `JAVA_TOOL_OPTIONS` app
+  setting) so it can't crowd the other apps on the shared plan.
 - Public network access disabled on both; HTTPS-only; health checks: backend `/q/health/ready`
   (includes the DB), frontend `/`.
 - User URL: `https://helios.strides.com` (once DNS + cert are done, §5), and
