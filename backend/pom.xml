@@ -67,6 +67,11 @@
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-elytron-security-common</artifactId>
         </dependency>
+        <!-- /q/health/ready (includes a datasource check) - the App Service health-check path. -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-smallrye-health</artifactId>
+        </dependency>
         <!-- JWT (HS256) access tokens. -->
         <dependency>
             <groupId>io.jsonwebtoken</groupId>

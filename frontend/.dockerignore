@@ -1,0 +1,6 @@
+node_modules
+dist
+.vite
+# Local dev values (VITE_API_URL=http://localhost:8080) must never reach a deploy build.
+.env
+.env.*
