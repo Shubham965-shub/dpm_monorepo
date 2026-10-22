@@ -121,9 +121,10 @@ Still needed: SSL-inspection bypass for the name, and a cert from the internal C
 Human-entered only, via `az keyvault secret set --vault-name kv-lighthouse-prd01 -n <name> -o none`
 (always `-o none`), then restart the app that reads it.
 - `helios-jwt-secret` (backend `JWT_SECRET`, 32+ bytes).
-- `helios-jwt-feedback-secret` (backend `JWT_SECRET_FEEDBACK`, required at startup; the Feedback
-  button is hidden in v1 because `FEEDBACK_API_BASE_URL` is empty in `platform.env`).
-- Shared and existing: `pg-admin-password`, `acr-username`/`acr-password`, `node-auth-token`.
+- Shared and existing: `prod-jwt-secret` (backend `JWT_SECRET_FEEDBACK`, required at startup — the
+  shared feedback service verifies against it; owned by argus, so after argus rotates it restart
+  `helios-backend-lhprd`), `pg-admin-password`, `acr-username`/`acr-password`, `node-auth-token`.
+  The Feedback button stays hidden while `FEEDBACK_API_BASE_URL` is empty in `platform.env`.
 
 ## 7. Triage quick reference
 
@@ -143,7 +144,7 @@ Use `/lighthouse:triage` (read-only) first; `lighthouse:infra-auditor` compares 
 1. **Data goes stale.** PRD01 is a one-off snapshot; `KpiThresholdService` logs stale-threshold
    alerts after `kpi-thresholds.stale-after`. A Data Engineering feed into `helios` (or a scheduled
    re-copy) is needed.
-2. Feedback widget in prod: set `FEEDBACK_API_BASE_URL` and a real `helios-jwt-feedback-secret`, or keep it hidden.
+2. Feedback widget in prod: set `FEEDBACK_API_BASE_URL` in `platform.env` and rebuild the frontend, or keep it hidden.
 3. The QA users (with their QA passwords) are copied — review the list / reset passwords before go-live.
 4. No `deploy-prd01.yml` workflow yet: GitHub has no PRD01 credentials and the jump VM's egress is blocked.
 5. Connection-pool sizing (`quarkus.datasource.jdbc.*`) is still the proposed starter values.
