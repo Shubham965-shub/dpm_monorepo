@@ -31,6 +31,9 @@ export interface KpiDefinition {
    * KPIs now have a real agg table but a handful still don't). Falls back to the domain's `mock`
    * when unset. */
   mock?: boolean
+  /** Sent as this card's `site` in place of the page's - for a card scoped differently from the rest of its page (the
+   * Manufacturing cards read ALL sites, the Power BI default, while the QA cards they reuse stay on one site). */
+  site?: string
   /** Empty = no filter beyond the shared site/grain/from/to. */
   extraFilters: ExtraFilter[]
   /** Sent on every fetch and not user-changeable - lets one endpoint back several cards, each pinned to one slice. */

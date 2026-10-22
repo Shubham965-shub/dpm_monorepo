@@ -1,6 +1,7 @@
 import type { Grain } from './kpiSchemas'
 import type { KpiVisibilityLens } from './roleAccess'
 import { QA_KPI_DEFAULT_GRAIN } from './qaDefaultGrain'
+import { ADMIN_KPI_DEFAULT_GRAIN } from './adminDepartments'
 
 /**
  * Strides_DPM_KPI_Framework_v1's Analyst/Supervisor/Manager/HOD/CXO columns are each filled with a
@@ -70,6 +71,7 @@ const QC_KPI_DEFAULT_GRAIN: Partial<Record<string, Partial<Record<KpiVisibilityL
 export const KPI_DEFAULT_GRAIN: Partial<Record<string, Partial<Record<KpiVisibilityLens, Grain>>>> = {
   ...QC_KPI_DEFAULT_GRAIN,
   ...QA_KPI_DEFAULT_GRAIN,
+  ...ADMIN_KPI_DEFAULT_GRAIN,
 }
 
 /** null when this KPI/lens pair isn't in the framework doc's table - callers fall back to the

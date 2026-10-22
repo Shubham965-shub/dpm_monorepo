@@ -56,9 +56,14 @@ public class QaAggRepository extends AbstractAggRepository<PeriodTotal> {
 
     private static String whereClause(QaKpiSpec spec, List<Object> params, String site, String grain,
             LocalDate from, LocalDate to, Map<String, String> fixedFilters, Map<String, Set<String>> extraFilters) {
-        StringBuilder sql = new StringBuilder(" WHERE ").append(spec.siteColumn())
-                .append(" = ? AND grain = ? AND period_start BETWEEN ? AND ?");
-        params.add(site);
+        StringBuilder sql = new StringBuilder(" WHERE ");
+        if (MfgKpiSpecs.sumsAcrossSites(spec, site)) {
+            sql.append("TRUE");
+        } else {
+            sql.append(spec.siteColumn()).append(" = ?");
+            params.add(site);
+        }
+        sql.append(" AND grain = ? AND period_start BETWEEN ? AND ?");
         params.add(grain);
         params.add(from);
         params.add(to);
@@ -85,7 +90,8 @@ public class QaAggRepository extends AbstractAggRepository<PeriodTotal> {
      */
     public List<String> distinctValuesFor(QaKpiSpec spec, String column, String site, String grain,
             LocalDate from, LocalDate to, Map<String, Set<String>> selected) {
-        return distinctValues(qualify(spec.table()), spec.siteColumn(), column, site, grain, from, to, without(selected, column));
+        return distinctValues(qualify(spec.table()), spec.siteColumn(), column,
+                MfgKpiSpecs.sumsAcrossSites(spec, site) ? null : site, grain, from, to, without(selected, column));
     }
 
     /**
@@ -117,10 +123,45 @@ public class QaAggRepository extends AbstractAggRepository<PeriodTotal> {
         return query(sql, rs -> new PeriodTotal(
                 rs.getObject("period_start", LocalDate.class),
                 rs.getString("grain"),
-                rs.getLong("numerator"),
-                rs.getLong("denominator")),
+                rs.getDouble("numerator"),
+                rs.getDouble("denominator")),
                 params.toArray());
     }
+    /** A snapshot table's one current value (no grain or period): numerator and denominator summed over the
+     * selected site (or every site), with the date the snapshot is as of. */
+    public record SnapshotTotal(double numerator, double denominator, LocalDate asOf) {
+    }
+
+    public SnapshotTotal findSnapshot(QaKpiSpec spec, String dateColumn, String site) {
+        List<Object> params = new ArrayList<>();
+        StringBuilder sql = new StringBuilder("SELECT COALESCE(SUM(").append(spec.numeratorColumn()).append("), 0) AS numerator,")
+                .append(" COALESCE(SUM(").append(spec.denominatorColumn()).append("), 0) AS denominator,")
+                .append(" MAX(").append(validatedColumn(dateColumn)).append(") AS as_of FROM ").append(qualify(spec.table()));
+        if (!MfgKpiSpecs.sumsAcrossSites(spec, site)) {
+            sql.append(" WHERE ").append(spec.siteColumn()).append(" = ?");
+            params.add(site);
+        }
+        return query(sql.toString(), rs -> new SnapshotTotal(rs.getDouble("numerator"), rs.getDouble("denominator"),
+                rs.getObject("as_of", LocalDate.class)), params.toArray()).stream().findFirst()
+                .orElse(new SnapshotTotal(0, 0, null));
+    }
+
+    /** The spec's numerator (under its own condition) summed per value of categoryColumn over the whole [from, to]
+     * range, largest first - for a ranking of categories rather than a trend. categoryColumn is a constant. */
+    public java.util.Map<String, Double> findCategorySums(QaKpiSpec spec, String categoryColumn, String site, String grain,
+            LocalDate from, LocalDate to) {
+        List<Object> params = new ArrayList<>();
+        String sql = "SELECT " + validatedColumn(categoryColumn) + " AS category,"
+                + " SUM(CASE WHEN " + (spec.numeratorWhere() == null ? "TRUE" : spec.numeratorWhere()) + " THEN "
+                + spec.numeratorColumn() + " ELSE 0 END) AS total"
+                + " FROM " + qualify(spec.table())
+                + whereClause(spec, params, site, grain, from, to, Map.of(), Map.of())
+                + " GROUP BY " + categoryColumn + " ORDER BY total DESC, category";
+        java.util.Map<String, Double> sums = new java.util.LinkedHashMap<>();
+        query(sql, rs -> sums.put(rs.getString("category"), rs.getDouble("total")), params.toArray());
+        return sums;
+    }
+
     /** One category's summed numerator/count within one period - see findCategoryTotals. */
     public record CategoryTotal(LocalDate periodStart, String category, long numerator, long count) {
     }

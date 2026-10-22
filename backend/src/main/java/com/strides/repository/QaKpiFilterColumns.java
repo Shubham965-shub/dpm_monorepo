@@ -109,7 +109,19 @@ public final class QaKpiFilterColumns {
             Map.entry("qa-average-time-to-implement-capa", of(QaKpiSpecs.CAPA_IMPLEMENT_TIME,
                     col("respDept", QaKpiSpecs.CAPA_IMPLEMENT_DEPT_COLUMN))),
             Map.entry("qa-valid-oos-per-1000-tests", of(QaKpiSpecs.VALID_OOS_PER_1000_TESTS,
-                    col("productType", QaKpiSpecs.VALID_OOS_PRODUCT_TYPE_COLUMN))));
+                    col("productType", QaKpiSpecs.VALID_OOS_PRODUCT_TYPE_COLUMN))),
+            // ---- Manufacturing / Engineering / Supply Chain & Planning (MfgKpiSpecs) ----
+            Map.entry("mfg-uptime-of-equipment-areas", of(MfgKpiSpecs.EQUIPMENT_AREA_UPTIME,
+                    col("classification", MfgKpiSpecs.UPTIME_CLASSIFICATION_COLUMN))),
+            Map.entry("mfg-yield", of(MfgKpiSpecs.YIELD, col("yieldType", MfgKpiSpecs.YIELD_TYPE_COLUMN))),
+            Map.entry("mfg-equipment-breakdown-m1-and-m2", of(MfgKpiSpecs.EQUIPMENT_BREAKDOWN,
+                    col("notificationType", MfgKpiSpecs.NOTIFICATION_TYPE_COLUMN))),
+            Map.entry("mfg-breakdown-frequency-rate", of(MfgKpiSpecs.BREAKDOWN_FREQUENCY_RATE,
+                    col("machineId", "machine_id"), col("status", "status"))),
+            Map.entry("mfg-training-event-adherence", of(MfgKpiSpecs.TRAINING_EVENT_ADHERENCE,
+                    col("department", MfgKpiSpecs.TRAINING_DEPARTMENT_COLUMN), col("trainingType", MfgKpiSpecs.TRAINING_TYPE_COLUMN))),
+            Map.entry("mfg-repeat-complaints", of(MfgKpiSpecs.REPEAT_COMPLAINTS,
+                    col("initialClassification", "initial_classification"), col("finalClassification", "final_classification"))));
 
     /** Filters that pick between specs rather than narrow a column, so their options are fixed lists. */
     private static final Map<String, Map<String, List<String>>> STATIC_OPTIONS = Map.of(
@@ -123,7 +135,9 @@ public final class QaKpiFilterColumns {
                     Set.of("Awaiting Approval", "External Approval Pending", "Internal Approval Pending")),
             "qa-open-critical-deviations", Map.of("level", Set.of("NA")),
             "qa-closed-critical-deviations", Map.of("level", Set.of("NA")),
-            "qa-valid-oos-per-1000-tests", Map.of("productType", Set.of(QaKpiSpecs.VALID_OOS_PRODUCT_TYPE_ALL)));
+            "qa-valid-oos-per-1000-tests", Map.of("productType", Set.of(QaKpiSpecs.VALID_OOS_PRODUCT_TYPE_ALL)),
+            // 'ALL' is the table's own aggregate row; clearing the filter already means all.
+            "mfg-training-event-adherence", Map.of("department", Set.of(MfgKpiSpecs.TRAINING_ALL), "trainingType", Set.of(MfgKpiSpecs.TRAINING_ALL)));
 
     public static Set<String> excludedOptions(String kpiId, String queryParam) {
         return EXCLUDED_OPTIONS.getOrDefault(kpiId, Map.of()).getOrDefault(queryParam, Set.of());

@@ -109,8 +109,11 @@ public abstract class AbstractAggRepository<T> {
     protected List<String> distinctValues(String table, String siteColumn, String column, String site,
             String grain, LocalDate from, LocalDate to, Map<String, Set<String>> siblingFilters) {
         StringBuilder sql = new StringBuilder("SELECT DISTINCT ").append(column).append(" FROM ").append(table)
-                .append(" WHERE ").append(siteColumn).append(" = ? AND grain = ?");
-        List<Object> params = new ArrayList<>(List.of(site, grain));
+                .append(" WHERE ").append(site == null ? "TRUE" : siteColumn + " = ?").append(" AND grain = ?");
+        // A null site = every site (a KPI that sums across sites - see MfgKpiSpecs.sumsAcrossSites).
+        List<Object> params = new ArrayList<>();
+        if (site != null) params.add(site);
+        params.add(grain);
         // Null from/to = no period filter - the open-CAPA snapshot endpoints (AbstractOpenCapaRepository).
         if (from != null && to != null) {
             sql.append(" AND period_start BETWEEN ? AND ?");

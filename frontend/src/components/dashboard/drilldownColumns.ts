@@ -1,5 +1,6 @@
 import { genericDrilldownRowSchema } from '@/lib/drilldownSchemas'
 import type { ZodTypeAny } from 'zod'
+import { ADMIN_DRILLDOWN_SOURCE } from '@/lib/adminDepartments'
 
 /** One column of a KPI's drill-down table - key/label straight from
  * DPM_QC_Drilldown_Schema_v2.xlsx's "Column (raw name)"/"Displayed As" pair for that KPI. Rows are
@@ -745,7 +746,7 @@ const QA_FAR_ALERT_EVENT_DENSITY_COLUMNS: DrilldownColumn[] = [
   { key: 'dateClosed', label: 'Date Closed', filterType: 'date' },
 ]
 
-export const DRILLDOWN_CONFIG: Record<string, DrilldownConfig> = {
+const BASE_DRILLDOWN_CONFIG: Record<string, DrilldownConfig> = {
   'sample-tat': { rowSchema: genericDrilldownRowSchema, columns: SAMPLE_TAT_COLUMNS, drilldownAdvancedFiltering: true },
   'sla-adherence': { rowSchema: genericDrilldownRowSchema, columns: SLA_ADHERENCE_COLUMNS, drilldownAdvancedFiltering: true },
   'tests-per-analyst': { rowSchema: genericDrilldownRowSchema, columns: TESTS_PER_ANALYST_COLUMNS, drilldownAdvancedFiltering: true },
@@ -830,4 +831,11 @@ export const DRILLDOWN_CONFIG: Record<string, DrilldownConfig> = {
   'qa-market-complaints-cn-tracking-ack-investigation-closure': { rowSchema: genericDrilldownRowSchema, columns: QA_MARKET_COMPLAINT_MASTER_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-recall-event-density': { rowSchema: genericDrilldownRowSchema, columns: QA_RECALL_EVENT_DENSITY_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-far-alert-event-density': { rowSchema: genericDrilldownRowSchema, columns: QA_FAR_ALERT_EVENT_DENSITY_COLUMNS, drilldownAdvancedFiltering: true },
+}
+
+// An admin-department card that reuses a QA endpoint shows that card's drill-down table, so it reads the same columns
+// under its own id (DRILLDOWN_CONFIG is keyed by kpi.id).
+export const DRILLDOWN_CONFIG: Record<string, DrilldownConfig> = {
+  ...BASE_DRILLDOWN_CONFIG,
+  ...Object.fromEntries(Object.entries(ADMIN_DRILLDOWN_SOURCE).map(([kpiId, source]) => [kpiId, BASE_DRILLDOWN_CONFIG[source]])),
 }

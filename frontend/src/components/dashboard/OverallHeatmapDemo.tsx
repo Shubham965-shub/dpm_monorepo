@@ -3,6 +3,7 @@ import { ChevronDown } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardAction } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { cn, pluralize } from '@/lib/utils'
+import { sectionPalette } from '@/lib/sectionPalette'
 import { useHeatmapData, type HeatmapWindow } from '@/hooks/useHeatmapData'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import type { Grain } from '@/lib/kpiSchemas'
@@ -82,19 +83,6 @@ function cellColorHex(status: RagStatus): string {
 // names are Figma-specific and don't map onto anything real, so for now this keeps it simple: one
 // color per section (4 sections, 4 colors, the same 4 shown in "View all legends" below) rather
 // than inventing per-KPI-group identities.
-const SECTION_PALETTE: Record<string, { bg: string; border: string }> = {
-  'lab-performance': { bg: 'rgba(255,179,186,0.15)', border: '#ffb3ba' },
-  'instrument-health': { bg: 'rgba(255,200,162,0.15)', border: '#ffc8a2' },
-  qms: { bg: 'rgba(255,224,178,0.15)', border: '#ffe0b2' },
-  'people-performance': { bg: 'rgba(186,225,255,0.15)', border: '#bae1ff' },
-  // QA's own 5 sections (qaKpiConfig.ts) - distinct from QC's 4 above so the two never collide if
-  // ever shown on the same page, same "one color per section" rule as QC's own palette.
-  'qa-batch-disposition': { bg: 'rgba(186,255,201,0.15)', border: '#baffc9' },
-  'qa-quality-event': { bg: 'rgba(255,223,186,0.15)', border: '#ffdfba' },
-  'qa-compliance-audit': { bg: 'rgba(201,201,255,0.15)', border: '#c9c9ff' },
-  'qa-people-performance': { bg: 'rgba(224,187,255,0.15)', border: '#e0bbff' },
-  'qa-cross-functional': { bg: 'rgba(217,217,217,0.15)', border: '#d9d9d9' },
-}
 const ROWS_PER_CHUNK = 4
 const DEFAULT_FILTER_MARKER_CLASS = 'border-foreground/50'
 
@@ -241,7 +229,7 @@ function SectionGrid({
   onKpiClick?: (kpiId: string, sectionKey: string) => void
 }) {
   const chunks = chunk(rows, ROWS_PER_CHUNK)
-  const palette = SECTION_PALETTE[sectionKey]
+  const palette = sectionPalette(sectionKey)
   return (
     <div className="mb-4 break-inside-avoid">
       <div className="flex items-center justify-between gap-2 rounded-[4px] px-4 py-1.5" style={{ backgroundColor: '#3f3f3f' }}>
@@ -374,7 +362,7 @@ export function OverallHeatmapDemo({
         {legendExpanded && (
           <div className="mb-3 flex flex-wrap items-center gap-4 text-[11px]">
             {allSections.map((s) => {
-              const palette = SECTION_PALETTE[s.key]
+              const palette = sectionPalette(s.key)
               return (
                 <span key={s.key} className="flex items-center gap-1">
                   <span
