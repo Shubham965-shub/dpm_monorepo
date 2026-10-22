@@ -16,9 +16,6 @@ check_az
 TAG="$(resolve_tag "${1:-}")"
 info "backend deploy - ${BACKEND_APP} @ ${TAG}"
 
-qa_tag_exists "$QA_BACKEND_IMAGE" "$TAG" \
-  || die "${QA_BACKEND_IMAGE}:${TAG} not in ${QA_ACR}. Merge this commit into 'qa' so deploy-backend-qa builds it."
-
 import_to_prod "$QA_BACKEND_IMAGE" "$BACKEND_IMAGE" "$TAG"
 [ "${SKIP_ROLL:-0}" = "1" ] && { info "SKIP_ROLL=1 - image imported, app not rolled"; exit 0; }
 roll_webapp "$BACKEND_APP" "$BACKEND_IMAGE" "$TAG"
