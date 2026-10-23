@@ -127,6 +127,35 @@ public class QaAggRepository extends AbstractAggRepository<PeriodTotal> {
                 rs.getDouble("denominator")),
                 params.toArray());
     }
+    private static final Map<String, String> TRUNC_UNIT_BY_GRAIN = Map.of(
+            "daily", "day", "weekly", "week", "monthly", "month", "quarterly", "quarter", "yearly", "year");
+
+    /**
+     * For a KPI whose Power BI period is a date on its fact rows (one row per record) rather than the agg's own period
+     * column: each row is bucketed to the start of its grain's period by `dateColumn`, and the spec's numerator and
+     * denominator count the rows (their columns are "1", under their own conditions). A period counts when it starts
+     * within [from, to], the same rule the agg reads use. Weeks start on Monday and are not clipped to months, like QA's aggs.
+     */
+    public List<PeriodTotal> findTotalsByDate(QaKpiSpec spec, String dateColumn, String site, String grain,
+            LocalDate from, LocalDate to) {
+        String unit = TRUNC_UNIT_BY_GRAIN.get(grain);
+        if (unit == null) {
+            // An unknown grain has no rows, same as the agg-table reads (which match it as a bound value) - not a server error.
+            return List.of();
+        }
+        String period = "date_trunc('" + unit + "', " + validatedColumn(dateColumn) + ")::date";
+        String sql = "SELECT " + period + " AS period_start,"
+                + " SUM(CASE WHEN " + (spec.numeratorWhere() == null ? "TRUE" : spec.numeratorWhere()) + " THEN "
+                + spec.numeratorColumn() + " ELSE 0 END) AS numerator,"
+                + " SUM(CASE WHEN " + (spec.denominatorWhere() == null ? "TRUE" : spec.denominatorWhere()) + " THEN "
+                + spec.denominatorColumn() + " ELSE 0 END) AS denominator"
+                + " FROM " + qualify(spec.table())
+                + " WHERE " + spec.siteColumn() + " = ? AND " + period + " BETWEEN ? AND ?"
+                + " GROUP BY 1 ORDER BY 1";
+        return query(sql, rs -> new PeriodTotal(rs.getObject("period_start", LocalDate.class), grain,
+                rs.getDouble("numerator"), rs.getDouble("denominator")), site, from, to);
+    }
+
     /** A snapshot table's one current value (no grain or period): numerator and denominator summed over the
      * selected site (or every site), with the date the snapshot is as of. */
     public record SnapshotTotal(double numerator, double denominator, LocalDate asOf) {

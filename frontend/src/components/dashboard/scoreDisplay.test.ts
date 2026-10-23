@@ -9,9 +9,9 @@ describe('QC score display helpers', () => {
   })
 
   it('labels each band as the spec interprets it', () => {
-    expect(scoreBandLabel('GREEN')).toBe('Performing')
-    expect(scoreBandLabel('AMBER')).toBe('Watch')
-    expect(scoreBandLabel('RED')).toBe('Unacceptable')
+    expect(scoreBandLabel('GREEN')).toBe('On Track')
+    expect(scoreBandLabel('AMBER')).toBe('Needs Attention')
+    expect(scoreBandLabel('RED')).toBe('Action Required')
     expect(scoreBandLabel(null)).toBe('No data')
   })
 

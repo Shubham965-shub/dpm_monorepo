@@ -198,7 +198,7 @@ public final class QaDrilldownSpecs {
             Map.of());
 
     public static final TableSpec PM_PLAN_VS_ACTUAL = new TableSpec(
-            "qa.fact_sap_consolidated_pm_calibration_plan_vs_actual", "site_name", "planned_date",
+            "qa.fact_sap_consolidated_pm_calibration_plan_vs_actual", "site_name", QaKpiSpecs.PLAN_VS_ACTUAL_DATE_COLUMN,
             List.of(
                     new Column("plant", "plant"),
                     new Column("\"order\"", "orderNumber"),
@@ -214,7 +214,7 @@ public final class QaDrilldownSpecs {
             Map.of(), Map.of("order_type", "PM03"));
 
     public static final TableSpec CALIBRATION_PLAN_VS_ACTUAL = new TableSpec(
-            "qa.fact_sap_consolidated_pm_calibration_plan_vs_actual", "site_name", "planned_date",
+            "qa.fact_sap_consolidated_pm_calibration_plan_vs_actual", "site_name", QaKpiSpecs.PLAN_VS_ACTUAL_DATE_COLUMN,
             List.of(
                     new Column("plant", "plant"),
                     new Column("\"order\"", "orderNumber"),
@@ -631,10 +631,11 @@ public final class QaDrilldownSpecs {
                 RECEIPT_BACK_BMR_BPR.table(), RECEIPT_BACK_BMR_BPR.siteColumn(), RECEIPT_BACK_BMR_BPR.dateColumn(),
                 RECEIPT_BACK_BMR_BPR.selectColumns().stream().filter(column -> !"site_source".equals(column.sqlColumn())).toList(),
                 RECEIPT_BACK_BMR_BPR.searchColumns(), RECEIPT_BACK_BMR_BPR.filterColumns(), RECEIPT_BACK_BMR_BPR.fixedFilters(),
-                durationBandCondition);
+                durationBandCondition + " AND NOT is_dispensed");
     }
 
-    // Same bands as the cards' numerators (QaKpiSpecs.UNDISPENSED_BMR_BPR_BEYOND_*), so the table rows match the counts.
+    // Same bands as the cards' numerators (QaKpiSpecs.UNDISPENSED_BMR_BPR_BEYOND_*), undispensed records only, so the
+    // table rows match the counts.
     public static final TableSpec UNDISPENSED_BMR_BPR_BEYOND_30_DAYS = undispensedBeyond(
             "duration_band IN ('Within 60 days', 'Beyond 60 days')");
     public static final TableSpec UNDISPENSED_BMR_BPR_BEYOND_60_DAYS = undispensedBeyond("duration_band = 'Beyond 60 days'");

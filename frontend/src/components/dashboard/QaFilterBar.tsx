@@ -1,27 +1,13 @@
-import { GRAINS, type Grain } from '@/lib/kpiSchemas'
 import type { KpiDomain } from '@/lib/kpiConfig'
-import { FilterSelect, FixedPill, ResetFiltersButton } from './FilterBar'
+import { DEFAULT_TIMELINE, FilterSelect, FixedPill, ResetFiltersButton, TIMELINE_OPTIONS, type Timeline } from './FilterBar'
 
-/** 'default' keeps every KPI on its own per-lens cadence (see qaDefaultGrain.ts); a real grain
- * overrides all of them at once. */
-export type QaTimeline = 'default' | Grain
+export type QaTimeline = Timeline
 
-export const DEFAULT_QA_TIMELINE = 'default' satisfies QaTimeline
+export const DEFAULT_QA_TIMELINE = DEFAULT_TIMELINE
 
 export type QaSectionFilter = 'all' | string
 
 export const DEFAULT_QA_SECTION: QaSectionFilter = 'all'
-
-const TIMELINE_LABEL: Record<QaTimeline, string> = {
-  default: 'Default (per KPI)',
-  daily: 'Daily',
-  weekly: 'Weekly',
-  monthly: 'Monthly',
-  quarterly: 'Quarterly',
-  yearly: 'Yearly',
-}
-
-const TIMELINE_OPTIONS = (['default', ...GRAINS] as QaTimeline[]).map((value) => ({ value, label: TIMELINE_LABEL[value] }))
 
 export function QaFilterBar({
   site,

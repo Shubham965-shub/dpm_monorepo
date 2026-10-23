@@ -61,16 +61,24 @@ public final class QaKpiSpecs {
     public static final QaKpiSpec RECEIPT_BACK_BMR_BPR = QaKpiSpec.ratio(
             "agg_bmr_bpr_receipt_back", "site", "received_back_records", "issued_records", 100, "%");
 
-    // Undispensed beyond 30 days (threshold KPI-QA-011A): the fact never produces a 'Beyond 30 Days'
-    // band, so "beyond 30" is the 'Within 60 days' + 'Beyond 60 days' bands together; beyond 60 days
-    // (KPI-QA-011B) is the 'Beyond 60 days' band alone. Exact case - the DAX matched case-insensitively,
-    // Postgres does not.
+    // Undispensed beyond 30 days (threshold KPI-QA-011A): records not yet dispensed (all_records - dispensed_records)
+    // aged over 30 days, over every record issued in the period. The fact never produces a 'Beyond 30 Days' band
+    // (Power BI's measure matches that band name and so reads 0 every month), so "beyond 30" is the 'Within 60 days'
+    // + 'Beyond 60 days' bands; beyond 60 days (KPI-QA-011B) is the 'Beyond 60 days' band alone. Already-dispensed
+    // records in those bands are left out - they are not undispensed. The drill-down lists exactly these rows
+    // (QaDrilldownSpecs.UNDISPENSED_BMR_BPR_BEYOND_*). Exact case - the DAX matched case-insensitively, Postgres does not.
+    private static final String UNDISPENSED_RECORDS = "(all_records - dispensed_records)";
     public static final QaKpiSpec UNDISPENSED_BMR_BPR_BEYOND_30_DAYS = QaKpiSpec.ratioNumeratorWhere(
-            "agg_bmr_bpr_receipt_back", "site", "issued_records",
+            "agg_bmr_bpr_receipt_back", "site", UNDISPENSED_RECORDS,
             "duration_band IN ('Within 60 days', 'Beyond 60 days')", "all_records", 100, "%");
 
+    // The Manufacturing card is one KPI with a filter choosing between the two QA cards' definitions.
+    public static final String UNDISPENSED_BEYOND_PARAM = "beyondDays";
+    public static final String UNDISPENSED_BEYOND_30 = "Beyond 30 Days";
+    public static final String UNDISPENSED_BEYOND_60 = "Beyond 60 Days";
+
     public static final QaKpiSpec UNDISPENSED_BMR_BPR_BEYOND_60_DAYS = QaKpiSpec.ratioNumeratorWhere(
-            "agg_bmr_bpr_receipt_back", "site", "issued_records",
+            "agg_bmr_bpr_receipt_back", "site", UNDISPENSED_RECORDS,
             "duration_band = 'Beyond 60 days'", "all_records", 100, "%");
 
     public static final QaKpiSpec SUCCESS_RATE_VALIDATION_BATCHES = QaKpiSpec.ratioNumeratorWhere(
@@ -91,15 +99,24 @@ public final class QaKpiSpecs {
     public static final QaKpiSpec SFG_RELEASE_DELAYS = QaKpiSpec.ratioNumeratorWhere(
             "agg_sap_consolidated_sfg_release_delays", "site_name", "batch_count", "status = 'On Time'", "batch_count", 100, "%");
 
-    // PM03 = preventive maintenance orders, PM05 = calibration orders (inferred from the order descriptions
-    // in the fact table - PM05 rows say "calibration", PM03 rows never do).
-    public static final QaKpiSpec PM_PLAN_VS_ACTUAL = QaKpiSpec.countWhere(
-            "agg_sap_consolidated_pm_calibration_plan_vs_actual", "site_name", "order_count",
-            "order_type = 'PM03'", "orders");
+    // PM03 = Preventive Maintenance orders, PM05 = Calibration orders (the fact's own maintenance_category says so). Each card
+    // is the share of its orders done on time (status 'On Time' of 'On Time' + 'Not On Time') - the percentage Power BI shows.
+    // Power BI dates these by completion_date (orders completed in the period), not by planned_date as the agg table's period
+    // is, so the cards read the fact directly (see QaAggRepository.findTotalsByDate); the drill-down uses the same date.
+    public static final String PLAN_VS_ACTUAL_DATE_COLUMN = "completion_date";
+    private static final String PM_ORDER_TYPE_COLUMN = "order_type";
+    private static final String PLAN_VS_ACTUAL_ON_TIME = "status ILIKE 'On Time'";
+    private static final String ONE_ROW = "1";
 
-    public static final QaKpiSpec CALIBRATION_PLAN_VS_ACTUAL = QaKpiSpec.countWhere(
-            "agg_sap_consolidated_pm_calibration_plan_vs_actual", "site_name", "order_count",
-            "order_type = 'PM05'", "orders");
+    private static QaKpiSpec planVsActualOnTime(String orderType) {
+        String ofType = PM_ORDER_TYPE_COLUMN + " = '" + orderType + "'";
+        return new QaKpiSpec("fact_sap_consolidated_pm_calibration_plan_vs_actual", "site_name", ONE_ROW,
+                ofType + " AND " + PLAN_VS_ACTUAL_ON_TIME, ONE_ROW, ofType, 100, "%");
+    }
+
+    public static final QaKpiSpec PM_PLAN_VS_ACTUAL = planVsActualOnTime("PM03");
+
+    public static final QaKpiSpec CALIBRATION_PLAN_VS_ACTUAL = planVsActualOnTime("PM05");
 
     public static final QaKpiSpec VENDOR_QUALITY_BLOCK = QaKpiSpec.count(
             "agg_vendor_quality_block", "site_name", "quality_blocked_vendors", "vendors");

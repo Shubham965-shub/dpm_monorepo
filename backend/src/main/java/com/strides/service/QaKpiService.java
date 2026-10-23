@@ -56,6 +56,13 @@ public class QaKpiService {
         return spec.denominatorColumn() == null ? cards.stream().map(KpiCardResponse::withoutRatio).toList() : cards;
     }
 
+    /** Like fetch, for a spec over a fact table whose periods come from one of its dates (see QaAggRepository.findTotalsByDate). */
+    public List<KpiCardResponse> fetchByDate(QaKpiSpec spec, String dateColumn, String kpiId, String name, String site,
+            String grain, LocalDate from, LocalDate to) {
+        List<PeriodTotal> totals = withEmptyPeriods(repository.findTotalsByDate(spec, dateColumn, site, grain, from, to), grain, from, to);
+        return PeriodCombiner.fromTotals(totals, spec.multiplier(), kpiId, name, spec.unit());
+    }
+
     /**
      * Same as fetch, but also attaches each period's per-category counts of the denominator
      * (categoryColumn's values, highest numerator-per-count first, 0 where a period has none) as the
@@ -129,7 +136,8 @@ public class QaKpiService {
         if (mapping == null) {
             return QaKpiFilterColumns.staticOptions(kpiId);
         }
-        Map<String, List<String>> options = new LinkedHashMap<>();
+        // Fixed option lists (a filter choosing between specs) sit beside the column-backed ones.
+        Map<String, List<String>> options = new LinkedHashMap<>(QaKpiFilterColumns.staticOptions(kpiId));
         for (QaKpiFilterColumns.Column column : mapping.columns()) {
             Set<String> excluded = QaKpiFilterColumns.excludedOptions(kpiId, column.queryParam());
             options.put(column.queryParam(),

@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import { Eye, EyeOff } from 'lucide-react'
 import heliosLogo from '@/assets/helios-logo.svg'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -18,6 +19,7 @@ export function LoginPage() {
   const { theme, toggleTheme } = useTheme()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   // Pause on hover or focus in the sign-in card - never animate behind someone typing a password.
@@ -102,15 +104,28 @@ export function LoginPage() {
               <Label htmlFor="login-password" className="dpm-login__field-label">
                 Password
               </Label>
-              <Input
-                id="login-password"
-                type="password"
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="dpm-login__input"
-              />
+              <div className="relative">
+                <Input
+                  id="login-password"
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="dpm-login__input pr-10"
+                />
+                {/* Lets someone check a pasted password before signing in; held in state, so it re-hides on reload. */}
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((shown) => !shown)}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  aria-pressed={showPassword}
+                  title={showPassword ? 'Hide password' : 'Show password'}
+                  className="text-muted-foreground hover:text-foreground absolute inset-y-0 right-0 flex items-center px-3"
+                >
+                  {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </div>
             </div>
             {error && (
               <p role="alert" className="dpm-login__error mb-2">

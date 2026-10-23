@@ -8,6 +8,8 @@ import {
   resolveAnalystSupervisorView,
   hasDepartmentAccess,
   isAdmin,
+  qaLensForRoleTab,
+  resolveQaLens,
   LENS_LABEL,
   type RoleTab,
   type AnalystSupervisorView,
@@ -17,7 +19,7 @@ import {
 import { QaDashboardPage } from './QaDashboardPage'
 import { AdminDepartmentDashboardPage } from './AdminDepartmentDashboardPage'
 import { ADMIN_DEPARTMENTS, adminDepartmentById } from '@/lib/adminDepartments'
-import { DEFAULT_DASHBOARD_FILTERS, FilterBar, type DashboardFilters } from './FilterBar'
+import { DEFAULT_DASHBOARD_FILTERS, DEFAULT_TIMELINE, FilterBar, type DashboardFilters } from './FilterBar'
 import { DEFAULT_LEADERSHIP_TRAILING_DAYS, LeadershipFilterBar, type LeadershipTrailingDays } from './LeadershipFilterBar'
 import { OverallHeatmapDemo, LEADERSHIP_HEATMAP_RANGES, heatmapRangesForGrain } from './OverallHeatmapDemo'
 import { QcScoreCard } from './QcScoreCard'
@@ -29,6 +31,9 @@ import { SeverityBadgeSummary } from './SeverityBadgeSummary'
 import { TeamWorkloadOverview } from './TeamWorkloadOverview'
 import { PerformanceWorkInProgress } from './PerformanceWorkInProgress'
 import { KPI_DOMAINS, DEFAULT_SITE } from '@/lib/kpiConfig'
+import type { Grain } from '@/lib/kpiSchemas'
+import { QA_DOMAINS } from '@/lib/qaKpiConfig'
+import type { FeedbackScope } from '@/lib/feedbackSubject'
 import { KPI_VISIBILITY } from '@/lib/kpiVisibility'
 import { getGrainDateRange, trailingDayRange } from '@/lib/kpiDateRange'
 import { pluralize } from '@/lib/utils'
@@ -39,6 +44,8 @@ import type { GlobalKpiFilters } from '@/hooks/useKpiData'
 // Same title for every lens (mirrors QaDashboardPage's own "QA Dashboard") - the active lens is
 // already shown by TopNav's role tab, so it isn't repeated here.
 const QC_PAGE_TITLE = 'QC Dashboard'
+// Grain a KPI falls back to when it has no per-lens cadence and no Timeline is picked - the page's long-standing default.
+const FALLBACK_GRAIN = 'monthly' as const
 
 // Sits above the filter bar (like QaDashboardPage's title) in the layouts that have one.
 function CompositePageTitle({ kpiCount }: { kpiCount: number }) {
@@ -93,6 +100,18 @@ export function DashboardPage() {
   // has a further Analyst/Supervisor choice.
   const lens: KpiVisibilityLens =
     activeRole === 'CXO' ? 'cxo' : activeRole === 'Leadership' ? 'leadership' : operationsLensChoice
+  // The dashboard and role view the feedback button is sitting on (see FeedbackLauncher). QA and the admin
+  // dashboards resolve their lens the way QaDashboardPage does: locked to the user's own role, else ADMIN's tab.
+  const qaLensAccess = resolveQaLens(user?.roles ?? [])
+  const qaPageLens = qaLensAccess.locked ? qaLensAccess.lens : qaLensForRoleTab(activeRole, adminQaCxoView)
+  const feedbackScope: FeedbackScope =
+    view === 'qa'
+      ? { dashboard: 'QA Dashboard', persona: LENS_LABEL[qaPageLens], domains: QA_DOMAINS }
+      : adminDepartment
+        ? { dashboard: adminDepartment.title, persona: LENS_LABEL[qaPageLens], domains: adminDepartment.domains }
+        : view === 'performance'
+          ? { dashboard: 'Performance', persona: null, domains: [] }
+          : { dashboard: QC_PAGE_TITLE, persona: LENS_LABEL[lens], domains: KPI_DOMAINS }
   // No further Analyst/Supervisor split while previewing QA (see QaDashboardPage/qaLensForRoleTab) -
   // QA's Operations tab always resolves straight to Supervisor, so the toggle would have no effect.
   const showAnalystSupervisorToggle = activeRole === 'Operations' && view !== 'qa' && !adminDepartment
@@ -130,10 +149,14 @@ export function DashboardPage() {
   const scrollToKpi = (kpiId: string, sectionKey: string) => sectionSummaryListRef.current?.scrollToKpi(kpiId, sectionKey)
 
   const visibleKpiIds = KPI_VISIBILITY[lens]
+  // The Timeline filter: 'default' leaves every KPI on its own per-lens cadence (the page grain is only the fallback for
+  // one with none), while a real grain is forced on every KPI card, the heatmap and the score alike.
+  const forceGrain = filters.grain !== DEFAULT_TIMELINE
+  const pageGrain: Grain = filters.grain === DEFAULT_TIMELINE ? FALLBACK_GRAIN : filters.grain
   // Only the analyst/supervisor branch below renders SeverityBadgeSummary - matches exactly what
-  // that branch passes SectionSummaryList (grain={filters.grain}, no dateRangeOverride), so the two
+  // that branch passes SectionSummaryList (the page grain, no dateRangeOverride), so the two
   // mounted DomainTierCounts instances share one TanStack Query cache key per KPI.
-  const severityBadgeGlobalFilters: GlobalKpiFilters = { site: DEFAULT_SITE, grain: filters.grain, ...getGrainDateRange(filters.grain) }
+  const severityBadgeGlobalFilters: GlobalKpiFilters = { site: DEFAULT_SITE, grain: pageGrain, forceGrain, ...getGrainDateRange(pageGrain) }
   const [severityTotals, setSeverityTotals] = useState<TierCounts>(ZERO_TIER_COUNTS)
   // A stable identity - DomainTierCounts' own effect depends on this prop, so a fresh closure every
   // render would refire it (and the setState it causes) every render regardless of whether the
@@ -167,6 +190,7 @@ export function DashboardPage() {
         onActiveRoleChange={setAdminActiveRole}
         locked={roleTabAccess.locked}
         onReplayTour={coachScreenKey ? () => replay(coachScreenKey) : undefined}
+        feedbackScope={feedbackScope}
       />
       <SubNav
         view={view}
@@ -244,7 +268,8 @@ export function DashboardPage() {
             ref={sectionSummaryListRef}
             site={DEFAULT_SITE}
             section={filters.section}
-            grain={filters.grain}
+            grain={pageGrain}
+            forceGrain={forceGrain}
             searchQuery={searchQuery}
             lens={lens}
             highlightSeverity={selectedSeverity}
@@ -307,15 +332,15 @@ export function DashboardPage() {
             the sidebar more room than the fixed 320px did. */}
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
               <OverallHeatmapDemo
-                key={`${lens}-${filters.grain}`}
+                key={`${lens}-${pageGrain}`}
                 site={DEFAULT_SITE}
                 section={filters.section}
-                rangeOptions={heatmapRangesForGrain(filters.grain)}
+                rangeOptions={heatmapRangesForGrain(pageGrain)}
                 visibleKpiIds={visibleKpiIds}
                 onKpiClick={scrollToKpi}
               />
               <div className="flex flex-col gap-4">
-                <QcScoreCard site={DEFAULT_SITE} grain={filters.grain} bestEver={BEST_EVER_SCORE} />
+                <QcScoreCard site={DEFAULT_SITE} grain={pageGrain} bestEver={BEST_EVER_SCORE} />
                 <PositiveSignals />
               </div>
             </div>
@@ -328,7 +353,8 @@ export function DashboardPage() {
               ref={sectionSummaryListRef}
               site={DEFAULT_SITE}
               section={filters.section}
-              grain={filters.grain}
+              grain={pageGrain}
+              forceGrain={forceGrain}
               searchQuery={searchQuery}
               lens={lens}
             />

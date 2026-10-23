@@ -1,8 +1,10 @@
 package com.strides.controller;
 
+import com.strides.dto.DrilldownPage;
 import com.strides.dto.KpiCardResponse;
 import com.strides.dto.KpiParams;
 import com.strides.repository.MfgKpiSpecs;
+import com.strides.repository.QaKpiSpecs;
 import com.strides.security.RequiresAdmin;
 import com.strides.service.MfgKpiService;
 import jakarta.inject.Inject;
@@ -11,6 +13,7 @@ import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -29,6 +32,10 @@ public class MfgController extends QaStyleKpiResource {
 
     @Inject
     MfgKpiService mfgService;
+
+    private static final String UNDISPENSED_ID = "mfg-undispensed-bmr-bpr-beyond-30-60-days-from-issuance";
+    private static final String UNDISPENSED_30_QA_ID = "qa-undispensed-bmrbpr-beyond-3060-days-from-issuance";
+    private static final String UNDISPENSED_60_QA_ID = "qa-undispensed-bmrbpr-beyond-60-days-from-issuance";
 
     /** Power BI shows these measures as 0 (DIVIDE(..., 0) / COALESCE) for a period with no data, never a gap; every other
      * Manufacturing measure stays blank. */
@@ -263,5 +270,52 @@ public class MfgController extends QaStyleKpiResource {
         return mfgService.ranking(MfgKpiSpecs.OPEN_NEW_EQUIPMENT_FACILITY_MOD_CCS, MfgKpiSpecs.CC_AGING_BUCKET_COLUMN,
                 "mfg-open-new-equipment-and-facility-modification-ccs", p.site, RequiredParams.require(p.from, "from"),
                 RequiredParams.require(p.to, "to"));
+    }
+
+    /** One Manufacturing card for QA's two Undispensed cards: the beyondDays filter picks which definition it shows. The
+     * cards keep the chosen QA card's id, so QA's own limits (KPI-QA-011A / -011B) still colour them. */
+    private boolean undispensedBeyond60() {
+        return KpiThresholdResponseFilter.selectedValues(uriInfo.getQueryParameters(), QaKpiSpecs.UNDISPENSED_BEYOND_PARAM)
+                .contains(QaKpiSpecs.UNDISPENSED_BEYOND_60);
+    }
+
+    @GET
+    @Path("/" + UNDISPENSED_ID)
+    public List<KpiCardResponse> undispensedBmrBprBeyond(@BeanParam KpiParams.DateRange p) {
+        boolean sixty = undispensedBeyond60();
+        return fetch(sixty ? QaKpiSpecs.UNDISPENSED_BMR_BPR_BEYOND_60_DAYS : QaKpiSpecs.UNDISPENSED_BMR_BPR_BEYOND_30_DAYS,
+                sixty ? UNDISPENSED_60_QA_ID : UNDISPENSED_30_QA_ID, "Undispensed BMR/BPR Beyond " + (sixty ? "60" : "30") + " Days from Issuance", p);
+    }
+
+    @GET
+    @Path("/" + UNDISPENSED_ID + "/drilldown")
+    public DrilldownPage<Map<String, Object>> undispensedBmrBprBeyondDrilldown(@BeanParam KpiParams.DrilldownBase p) {
+        LocalDate from = RequiredParams.require(p.from, "from");
+        LocalDate to = RequiredParams.require(p.to, "to");
+        return undispensedBeyond60()
+                ? service.getUndispensedBmrBprBeyond60DaysDrilldown(p.site, from, to, p.q, p.sort, p.colFilter, p.colSearch, p.colRange, p.page, p.pageSize)
+                : service.getUndispensedBmrBprBeyond30DaysDrilldown(p.site, from, to, p.q, p.sort, p.colFilter, p.colSearch, p.colRange, p.page, p.pageSize);
+    }
+
+    @GET
+    @Path("/" + UNDISPENSED_ID + "/drilldown/column-options")
+    public Map<String, List<String>> undispensedBmrBprBeyondDrilldownColumnOptions(@BeanParam KpiParams.DrilldownBase p) {
+        LocalDate from = RequiredParams.require(p.from, "from");
+        LocalDate to = RequiredParams.require(p.to, "to");
+        return undispensedBeyond60()
+                ? service.getUndispensedBmrBprBeyond60DaysDrilldownColumnOptions(p.site, from, to)
+                : service.getUndispensedBmrBprBeyond30DaysDrilldownColumnOptions(p.site, from, to);
+    }
+
+    @GET
+    @Path("/" + UNDISPENSED_ID + "/drilldown/export")
+    @Produces("text/csv")
+    public Response undispensedBmrBprBeyondDrilldownExport(@BeanParam KpiParams.DrilldownBase p) {
+        LocalDate from = RequiredParams.require(p.from, "from");
+        LocalDate to = RequiredParams.require(p.to, "to");
+        String csv = undispensedBeyond60()
+                ? service.getUndispensedBmrBprBeyond60DaysDrilldownExport(p.site, from, to, p.q, p.sort, p.colFilter, p.colSearch, p.colRange)
+                : service.getUndispensedBmrBprBeyond30DaysDrilldownExport(p.site, from, to, p.q, p.sort, p.colFilter, p.colSearch, p.colRange);
+        return DrilldownExport.toCsvResponse(UNDISPENSED_ID, from, to, csv);
     }
 }
