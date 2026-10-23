@@ -4,6 +4,7 @@ import com.strides.dto.KpiCardResponse;
 import com.strides.dto.KpiParams;
 import com.strides.repository.QaKpiFilterColumns;
 import com.strides.repository.QaKpiSpec;
+import com.strides.service.MfgKpiService;
 import com.strides.service.QaKpiService;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.BeanParam;
@@ -28,6 +29,9 @@ public abstract class QaStyleKpiResource {
 
     @Inject
     protected QaKpiService service;
+
+    @Inject
+    MfgKpiService snapshotService;
 
     /** Per-request proxy (standard Quarkus REST context injection) - avoids threading UriInfo through every
      * single-line KPI method just for the handful with extra filter columns (see QaKpiFilterColumns). */
@@ -54,6 +58,15 @@ public abstract class QaStyleKpiResource {
         return picked.isEmpty() && fixed.isEmpty()
                 ? service.fetch(spec, kpiId, name, p.site, grain, from, to)
                 : service.fetch(spec, kpiId, name, p.site, grain, from, to, fixed, picked);
+    }
+
+    /** A table with no grain or period (one all-time value): each `defaults` column is pinned unless its own filter is picked. */
+    protected List<KpiCardResponse> fetchSnapshotPinnedUnlessPicked(QaKpiSpec spec, String kpiId, String name, KpiParams.DateRange p,
+            Map<String, String> defaults) {
+        Map<String, Set<String>> picked = selectedFilters(kpiId, uriInfo.getQueryParameters());
+        Map<String, String> fixed = new LinkedHashMap<>(defaults);
+        fixed.keySet().removeAll(picked.keySet());
+        return snapshotService.snapshot(spec, null, kpiId, name, p.site, RequiredParams.require(p.grain, "grain"), fixed, picked);
     }
 
     /** Current filter selections for kpiId's registered extra columns (QaKpiFilterColumns), keyed by column name -

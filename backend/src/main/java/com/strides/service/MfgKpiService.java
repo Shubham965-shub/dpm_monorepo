@@ -42,10 +42,16 @@ public class MfgKpiService {
 
     /** The current value of a table with no grain, noting the date it is as of. */
     public List<KpiCardResponse> snapshot(QaKpiSpec spec, String dateColumn, String kpiId, String name, String site, String grain) {
-        QaAggRepository.SnapshotTotal snapshot = repository.findSnapshot(spec, dateColumn, site);
+        return snapshot(spec, dateColumn, kpiId, name, site, grain, Map.of(), Map.of());
+    }
+
+    /** As above, narrowed by filters. With no `dateColumn` the table has no date at all, so the card carries no "as of" note. */
+    public List<KpiCardResponse> snapshot(QaKpiSpec spec, String dateColumn, String kpiId, String name, String site, String grain,
+            Map<String, String> fixedFilters, Map<String, java.util.Set<String>> extraFilters) {
+        QaAggRepository.SnapshotTotal snapshot = repository.findSnapshot(spec, dateColumn, site, fixedFilters, extraFilters);
         LocalDate asOf = snapshot.asOf() == null ? LocalDate.now() : snapshot.asOf();
         return PeriodCombiner.fromTotals(List.of(new PeriodTotal(asOf, grain, snapshot.numerator(), snapshot.denominator())),
-                spec.multiplier(), kpiId, name, spec.unit(), "As of " + asOf);
+                spec.multiplier(), kpiId, name, spec.unit(), dateColumn == null ? null : "As of " + asOf);
     }
 
     /** One card per category (name = the category), largest first, summed over [from, to]: a ranking, not a trend. */

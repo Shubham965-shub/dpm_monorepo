@@ -313,14 +313,6 @@ public final class QaDrilldownSpecs {
             List.of("\"user\"", "training"),
             Map.of("department", "dept_name", "training_type", "training_type"));
 
-    /** Rows the card counts: Critical at open, opened in the period, still open - from the public.* deviations
-     * fact table built for QC (no qa.* equivalent). Filter keys are the agg table's own column names. */
-    public static final TableSpec OPEN_CRITICAL_DEVIATIONS = new TableSpec(
-            DrilldownSpecs.DEVIATIONS.table(), DrilldownSpecs.DEVIATIONS.siteColumn(), DrilldownSpecs.DEVIATIONS.dateColumn(),
-            DrilldownSpecs.DEVIATIONS.selectColumns(), DrilldownSpecs.DEVIATIONS.searchColumns(),
-            Map.of("resp_dept", "resp_dept", "level", "level"),
-            Map.of("preliminary_classification", "Critical"), "date_closed IS NULL");
-
     /** The deviation cards count closed records per root-cause bucket, one row per record_id (a record can span several
      * fact rows), from the public.* deviations fact table built for QC (no qa.* equivalent). Deduped inside the
      * subquery so a record counted in another bucket is not lost. */
@@ -335,9 +327,16 @@ public final class QaDrilldownSpecs {
                 DrilldownSpecs.DEVIATIONS.selectColumns(), DrilldownSpecs.DEVIATIONS.searchColumns(), filterColumns);
     }
 
-    /** Counted by open date, like the card's agg (qa.agg_tw_deviations_aging). */
+    /** Both critical-deviation cards count by close date (qa.agg_tw_critical_deviations): "Open" is Critical at the
+     * preliminary classification, "Closed" at the final one. Filter keys are the agg table's own slice columns. */
+    private static final Map<String, String> CRITICAL_FILTER_COLUMNS = Map.of(
+            QaKpiSpecs.CRITICAL_RESP_DEPT_COLUMN, "resp_dept", QaKpiSpecs.CRITICAL_ROOT_CAUSE_COLUMN, "root_cause_bucket");
+
+    public static final TableSpec OPEN_CRITICAL_DEVIATIONS = deviationsOneRowPerRecord(
+            "preliminary_classification = 'Critical'", "close_date_ist", CRITICAL_FILTER_COLUMNS);
+
     public static final TableSpec CLOSED_CRITICAL_DEVIATIONS = deviationsOneRowPerRecord(
-            "final_dev_classification = 'Critical'", "open_date_ist", Map.of("resp_dept", "resp_dept", "level", "level"));
+            "final_dev_classification = 'Critical'", "close_date_ist", CRITICAL_FILTER_COLUMNS);
 
     public static final TableSpec EQUIPMENT_ERROR_DEVIATIONS = closedDeviationsByBucket(
             "root_cause_bucket = 'By Equipment'", Map.of("resp_dept", "resp_dept"));
@@ -373,10 +372,10 @@ public final class QaDrilldownSpecs {
             Map.of(QaKpiSpecs.CAPA_IMPLEMENT_DEPT_COLUMN, "resp_dept"),
             Map.of(), "date_completed_ist IS NOT NULL");
 
-    /** Quality-blocked vendor/material rows. The card buckets by release_until (the table has no logged/opened date),
-     * and counts distinct vendors, so this lists more rows than the card's value. */
+    /** Quality-blocked vendor/material rows, all-time like the card (no date range applies), so it lists more rows than
+     * the card's distinct-vendor value. */
     public static final TableSpec VENDOR_BLOCKING_QUALITY_ISSUE = new TableSpec(
-            "qa.fact_vendor_quality_block", "site_name", "release_until",
+            "qa.fact_vendor_quality_block", "site_name", null,
             List.of(
                     new Column("site_name", "siteName"),
                     new Column("block_category", "blockCategory"),
@@ -389,7 +388,7 @@ public final class QaDrilldownSpecs {
                     new Column("release_until", "releaseUntil", ColumnKind.DATE),
                     new Column("reset_on", "resetOn", ColumnKind.DATE)),
             List.of("vendor_name", "material_name", "block_reason"),
-            Map.of("block_category", "block_category"),
+            Map.of(QaKpiSpecs.VENDOR_MATERIAL_TYPE_COLUMN, "material_type", QaKpiSpecs.VENDOR_BLOCK_CATEGORY_COLUMN, "block_category"),
             Map.of(), "is_quality_block");
 
     public static final TableSpec CAPA_APPROVAL_WITHIN_SLA = new TableSpec(

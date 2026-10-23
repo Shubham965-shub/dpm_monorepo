@@ -135,12 +135,14 @@ public class GenericDrilldownRepository extends AbstractAggRepository<Map<String
 
     private static String baseWhereClause(TableSpec spec, List<Object> params, String site, LocalDate from, LocalDate to,
             Map<String, Set<String>> extraFilters) {
-        StringBuilder sql = new StringBuilder(" WHERE ")
-                .append(spec.siteColumn()).append(" = ? AND ")
-                .append(spec.dateColumn()).append(" BETWEEN ? AND ?");
+        StringBuilder sql = new StringBuilder(" WHERE ").append(spec.siteColumn()).append(" = ?");
         params.add(site);
-        params.add(from);
-        params.add(to);
+        // A null dateColumn is a KPI with no date dimension (its card ignores the range), so the range is not applied.
+        if (spec.dateColumn() != null) {
+            sql.append(" AND ").append(spec.dateColumn()).append(" BETWEEN ? AND ?");
+            params.add(from);
+            params.add(to);
+        }
         for (Map.Entry<String, String> entry : spec.fixedFilters().entrySet()) {
             sql.append(" AND ").append(entry.getKey()).append(" = ?");
             params.add(entry.getValue());

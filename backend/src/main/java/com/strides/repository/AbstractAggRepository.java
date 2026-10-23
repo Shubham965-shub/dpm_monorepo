@@ -40,19 +40,20 @@ public abstract class AbstractAggRepository<T> {
      * branch below decides between "default to All" and "sum the given values".
      */
     protected static Set<String> excludeAllSentinel(Set<String> values) {
-        if (!values.contains(ALL_SLICE)) {
+        // Case-insensitive: QC's aggregate row is "All", the Manufacturing / Engineering aggs' is "ALL".
+        if (values.stream().noneMatch(ALL_SLICE::equalsIgnoreCase)) {
             return values;
         }
         Set<String> filtered = new LinkedHashSet<>(values);
-        filtered.remove(ALL_SLICE);
+        filtered.removeIf(ALL_SLICE::equalsIgnoreCase);
         return filtered;
     }
 
     protected static List<String> excludeAllSentinel(List<String> values) {
-        if (!values.contains(ALL_SLICE)) {
+        if (values.stream().noneMatch(ALL_SLICE::equalsIgnoreCase)) {
             return values;
         }
-        return values.stream().filter(v -> !ALL_SLICE.equals(v)).toList();
+        return values.stream().filter(v -> !ALL_SLICE.equalsIgnoreCase(v)).toList();
     }
 
     /**
@@ -109,11 +110,12 @@ public abstract class AbstractAggRepository<T> {
     protected List<String> distinctValues(String table, String siteColumn, String column, String site,
             String grain, LocalDate from, LocalDate to, Map<String, Set<String>> siblingFilters) {
         StringBuilder sql = new StringBuilder("SELECT DISTINCT ").append(column).append(" FROM ").append(table)
-                .append(" WHERE ").append(site == null ? "TRUE" : siteColumn + " = ?").append(" AND grain = ?");
+                .append(" WHERE ").append(site == null ? "TRUE" : siteColumn + " = ?").append(grain == null ? "" : " AND grain = ?");
         // A null site = every site (a KPI that sums across sites - see MfgKpiSpecs.sumsAcrossSites).
         List<Object> params = new ArrayList<>();
         if (site != null) params.add(site);
-        params.add(grain);
+        // Null grain = a table with no grain at all (QaKpiSpecs.hasNoGrain).
+        if (grain != null) params.add(grain);
         // Null from/to = no period filter - the open-CAPA snapshot endpoints (AbstractOpenCapaRepository).
         if (from != null && to != null) {
             sql.append(" AND period_start BETWEEN ? AND ?");

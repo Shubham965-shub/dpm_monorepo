@@ -12,13 +12,9 @@ package com.strides.repository;
  *
  * Several frontend QA KPI ids still have no real table, confirmed live as of 2026-10-12 (not an
  * oversight - there is genuinely nothing to query yet):
- * - deviations-per-1000-tests-qc, deviations-due-to-suppliers-materials-1000-batches,
- *   oos-due-to-suppliers-materials-1000-batches: no table combines the right numerator with a
- *   batch/test denominator - the closest candidates (agg_tw_deviations, agg_tw_oos_trend) have no
- *   batch-count or QC-test-count column to divide by.
- * - deviations-per-1000-batches-human: agg_tw_human_error_rate looked like a match by name, but its
- *   own denominator is test_count, not a batch count - it's the real source for "Human Error Index"
- *   (a different, not-yet-added KPI from the same fact-table sheet), not this one.
+ * - deviations-per-1000-tests-qc: no table combines the right numerator with a QC-test-count denominator.
+ * The three per-1000-batches KPIs (human deviations, supplier/material deviations, supplier/material OOS) read the
+ * `agg_tw_*_per_1000_batches` tables from the DPM_QA Power BI handover (2026-10-23, Ankur).
  *
  * closure-of-open-change-controls: one card with a closure-level filter (L1-L5), defaulting to L5.
  * The hand-off doc's only limit (KPI-QA-042B) is for L5, so limits apply to the L5 selection alone
@@ -114,12 +110,22 @@ public final class QaKpiSpecs {
                 ofType + " AND " + PLAN_VS_ACTUAL_ON_TIME, ONE_ROW, ofType, 100, "%");
     }
 
+    private static final double PER_THOUSAND = 1000;
+    private static final String PER_1000_BATCHES_UNIT = "per 1000 batches";
+
+    public static final QaKpiSpec OOS_SUPPLIERS_MATERIALS_PER_1000_BATCHES = QaKpiSpec.ratio(
+            "agg_tw_oos_suppliers_materials_per_1000_batches", "site", "oos_count", "rm_grn_batch_count", PER_THOUSAND, PER_1000_BATCHES_UNIT);
+
+    public static final QaKpiSpec DEVIATIONS_HUMAN_PER_1000_BATCHES = QaKpiSpec.ratio(
+            "agg_tw_deviations_per_1000_batches_human", "site", "deviation_count", "batch_count", PER_THOUSAND, PER_1000_BATCHES_UNIT);
+
+    public static final QaKpiSpec DEVIATIONS_SUPPLIERS_MATERIALS_PER_1000_BATCHES = QaKpiSpec.ratio(
+            "agg_tw_deviations_suppliers_materials_per_1000_batches", "site", "deviation_count", "rm_grn_batch_count", PER_THOUSAND,
+            PER_1000_BATCHES_UNIT);
+
     public static final QaKpiSpec PM_PLAN_VS_ACTUAL = planVsActualOnTime("PM03");
 
     public static final QaKpiSpec CALIBRATION_PLAN_VS_ACTUAL = planVsActualOnTime("PM05");
-
-    public static final QaKpiSpec VENDOR_QUALITY_BLOCK = QaKpiSpec.count(
-            "agg_vendor_quality_block", "site_name", "quality_blocked_vendors", "vendors");
 
     // Doc formula is "1 - batches_with_qms / total_batches", not a bare column ratio - numeratorColumn
     // takes a parenthesized SQL expression here (it's interpolated directly into the SUM/CASE, so an
@@ -147,13 +153,15 @@ public final class QaKpiSpecs {
             "public.agg_tw_repeat_failure_rate", "site", "recurring_count", "resp_dept_slice = 'All'",
             "record_count", "resp_dept_slice = 'All'", 100, "%");
 
-    // "Open Critical Deviations" (original Excel KPI) - currently-open deviations classified
-    // Critical at open - open_count where initial_classification='Critical'. Distinct from the
-    // doc's own "Critical deviations (initial)" KQI, which additionally restricts resp_dept to the
-    // 3 shopfloor departments - that restriction isn't applied here since the original frontend KPI
-    // has no such scoping; flag if that turns out to be wrong.
-    public static final QaKpiSpec OPEN_CRITICAL_DEVIATIONS = QaKpiSpec.countWhere(
-            "agg_tw_deviations_aging", "site", "open_count", "initial_classification = 'Critical'", "deviations");
+    // Both critical-deviation cards read one table, bucketed by close date, as Power BI does. Despite its name, "Open"
+    // counts deviations whose preliminary (initial) classification was Critical. One slice at a time, never summed
+    // across: 'All' unless the department or root-cause filter is picked (see QaController.openCriticalDeviations).
+    public static final String CRITICAL_RESP_DEPT_COLUMN = "resp_dept_slice";
+    public static final String CRITICAL_ROOT_CAUSE_COLUMN = "root_cause_slice";
+    public static final String CRITICAL_SLICE_ALL = "All";
+
+    public static final QaKpiSpec OPEN_CRITICAL_DEVIATIONS = QaKpiSpec.count(
+            "agg_tw_critical_deviations", "site", "critical_initial_count", "deviations");
 
     public static final QaKpiSpec PROCEDURAL_ERROR_DEVIATIONS = QaKpiSpec.count(
             "agg_tw_procedural_error_deviations", "site", "dev_count", "deviations");
@@ -164,10 +172,8 @@ public final class QaKpiSpecs {
     public static final QaKpiSpec OVERDUE_INVESTIGATIONS = QaKpiSpec.count(
             "agg_tw_overdue_investigations", "site", "overdue_count", "investigations");
 
-    // Critical at close (final_classification) - the closed-side counterpart of OPEN_CRITICAL_DEVIATIONS, which reads
-    // the classification at open. dev_count is the period's deviations (by open date); open_count is 0 once closed.
-    public static final QaKpiSpec CLOSED_CRITICAL_DEVIATIONS = QaKpiSpec.countWhere(
-            "agg_tw_deviations_aging", "site", "dev_count", "final_classification = 'Critical'", "deviations");
+    public static final QaKpiSpec CLOSED_CRITICAL_DEVIATIONS = QaKpiSpec.count(
+            "agg_tw_critical_deviations", "site", "critical_final_count", "deviations");
 
     public static final QaKpiSpec EQUIPMENT_ERROR_DEVIATIONS = QaKpiSpec.countWhere(
             "agg_tw_equipment_error_deviations", "site", "dev_count", "root_cause_bucket = 'By Equipment'", "deviations");
@@ -287,8 +293,17 @@ public final class QaKpiSpecs {
     public static final QaKpiSpec OBSERVATIONS_OPEN = QaKpiSpec.count(
             "agg_tw_observations_open", "site", "observation_count", "observations");
 
+    // No grain or date: one all-time count per (material type, block category) slice, 'All' being the exact total.
+    public static final String VENDOR_MATERIAL_TYPE_COLUMN = "material_type_slice";
+    public static final String VENDOR_BLOCK_CATEGORY_COLUMN = "block_category_slice";
+    public static final String VENDOR_SLICE_ALL = "All";
+
     public static final QaKpiSpec VENDOR_BLOCKING_QUALITY_ISSUE = QaKpiSpec.count(
             "agg_vendor_quality_block", "site_name", "quality_blocked_vendors", "vendors");
+
+    public static boolean hasNoGrain(QaKpiSpec spec) {
+        return spec == VENDOR_BLOCKING_QUALITY_ISSUE;
+    }
 
     // Doc: "complaint_count, filter classification" (initial/final) - the frontend KPI is a single
     // card named for criticality itself, so this counts complaints classified Critical at open
