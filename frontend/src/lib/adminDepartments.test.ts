@@ -50,7 +50,7 @@ describe('admin department scaffolds', () => {
           if (kpi.mock === false) {
             // Wired cards address a real endpoint under the shared /api base: mfg/... or qa/...
             expect(domain.basePath).toBe('/api')
-            expect(kpi.path).toMatch(/^(mfg|qa)\/(mfg|qa)-/)
+            expect(kpi.path).toMatch(/^(mfg|eng|qa)\/(mfg|eng|qa)-/)
           } else {
             expect(kpi.mock).toBeUndefined()
           }
@@ -62,7 +62,7 @@ describe('admin department scaffolds', () => {
   it('wire the KPIs whose data exists today', () => {
     const wired = (id: AdminDepartmentId) =>
       adminDepartmentById(id)!.domains.flatMap((d) => d.kpis).filter((k) => k.mock === false).length
-    expect([wired('mfg'), wired('engg'), wired('scp')]).toEqual([52, 16, 14])
+    expect([wired('mfg'), wired('engg'), wired('scp')]).toEqual([53, 22, 16])
   })
 
   it('give every drill-down card a drill-down column config', () => {

@@ -162,8 +162,9 @@ public class QaController extends QaStyleKpiResource {
     @GET
     @Path("/qa-vendor-blocking-due-to-quality-issue")
     public List<KpiCardResponse> vendorBlockingQualityIssue(@BeanParam KpiParams.DateRange p) {
-        return fetch(QaKpiSpecs.VENDOR_BLOCKING_QUALITY_ISSUE, "qa-vendor-blocking-due-to-quality-issue",
-                "Vendor Blocking due to Quality Issue", p);
+        return fetchSnapshotPinnedUnlessPicked(QaKpiSpecs.VENDOR_BLOCKING_QUALITY_ISSUE, VENDOR_BLOCKING_KPI_ID,
+                "Vendor Blocking due to Quality Issue", p, Map.of(QaKpiSpecs.VENDOR_MATERIAL_TYPE_COLUMN, QaKpiSpecs.VENDOR_SLICE_ALL,
+                        QaKpiSpecs.VENDOR_BLOCK_CATEGORY_COLUMN, QaKpiSpecs.VENDOR_SLICE_ALL));
     }
 
     @GET
@@ -188,13 +189,38 @@ public class QaController extends QaStyleKpiResource {
     @GET
     @Path("/qa-open-critical-deviations")
     public List<KpiCardResponse> openCriticalDeviations(@BeanParam KpiParams.DateRange p) {
-        return fetch(QaKpiSpecs.OPEN_CRITICAL_DEVIATIONS, "qa-open-critical-deviations", "Open Critical Deviations", p);
+        return fetchPinnedUnlessPicked(QaKpiSpecs.OPEN_CRITICAL_DEVIATIONS, OPEN_CRITICAL_KPI_ID, "Critical Deviations (Initial)", p,
+                Map.of(QaKpiSpecs.CRITICAL_RESP_DEPT_COLUMN, QaKpiSpecs.CRITICAL_SLICE_ALL,
+                        QaKpiSpecs.CRITICAL_ROOT_CAUSE_COLUMN, QaKpiSpecs.CRITICAL_SLICE_ALL));
+    }
+
+    @GET
+    @Path("/qa-deviations-per-1000-batches-human")
+    public List<KpiCardResponse> deviationsPer1000BatchesHuman(@BeanParam KpiParams.DateRange p) {
+        return KpiCardRules.emptyAsZero(fetch(QaKpiSpecs.DEVIATIONS_HUMAN_PER_1000_BATCHES, "qa-deviations-per-1000-batches-human",
+                "Deviations per 1000 Batches - Human", p));
+    }
+
+    @GET
+    @Path("/qa-deviations-due-to-suppliers-materials-1000-batches")
+    public List<KpiCardResponse> deviationsSuppliersMaterialsPer1000Batches(@BeanParam KpiParams.DateRange p) {
+        return KpiCardRules.emptyAsZero(fetch(QaKpiSpecs.DEVIATIONS_SUPPLIERS_MATERIALS_PER_1000_BATCHES,
+                "qa-deviations-due-to-suppliers-materials-1000-batches", "Deviations due to Suppliers & Materials / 1000 Batches", p));
+    }
+
+    @GET
+    @Path("/qa-oos-due-to-suppliers-materials-1000-batches")
+    public List<KpiCardResponse> oosSuppliersMaterialsPer1000Batches(@BeanParam KpiParams.DateRange p) {
+        return KpiCardRules.emptyAsZero(fetch(QaKpiSpecs.OOS_SUPPLIERS_MATERIALS_PER_1000_BATCHES,
+                "qa-oos-due-to-suppliers-materials-1000-batches", "OOS due to Suppliers & Materials / 1000 Batches", p));
     }
 
     @GET
     @Path("/qa-closed-critical-deviations")
     public List<KpiCardResponse> closedCriticalDeviations(@BeanParam KpiParams.DateRange p) {
-        return fetch(QaKpiSpecs.CLOSED_CRITICAL_DEVIATIONS, "qa-closed-critical-deviations", "Closed Critical Deviations", p);
+        return fetchPinnedUnlessPicked(QaKpiSpecs.CLOSED_CRITICAL_DEVIATIONS, CLOSED_CRITICAL_KPI_ID, "Critical Deviations (Final)", p,
+                Map.of(QaKpiSpecs.CRITICAL_RESP_DEPT_COLUMN, QaKpiSpecs.CRITICAL_SLICE_ALL,
+                        QaKpiSpecs.CRITICAL_ROOT_CAUSE_COLUMN, QaKpiSpecs.CRITICAL_SLICE_ALL));
     }
 
     @GET

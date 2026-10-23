@@ -54,6 +54,21 @@ public class QaAggRepository extends AbstractAggRepository<PeriodTotal> {
         return column;
     }
 
+    private static void appendFilters(StringBuilder sql, List<Object> params, Map<String, String> fixedFilters,
+            Map<String, Set<String>> extraFilters) {
+        for (Map.Entry<String, String> entry : fixedFilters.entrySet()) {
+            sql.append(" AND ").append(validatedColumn(entry.getKey())).append(" = ?");
+            params.add(entry.getValue());
+        }
+        for (Map.Entry<String, Set<String>> entry : extraFilters.entrySet()) {
+            Set<String> values = excludeAllSentinel(entry.getValue());
+            if (!values.isEmpty()) {
+                sql.append(" AND ").append(validatedColumn(entry.getKey())).append(" IN (").append(placeholders(values)).append(")");
+                params.addAll(values);
+            }
+        }
+    }
+
     private static String whereClause(QaKpiSpec spec, List<Object> params, String site, String grain,
             LocalDate from, LocalDate to, Map<String, String> fixedFilters, Map<String, Set<String>> extraFilters) {
         StringBuilder sql = new StringBuilder(" WHERE ");
@@ -67,17 +82,7 @@ public class QaAggRepository extends AbstractAggRepository<PeriodTotal> {
         params.add(grain);
         params.add(from);
         params.add(to);
-        for (Map.Entry<String, String> entry : fixedFilters.entrySet()) {
-            sql.append(" AND ").append(validatedColumn(entry.getKey())).append(" = ?");
-            params.add(entry.getValue());
-        }
-        for (Map.Entry<String, Set<String>> entry : extraFilters.entrySet()) {
-            Set<String> values = excludeAllSentinel(entry.getValue());
-            if (!values.isEmpty()) {
-                sql.append(" AND ").append(validatedColumn(entry.getKey())).append(" IN (").append(placeholders(values)).append(")");
-                params.addAll(values);
-            }
-        }
+        appendFilters(sql, params, fixedFilters, extraFilters);
         return sql.toString();
     }
 
@@ -91,7 +96,8 @@ public class QaAggRepository extends AbstractAggRepository<PeriodTotal> {
     public List<String> distinctValuesFor(QaKpiSpec spec, String column, String site, String grain,
             LocalDate from, LocalDate to, Map<String, Set<String>> selected) {
         return distinctValues(qualify(spec.table()), spec.siteColumn(), column,
-                MfgKpiSpecs.sumsAcrossSites(spec, site) ? null : site, grain, from, to, without(selected, column));
+                MfgKpiSpecs.sumsAcrossSites(spec, site) ? null : site, QaKpiSpecs.hasNoGrain(spec) ? null : grain,
+                QaKpiSpecs.hasNoGrain(spec) ? null : from, QaKpiSpecs.hasNoGrain(spec) ? null : to, without(selected, column));
     }
 
     /**
@@ -104,6 +110,9 @@ public class QaAggRepository extends AbstractAggRepository<PeriodTotal> {
      */
     public List<PeriodTotal> findTotals(QaKpiSpec spec, String site, String grain, LocalDate from, LocalDate to,
             Map<String, String> fixedFilters, Map<String, Set<String>> extraFilters) {
+        if ("weekly".equals(grain) && EngKpiSpecs.weeklyFromDaily(spec)) {
+            return findClippedWeeks(spec, site, from, to, fixedFilters, extraFilters);
+        }
         List<Object> params = new ArrayList<>();
         String numeratorCondition = spec.numeratorWhere() == null ? "TRUE" : spec.numeratorWhere();
         // A plain count (no real denominator column) must divide by the literal 1, not by however
@@ -162,14 +171,30 @@ public class QaAggRepository extends AbstractAggRepository<PeriodTotal> {
     }
 
     public SnapshotTotal findSnapshot(QaKpiSpec spec, String dateColumn, String site) {
+        return findSnapshot(spec, dateColumn, site, Map.of(), Map.of());
+    }
+
+    /** A table with no grain or period: `dateColumn` (null when there is none) only dates the "as of" note; the filters
+     * narrow the rows the way findTotals' do. */
+    public SnapshotTotal findSnapshot(QaKpiSpec spec, String dateColumn, String site, Map<String, String> fixedFilters,
+            Map<String, Set<String>> extraFilters) {
         List<Object> params = new ArrayList<>();
-        StringBuilder sql = new StringBuilder("SELECT COALESCE(SUM(").append(spec.numeratorColumn()).append("), 0) AS numerator,")
-                .append(" COALESCE(SUM(").append(spec.denominatorColumn()).append("), 0) AS denominator,")
-                .append(" MAX(").append(validatedColumn(dateColumn)).append(") AS as_of FROM ").append(qualify(spec.table()));
-        if (!MfgKpiSpecs.sumsAcrossSites(spec, site)) {
-            sql.append(" WHERE ").append(spec.siteColumn()).append(" = ?");
+        String denominator = spec.denominatorColumn() == null
+                ? "1"
+                : "COALESCE(SUM(CASE WHEN " + (spec.denominatorWhere() == null ? "TRUE" : spec.denominatorWhere()) + " THEN "
+                        + spec.denominatorColumn() + " ELSE 0 END), 0)";
+        String asOf = dateColumn == null ? "NULL::date" : "MAX(" + validatedColumn(dateColumn) + ")";
+        StringBuilder sql = new StringBuilder("SELECT COALESCE(SUM(CASE WHEN ")
+                .append(spec.numeratorWhere() == null ? "TRUE" : spec.numeratorWhere()).append(" THEN ").append(spec.numeratorColumn())
+                .append(" ELSE 0 END), 0) AS numerator, ").append(denominator).append(" AS denominator,")
+                .append(" ").append(asOf).append(" AS as_of FROM ").append(qualify(spec.table())).append(" WHERE ");
+        if (MfgKpiSpecs.sumsAcrossSites(spec, site)) {
+            sql.append("TRUE");
+        } else {
+            sql.append(spec.siteColumn()).append(" = ?");
             params.add(site);
         }
+        appendFilters(sql, params, fixedFilters, extraFilters);
         return query(sql.toString(), rs -> new SnapshotTotal(rs.getDouble("numerator"), rs.getDouble("denominator"),
                 rs.getObject("as_of", LocalDate.class)), params.toArray()).stream().findFirst()
                 .orElse(new SnapshotTotal(0, 0, null));
@@ -189,6 +214,35 @@ public class QaAggRepository extends AbstractAggRepository<PeriodTotal> {
         java.util.Map<String, Double> sums = new java.util.LinkedHashMap<>();
         query(sql, rs -> sums.put(rs.getString("category"), rs.getDouble("total")), params.toArray());
         return sums;
+    }
+
+    /**
+     * Weekly values built from daily rows, each week clipped to its month (a week crossing a month boundary is two partial
+     * weeks), as the report's date hierarchy draws them. Daily rows are read from the Monday before `from` so the first week
+     * is whole, then weeks starting outside [from, to] are dropped - the same "period starts within the range" rule as
+     * the grain reads. Exact only for measures that add across days (see EngKpiSpecs.weeklyFromDaily).
+     */
+    private List<PeriodTotal> findClippedWeeks(QaKpiSpec spec, String site, LocalDate from, LocalDate to,
+            Map<String, String> fixedFilters, Map<String, Set<String>> extraFilters) {
+        final int daysToPreviousMonday = 6;
+        List<Object> params = new ArrayList<>();
+        String denominatorSelect = spec.denominatorColumn() == null
+                ? "1"
+                : "SUM(CASE WHEN " + (spec.denominatorWhere() == null ? "TRUE" : spec.denominatorWhere())
+                        + " THEN " + spec.denominatorColumn() + " ELSE 0 END)";
+        String weekStart = "GREATEST(date_trunc('week', period_start), date_trunc('month', period_start))::date";
+        String inner = "SELECT " + weekStart + " AS period_start,"
+                + " SUM(CASE WHEN " + (spec.numeratorWhere() == null ? "TRUE" : spec.numeratorWhere()) + " THEN "
+                + spec.numeratorColumn() + " ELSE 0 END) AS numerator, " + denominatorSelect + " AS denominator"
+                + " FROM " + qualify(spec.table())
+                + whereClause(spec, params, site, "daily", from.minusDays(daysToPreviousMonday), to, fixedFilters, extraFilters)
+                + " GROUP BY 1";
+        params.add(from);
+        params.add(to);
+        return query("SELECT * FROM (" + inner + ") weeks WHERE period_start BETWEEN ? AND ? ORDER BY period_start",
+                rs -> new PeriodTotal(rs.getObject("period_start", LocalDate.class), "weekly",
+                        rs.getDouble("numerator"), rs.getDouble("denominator")),
+                params.toArray());
     }
 
     /** One category's summed numerator/count within one period - see findCategoryTotals. */

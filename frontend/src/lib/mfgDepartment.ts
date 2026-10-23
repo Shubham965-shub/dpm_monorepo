@@ -4,9 +4,9 @@ import type { KpiVisibilityLens } from './roleAccess'
 
 /**
  * Manufacturing Operations - admin-only dashboard from MFG_ENGG_SC_KPI_Sheet.xlsx ('Manufacturing' sheet): 58 KPIs in 5 sections.
- * 52 cards read real data (`mock: false`): from the `manufacturing` schema via /api/mfg (MfgKpiSpecs), or by
+ * 53 cards read real data (`mock: false`): from the `manufacturing` schema via /api/mfg (MfgKpiSpecs), or by
  * reusing a QA endpoint (/api/qa) - the path is relative to the shared '/api' base so one section can mix both.
- * The other 6 stay on demo data as a reference for what still needs adding; each carries a `// Needs:` line.
+ * The other 5 stay on demo data as a reference for what still needs adding; each carries a `// Needs:` line.
  * Visibility and default grain come from the sheet's persona columns: Supervisor -> supervisor, Manager + HOD ->
  * leadership (the slower cadence where they differ), Cluster Head -> clusterHead, COO (shared) -> cxo. The sheet
  * has no Analyst column, so analyst only gets the Cross-Functional Context KPIs, which every lens sees (same as
@@ -67,12 +67,11 @@ export const MFG_DOMAINS: KpiDomain[] = [
     basePath: '/api',
     mock: true,
     kpis: [
-      { id: 'mfg-critical-deviations', label: 'Critical Deviations', path: 'qa/qa-open-critical-deviations', extraFilters: [{ kind: 'multiSelect', param: 'respDept' }, { kind: 'multiSelect', param: 'level' }], mock: false, drilldownPath: 'qa/qa-open-critical-deviations/drilldown' },
+      { id: 'mfg-critical-deviations', label: 'Critical Deviations', path: 'qa/qa-open-critical-deviations', extraFilters: [{ kind: 'multiSelect', param: 'respDept' }, { kind: 'multiSelect', param: 'rootCause' }], mock: false, drilldownPath: 'qa/qa-open-critical-deviations/drilldown' },
       // Needs: Flagged for removal in the ownership package (replaced by Repeat Quality Event Rate).
       { id: 'mfg-repeat-deviations', label: 'Repeat Deviations', path: 'repeat-deviations', extraFilters: [] },
       { id: 'mfg-deviations-per-1000-batches-shopfloor', label: 'Deviations per 1000 Batches - Shopfloor', path: 'qa/qa-deviations-per-1000-batches-shopfloor', extraFilters: [], mock: false, drilldownPath: 'qa/qa-deviations-per-1000-batches-shopfloor/drilldown' },
-      // Needs: QA's own card is still on demo data - no batch-level human-error table yet.
-      { id: 'mfg-deviations-per-1000-batches-human', label: 'Deviations per 1000 Batches - Human', path: 'deviations-per-1000-batches-human', extraFilters: [] },
+      { id: 'mfg-deviations-per-1000-batches-human', label: 'Deviations per 1000 Batches - Human', path: 'qa/qa-deviations-per-1000-batches-human', extraFilters: [], mock: false },
       { id: 'mfg-procedural-error-deviations', label: 'Procedural Error Deviations', path: 'qa/qa-procedural-error-deviations', extraFilters: [], mock: false, drilldownPath: 'qa/qa-procedural-error-deviations/drilldown' },
       // Needs: QC's Human Error Rate is per test; the sheet wants a per-batch figure - no table yet.
       { id: 'mfg-human-error-rate-batch', label: 'Human Error Rate (Batch)', path: 'human-error-rate-batch', extraFilters: [] },
@@ -125,7 +124,7 @@ export const MFG_DOMAINS: KpiDomain[] = [
     scored: false,
     kpis: [
       { id: 'mfg-difot-of-suppliers', label: 'DIFOT of Suppliers', path: 'mfg/mfg-difot-of-suppliers', site: 'ALL', extraFilters: [], mock: false },
-      { id: 'mfg-vendor-blocking-due-to-quality-issue', label: 'Vendor Blocking due to Quality Issue', path: 'qa/qa-vendor-blocking-due-to-quality-issue', extraFilters: [{ kind: 'multiSelect', param: 'blockCategory' }], mock: false, drilldownPath: 'qa/qa-vendor-blocking-due-to-quality-issue/drilldown' },
+      { id: 'mfg-vendor-blocking-due-to-quality-issue', label: 'Vendor Blocking due to Quality Issue', path: 'qa/qa-vendor-blocking-due-to-quality-issue', extraFilters: [{ kind: 'multiSelect', param: 'materialType' }, { kind: 'multiSelect', param: 'blockCategory' }], snapshot: true, mock: false, drilldownPath: 'qa/qa-vendor-blocking-due-to-quality-issue/drilldown' },
     ],
   },
 ]

@@ -4,9 +4,9 @@ import type { KpiVisibilityLens } from './roleAccess'
 
 /**
  * Supply Chain & Planning - admin-only dashboard from MFG_ENGG_SC_KPI_Sheet.xlsx ('Supply Chain & Planning' sheet): 59 KPIs in 5 sections.
- * 14 cards read real data (`mock: false`): from the `manufacturing` schema via /api/mfg (MfgKpiSpecs), or by
+ * 16 cards read real data (`mock: false`): from the `manufacturing` schema via /api/mfg (MfgKpiSpecs), or by
  * reusing a QA endpoint (/api/qa) - the path is relative to the shared '/api' base so one section can mix both.
- * The other 45 stay on demo data as a reference for what still needs adding; each carries a `// Needs:` line.
+ * The other 43 stay on demo data as a reference for what still needs adding; each carries a `// Needs:` line.
  * Visibility and default grain come from the sheet's persona columns: Supervisor -> supervisor, Manager + HOD ->
  * leadership (the slower cadence where they differ), Cluster Head -> clusterHead, COO (shared) -> cxo. The sheet
  * has no Analyst column, so analyst only gets the Cross-Functional Context KPIs, which every lens sees (same as
@@ -108,11 +108,9 @@ export const SCP_DOMAINS: KpiDomain[] = [
       // Needs: No data source yet (the sheet names none).
       { id: 'scp-check-for-product-license-availability', label: 'Check for product license availability', path: 'check-for-product-license-availability', extraFilters: [] },
       { id: 'scp-difot-of-suppliers', label: 'DIFOT of suppliers', path: 'mfg/mfg-difot-of-suppliers', site: 'ALL', extraFilters: [], mock: false },
-      { id: 'scp-vendor-blocking-due-to-quality-issue-rq-tac-bac-ta-regulatory-import-alert', label: 'Vendor blocking due to quality issue (RQ, TAC/BAC, TA, Regulatory, Import alert)', path: 'qa/qa-vendor-blocking-due-to-quality-issue', extraFilters: [{ kind: 'multiSelect', param: 'blockCategory' }], mock: false, drilldownPath: 'qa/qa-vendor-blocking-due-to-quality-issue/drilldown' },
-      // Needs: QA's own card is still on demo data - no table with a per-batch denominator yet.
-      { id: 'scp-oos-due-to-suppliers-and-materials-1000-batches', label: 'OOS due to suppliers & materials / 1000 batches', path: 'oos-due-to-suppliers-and-materials-1000-batches', extraFilters: [] },
-      // Needs: QA's own card is still on demo data - no table with a per-batch denominator yet.
-      { id: 'scp-deviations-due-to-suppliers-and-materials-1000-batches', label: 'Deviations due to suppliers & materials / 1000 batches', path: 'deviations-due-to-suppliers-and-materials-1000-batches', extraFilters: [] },
+      { id: 'scp-vendor-blocking-due-to-quality-issue-rq-tac-bac-ta-regulatory-import-alert', label: 'Vendor blocking due to quality issue (RQ, TAC/BAC, TA, Regulatory, Import alert)', path: 'qa/qa-vendor-blocking-due-to-quality-issue', extraFilters: [{ kind: 'multiSelect', param: 'materialType' }, { kind: 'multiSelect', param: 'blockCategory' }], snapshot: true, mock: false, drilldownPath: 'qa/qa-vendor-blocking-due-to-quality-issue/drilldown' },
+      { id: 'scp-oos-due-to-suppliers-and-materials-1000-batches', label: 'OOS due to suppliers & materials / 1000 batches', path: 'qa/qa-oos-due-to-suppliers-materials-1000-batches', extraFilters: [], mock: false },
+      { id: 'scp-deviations-due-to-suppliers-and-materials-1000-batches', label: 'Deviations due to suppliers & materials / 1000 batches', path: 'qa/qa-deviations-due-to-suppliers-materials-1000-batches', extraFilters: [], mock: false },
       { id: 'scp-batches-with-error-on-incoming-inspection', label: '% Batches with error on incoming inspection', path: 'mfg/mfg-batches-with-error-on-incoming-inspection', site: 'ALL', extraFilters: [], mock: false },
     ],
   },
@@ -124,7 +122,7 @@ export const SCP_DOMAINS: KpiDomain[] = [
     basePath: '/api',
     mock: true,
     kpis: [
-      { id: 'scp-critical-deviations', label: 'Critical deviations', path: 'qa/qa-open-critical-deviations', extraFilters: [{ kind: 'multiSelect', param: 'respDept' }, { kind: 'multiSelect', param: 'level' }], mock: false, drilldownPath: 'qa/qa-open-critical-deviations/drilldown' },
+      { id: 'scp-critical-deviations', label: 'Critical deviations', path: 'qa/qa-open-critical-deviations', extraFilters: [{ kind: 'multiSelect', param: 'respDept' }, { kind: 'multiSelect', param: 'rootCause' }], mock: false, drilldownPath: 'qa/qa-open-critical-deviations/drilldown' },
       // Needs: Flagged for removal in the ownership package (replaced by Repeat Quality Event Rate).
       { id: 'scp-repeat-deviations', label: 'Repeat deviations', path: 'repeat-deviations', extraFilters: [] },
       { id: 'scp-procedural-error-deviations', label: 'Procedural error deviations', path: 'qa/qa-procedural-error-deviations', extraFilters: [], mock: false, drilldownPath: 'qa/qa-procedural-error-deviations/drilldown' },

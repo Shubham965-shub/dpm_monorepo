@@ -1,5 +1,9 @@
 package com.strides.controller;
 
+import static com.strides.controller.KpiCardRules.divideRule;
+import static com.strides.controller.KpiCardRules.emptyAsZero;
+import static com.strides.controller.KpiCardRules.zeroAsBlank;
+
 import com.strides.dto.DrilldownPage;
 import com.strides.dto.KpiCardResponse;
 import com.strides.dto.KpiParams;
@@ -14,7 +18,6 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -36,31 +39,6 @@ public class MfgController extends QaStyleKpiResource {
     private static final String UNDISPENSED_ID = "mfg-undispensed-bmr-bpr-beyond-30-60-days-from-issuance";
     private static final String UNDISPENSED_30_QA_ID = "qa-undispensed-bmrbpr-beyond-3060-days-from-issuance";
     private static final String UNDISPENSED_60_QA_ID = "qa-undispensed-bmrbpr-beyond-60-days-from-issuance";
-
-    /** Power BI shows these measures as 0 (DIVIDE(..., 0) / COALESCE) for a period with no data, never a gap; every other
-     * Manufacturing measure stays blank. */
-    private static List<KpiCardResponse> emptyAsZero(List<KpiCardResponse> cards) {
-        return cards.stream()
-                .map(card -> card.value() == null ? card.withValue(BigDecimal.ZERO.setScale(MfgKpiService.VALUE_SCALE)) : card)
-                .toList();
-    }
-
-    /** The complaint criticality counts are SUM(...) FILTER (WHERE classification = 'Critical') in the report: blank, not 0,
-     * for a period with complaints but none critical. */
-    private static List<KpiCardResponse> zeroAsBlank(List<KpiCardResponse> cards) {
-        return cards.stream().map(card -> card.value() != null && card.value().signum() == 0 ? card.withValue(null) : card).toList();
-    }
-
-    /** % Batch Reject: 0 for a period with no batches, but blank for one with batches and no rejects
-     * (DIVIDE(BLANK(), n, 0) is blank in the report). */
-    private static List<KpiCardResponse> batchRejectBlanks(List<KpiCardResponse> cards) {
-        return cards.stream().map(card -> {
-            if (card.denominator() == null || card.denominator().signum() == 0) {
-                return card.withValue(BigDecimal.ZERO.setScale(MfgKpiService.VALUE_SCALE));
-            }
-            return card.numerator().signum() == 0 ? card.withValue(null) : card;
-        }).toList();
-    }
 
     @GET
     @Path("/mfg-sla-ip-in-process-sample-turnaround")
@@ -151,7 +129,7 @@ public class MfgController extends QaStyleKpiResource {
     @GET
     @Path("/mfg-batch-reject")
     public List<KpiCardResponse> batchReject(@BeanParam KpiParams.DateRange p) {
-        return batchRejectBlanks(fetch(MfgKpiSpecs.BATCH_REJECT, "mfg-batch-reject", "% Batch Reject", p));
+        return divideRule(fetch(MfgKpiSpecs.BATCH_REJECT, "mfg-batch-reject", "% Batch Reject", p));
     }
 
     @GET
