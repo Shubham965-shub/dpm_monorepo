@@ -114,6 +114,8 @@ public final class QaKpiFilterColumns {
             Map.entry("mfg-uptime-of-equipment-areas", of(MfgKpiSpecs.EQUIPMENT_AREA_UPTIME,
                     col("classification", MfgKpiSpecs.UPTIME_CLASSIFICATION_COLUMN))),
             Map.entry("mfg-yield", of(MfgKpiSpecs.YIELD, col("yieldType", MfgKpiSpecs.YIELD_TYPE_COLUMN))),
+            Map.entry("mfg-undispensed-bmr-bpr-beyond-30-60-days-from-issuance", of(QaKpiSpecs.UNDISPENSED_BMR_BPR_BEYOND_30_DAYS,
+                    col("bmrBpr", "bmr_bpr"))),
             Map.entry("mfg-equipment-breakdown-m1-and-m2", of(MfgKpiSpecs.EQUIPMENT_BREAKDOWN,
                     col("notificationType", MfgKpiSpecs.NOTIFICATION_TYPE_COLUMN))),
             Map.entry("mfg-breakdown-frequency-rate", of(MfgKpiSpecs.BREAKDOWN_FREQUENCY_RATE,
@@ -126,7 +128,9 @@ public final class QaKpiFilterColumns {
     /** Filters that pick between specs rather than narrow a column, so their options are fixed lists. */
     private static final Map<String, Map<String, List<String>>> STATIC_OPTIONS = Map.of(
             "qa-line-clearance-tat", Map.of(QaKpiSpecs.LINE_CLEARANCE_TYPE_PARAM,
-                    List.of(QaKpiSpecs.LINE_CLEARANCE_QA, QaKpiSpecs.LINE_CLEARANCE_PRODUCTION)));
+                    List.of(QaKpiSpecs.LINE_CLEARANCE_QA, QaKpiSpecs.LINE_CLEARANCE_PRODUCTION)),
+            "mfg-undispensed-bmr-bpr-beyond-30-60-days-from-issuance", Map.of(QaKpiSpecs.UNDISPENSED_BEYOND_PARAM,
+                    List.of(QaKpiSpecs.UNDISPENSED_BEYOND_30, QaKpiSpecs.UNDISPENSED_BEYOND_60)));
 
     /** Option values left out of a filter's list (the data's "no level" marker) - clearing the filter still includes them. */
     private static final Map<String, Map<String, Set<String>>> EXCLUDED_OPTIONS = Map.of(

@@ -60,6 +60,8 @@ export function toChartData(rows: KpiCardResponse[], axis?: ChartAxis) {
     bucket[key] = row.value
     // Stashed alongside the plottable value (not nested under it) so `key` can still be used
     // directly as a Line/Bar dataKey - KpiLineTooltip looks these companion keys up by seriesKey.
+    // Each period's own status, for colouring a bar by its own value against the limits (see statusBarHex).
+    if (row.status) bucket[`${key}__status`] = row.status
     if (row.numerator != null) bucket[`${key}__numerator`] = row.numerator
     if (row.denominator != null) bucket[`${key}__denominator`] = row.denominator
     if (row.breakdown) bucket[`${key}__breakdown`] = JSON.stringify(row.breakdown)

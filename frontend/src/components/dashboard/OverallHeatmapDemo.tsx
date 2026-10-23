@@ -118,7 +118,8 @@ function Cell({
       on-screen near a viewport edge - the plain absolutely-positioned span this replaced had no such
       awareness and could render partly or fully off-screen for cells near the heatmap's left/right
       edges. w-40 still bounds a long KPI name to wrapping instead of an unbounded-width line. */}
-      <TooltipContent className="w-40 break-words text-left">
+      {/* The base content is an inline flex row, which laid these lines side by side past w-40 - flex-col stacks them. */}
+      <TooltipContent className="w-40 flex-col items-start gap-0 break-words text-left">
         <div className="font-semibold">{kpiName}</div>
         {defaultFilters.map((f) => (
           <div key={f} className="opacity-80">

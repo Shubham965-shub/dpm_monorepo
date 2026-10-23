@@ -17,8 +17,8 @@ export type ExtraFilter =
   /** repeated: true sends selections as repeated params (?param=A&param=B) instead of comma-joined -
    * required when an option value can itself contain a comma (e.g. a department name), see
    * backend/README.md's "Filter syntax" note. defaultValue: preselected instead of blank/"All" -
-   * same convention as select's, but seeds a single-value selection rather than a locked choice. */
-  | { kind: 'multiSelect'; param: string; repeated?: boolean; defaultValue?: string }
+   * same convention as select's, but seeds a selection (one value, or several as an array) rather than a locked choice. */
+  | { kind: 'multiSelect'; param: string; repeated?: boolean; defaultValue?: string | string[] }
   | { kind: 'numberInput'; param: string }
 
 export interface KpiDefinition {

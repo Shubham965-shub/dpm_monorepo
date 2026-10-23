@@ -135,15 +135,21 @@ public class QaController extends QaStyleKpiResource {
     @GET
     @Path("/qa-plan-vs-actual-pm-calibration-engineering")
     public List<KpiCardResponse> planVsActualPm(@BeanParam KpiParams.DateRange p) {
-        return fetch(QaKpiSpecs.PLAN_VS_ACTUAL_PM_ENGINEERING, "qa-plan-vs-actual-pm-calibration-engineering",
+        return fetchPlanVsActual(QaKpiSpecs.PLAN_VS_ACTUAL_PM_ENGINEERING, "qa-plan-vs-actual-pm-calibration-engineering",
                 "Plan vs Actual - PM (Engineering)", p);
     }
 
     @GET
     @Path("/qa-plan-vs-actual-calibration-engineering")
     public List<KpiCardResponse> planVsActualCalibration(@BeanParam KpiParams.DateRange p) {
-        return fetch(QaKpiSpecs.PLAN_VS_ACTUAL_CALIBRATION_ENGINEERING, "qa-plan-vs-actual-calibration-engineering",
+        return fetchPlanVsActual(QaKpiSpecs.PLAN_VS_ACTUAL_CALIBRATION_ENGINEERING, "qa-plan-vs-actual-calibration-engineering",
                 "Plan vs Actual - Calibration (Engineering)", p);
+    }
+
+    /** Orders completed in each period (the date Power BI uses), not planned in it - see QaKpiSpecs.PLAN_VS_ACTUAL_DATE_COLUMN. */
+    private List<KpiCardResponse> fetchPlanVsActual(com.strides.repository.QaKpiSpec spec, String kpiId, String name, KpiParams.DateRange p) {
+        return service.fetchByDate(spec, QaKpiSpecs.PLAN_VS_ACTUAL_DATE_COLUMN, kpiId, name, p.site,
+                RequiredParams.require(p.grain, "grain"), RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"));
     }
 
     @GET

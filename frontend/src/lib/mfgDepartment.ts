@@ -43,7 +43,7 @@ export const MFG_DOMAINS: KpiDomain[] = [
     kpis: [
       { id: 'mfg-mtbf-mean-time-between-failures', label: 'MTBF (Mean Time Between Failures)', path: 'mfg/mfg-mtbf-mean-time-between-failures', site: 'ALL', extraFilters: [], mock: false },
       { id: 'mfg-mttr-mean-time-to-repair', label: 'MTTR (Mean Time To Repair)', path: 'mfg/mfg-mttr-mean-time-to-repair', site: 'ALL', extraFilters: [], mock: false },
-      { id: 'mfg-equipment-breakdown-m1-and-m2', label: 'Equipment Breakdown, # (M1 and M2)', path: 'mfg/mfg-equipment-breakdown-m1-and-m2', site: 'ALL', extraFilters: [{ kind: 'select', param: 'notificationType', required: true, defaultValue: 'M1' }], mock: false },
+      { id: 'mfg-equipment-breakdown-m1-and-m2', label: 'Equipment Breakdown, # (M1 and M2)', path: 'mfg/mfg-equipment-breakdown-m1-and-m2', site: 'ALL', extraFilters: [{ kind: 'select', param: 'notificationType', required: true, defaultValue: 'M2' }], mock: false },
       { id: 'mfg-breakdown-frequency-rate', label: 'Breakdown Frequency Rate', path: 'mfg/mfg-breakdown-frequency-rate', site: 'ALL', extraFilters: [{ kind: 'multiSelect', param: 'machineId' }, { kind: 'multiSelect', param: 'status' }], mock: false },
       { id: 'mfg-breakdown-variance-actual-vs-baseline', label: 'Breakdown Variance (actual vs baseline)', path: 'mfg/mfg-breakdown-variance-actual-vs-baseline', site: 'ALL', extraFilters: [], mock: false },
       { id: 'mfg-critical-spare-parts-availability', label: 'Critical Spare Parts Availability', path: 'mfg/mfg-critical-spare-parts-availability', site: 'ALL', extraFilters: [], snapshot: true, mock: false },
@@ -54,8 +54,8 @@ export const MFG_DOMAINS: KpiDomain[] = [
       { id: 'mfg-success-rate-of-validation-batches', label: 'Success Rate of Validation Batches', path: 'mfg/mfg-success-rate-of-validation-batches', site: 'ALL', extraFilters: [], mock: false },
       { id: 'mfg-cqa-adherence-for-in-process-parameters', label: 'CQA Adherence for In-Process Parameters', path: 'qa/qa-cqa-adherence-for-in-process-parameters', extraFilters: [{ kind: 'multiSelect', param: 'grade' }, { kind: 'multiSelect', param: 'specKind' }], mock: false, drilldownPath: 'qa/qa-cqa-adherence-for-in-process-parameters/drilldown' },
       { id: 'mfg-new-launches-and-site-transfer-on-time', label: 'New Launches & Site Transfer (On-Time)', path: 'mfg/mfg-new-launches-and-site-transfer-on-time', site: 'ALL', extraFilters: [], mock: false },
-      { id: 'mfg-line-clearance-tat', label: 'Line Clearance TAT', path: 'qa/qa-line-clearance-tat', extraFilters: [], fixedParams: [['lineClearanceType', 'Production']], mock: false, drilldownPath: 'qa/qa-line-clearance-tat/drilldown' },
-      { id: 'mfg-undispensed-bmr-bpr-beyond-30-60-days-from-issuance', label: 'Undispensed BMR/BPR Beyond 30/60 Days from Issuance', path: 'qa/qa-undispensed-bmrbpr-beyond-3060-days-from-issuance', extraFilters: [{ kind: 'multiSelect', param: 'bmrBpr' }], mock: false, drilldownPath: 'qa/qa-undispensed-bmrbpr-beyond-3060-days-from-issuance/drilldown' },
+      { id: 'mfg-line-clearance-tat', label: 'Line Clearance TAT', path: 'qa/qa-line-clearance-tat', extraFilters: [{ kind: 'select', param: 'lineClearanceType', required: true, defaultValue: 'Production' }], mock: false, drilldownPath: 'qa/qa-line-clearance-tat/drilldown' },
+      { id: 'mfg-undispensed-bmr-bpr-beyond-30-60-days-from-issuance', label: 'Undispensed BMR/BPR Beyond 30/60 Days from Issuance', path: 'mfg/mfg-undispensed-bmr-bpr-beyond-30-60-days-from-issuance', extraFilters: [{ kind: 'select', param: 'beyondDays', required: true, defaultValue: 'Beyond 30 Days' }, { kind: 'multiSelect', param: 'bmrBpr' }], mock: false, drilldownPath: 'mfg/mfg-undispensed-bmr-bpr-beyond-30-60-days-from-issuance/drilldown' },
       { id: 'mfg-batches-with-error-on-incoming-inspection', label: '% Batches with Error on Incoming Inspection', path: 'mfg/mfg-batches-with-error-on-incoming-inspection', site: 'ALL', extraFilters: [], mock: false },
     ],
   },
@@ -88,7 +88,7 @@ export const MFG_DOMAINS: KpiDomain[] = [
       { id: 'mfg-batch-reject', label: '% Batch Reject', path: 'mfg/mfg-batch-reject', site: 'ALL', extraFilters: [], mock: false },
       { id: 'mfg-rft-right-first-time', label: '% RFT (Right First Time)', path: 'qa/qa-right-first-time-rft', extraFilters: [{ kind: 'multiSelect', param: 'materialType' }, { kind: 'multiSelect', param: 'sapDisposition' }], mock: false, drilldownPath: 'qa/qa-right-first-time-rft/drilldown' },
       { id: 'mfg-aql-success-rate', label: 'AQL Success Rate', path: 'mfg/mfg-aql-success-rate', site: 'ALL', extraFilters: [], mock: false },
-      { id: 'mfg-product-complaint-criticality', label: 'Product Complaint Criticality', path: 'mfg/mfg-product-complaint-criticality', site: 'ALL', extraFilters: [], mock: false },
+      { id: 'mfg-product-complaint-criticality', label: 'Product Complaint Criticality (Initial)', path: 'mfg/mfg-product-complaint-criticality', site: 'ALL', extraFilters: [], mock: false },
       { id: 'mfg-product-complaint-criticality-final', label: 'Product Complaint Criticality (Final)', path: 'mfg/mfg-product-complaint-criticality-final', site: 'ALL', extraFilters: [], mock: false },
       { id: 'mfg-repeat-complaints', label: '% Repeat Complaints', path: 'mfg/mfg-repeat-complaints', site: 'ALL', extraFilters: [{ kind: 'multiSelect', param: 'initialClassification' }, { kind: 'multiSelect', param: 'finalClassification' }], mock: false },
       { id: 'mfg-recall-event-density', label: 'Recall Event Density', path: 'qa/qa-recall-event-density', extraFilters: [{ kind: 'multiSelect', param: 'recallType' }, { kind: 'multiSelect', param: 'classification' }], defaultView: 'bar', mock: false, drilldownPath: 'qa/qa-recall-event-density/drilldown' },
@@ -108,7 +108,7 @@ export const MFG_DOMAINS: KpiDomain[] = [
     basePath: '/api',
     mock: true,
     kpis: [
-      { id: 'mfg-training-completion', label: 'Training Completion', path: 'qa/qa-training-completion', extraFilters: [{ kind: 'select', param: 'deptName', defaultValue: 'Quality Assurance' }, { kind: 'multiSelect', param: 'trainingType' }], mock: false, drilldownPath: 'qa/qa-training-completion/drilldown' },
+      { id: 'mfg-training-completion', label: 'Training Completion', path: 'qa/qa-training-completion', extraFilters: [{ kind: 'multiSelect', param: 'deptName', repeated: true, defaultValue: ['Production', 'Production Packaging', 'Formulations', 'Oral Liquid and Topicals'] }, { kind: 'multiSelect', param: 'trainingType' }], mock: false, drilldownPath: 'qa/qa-training-completion/drilldown' },
       { id: 'mfg-training-event-adherence', label: 'Training Event Adherence', path: 'mfg/mfg-training-event-adherence', site: 'ALL', extraFilters: [{ kind: 'multiSelect', param: 'department' }, { kind: 'multiSelect', param: 'trainingType' }], mock: false },
       // Needs: No data source yet (sheet: Learning management system).
       { id: 'mfg-classroom-traditional-training', label: 'Classroom (Traditional) Training', path: 'classroom-traditional-training', extraFilters: [] },

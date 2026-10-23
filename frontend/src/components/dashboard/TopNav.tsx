@@ -12,6 +12,7 @@ import type { RoleTab, KpiVisibilityLens } from '@/lib/roleAccess'
 import type { AdminDepartmentId } from '@/lib/adminDepartments'
 import { DataFreshnessLabel } from './DataFreshnessLabel'
 import { FeedbackLauncher } from './FeedbackLauncher'
+import type { FeedbackScope } from '@/lib/feedbackSubject'
 import { ProfileMenu } from './ProfileMenu'
 
 /** A real vertical bar, not a text "|" glyph - matches InvestigationAI's header divider. */
@@ -35,6 +36,7 @@ export function TopNav({
   onActiveRoleChange,
   locked,
   onReplayTour,
+  feedbackScope,
 }: {
   user: UserPublic
   onLogout: () => void
@@ -47,6 +49,8 @@ export function TopNav({
    * undefined on a view with no coach tour of its own (QA/Performance), which hides the button
    * rather than wiring it to a no-op. */
   onReplayTour?: () => void
+  /** The dashboard being viewed, for the feedback button's "what is this about" step (see FeedbackLauncher). */
+  feedbackScope: FeedbackScope
 }) {
   const { theme, toggleTheme } = useTheme()
 
@@ -59,7 +63,7 @@ export function TopNav({
         <img src={heliosLogo} alt="Helios" className="h-8 w-auto" />
       </div>
       <nav className="flex items-center gap-6 text-sm">
-        <FeedbackLauncher />
+        <FeedbackLauncher scope={feedbackScope} />
         {onReplayTour && (
           <button
             type="button"

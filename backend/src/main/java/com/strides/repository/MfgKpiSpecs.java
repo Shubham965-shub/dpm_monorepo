@@ -116,9 +116,9 @@ public final class MfgKpiSpecs {
     public static final QaKpiSpec MTTR_HOURS = QaKpiSpec.average(
             SCHEMA + "agg_sap_consolidated_mttr", "site_name", "sum_repair_hours", "breakdown_count", "hours");
 
-    /** M1 (maintenance / malfunction) and M2 (breakdown) are separate figures: the card shows M1 unless M2 is picked. */
+    /** M1 (maintenance / malfunction) and M2 (breakdown) are separate figures: the card shows M2 unless M1 is picked. */
     public static final String NOTIFICATION_TYPE_COLUMN = "notification_type";
-    public static final String NOTIFICATION_TYPE_DEFAULT = "M1";
+    public static final String NOTIFICATION_TYPE_DEFAULT = "M2";
     /** Power BI shows an empty M2 period as 0 but an empty M1 period as blank. */
     public static final String NOTIFICATION_TYPE_ZERO_WHEN_EMPTY = "M2";
     public static final QaKpiSpec EQUIPMENT_BREAKDOWN = QaKpiSpec.count(
