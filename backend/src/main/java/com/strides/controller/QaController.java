@@ -1247,7 +1247,7 @@ public class QaController extends QaStyleKpiResource {
     @GET
     @Path("/qa-vendor-blocking-due-to-quality-issue/drilldown")
     public DrilldownPage<Map<String, Object>> vendorBlockingQualityIssueDrilldown(@BeanParam KpiParams.DrilldownBase p) {
-        return service.getVendorBlockingQualityIssueDrilldown(p.site, RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"),
+        return service.getVendorBlockingQualityIssueDrilldown(p.site, p.from, p.to,
                 selectedFilters(VENDOR_BLOCKING_KPI_ID, uriInfo.getQueryParameters()),
                 p.q, p.sort, p.colFilter, p.colSearch, p.colRange, p.page, p.pageSize);
     }
@@ -1258,7 +1258,7 @@ public class QaController extends QaStyleKpiResource {
     @Path("/qa-vendor-blocking-due-to-quality-issue/drilldown/column-options")
     public Map<String, List<String>> vendorBlockingQualityIssueDrilldownColumnOptions(@BeanParam KpiParams.DrilldownBase p) {
         return service.getVendorBlockingQualityIssueDrilldownColumnOptions(p.site,
-                RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"),
+                p.from, p.to,
                 selectedFilters(VENDOR_BLOCKING_KPI_ID, uriInfo.getQueryParameters()));
     }
 
@@ -1268,9 +1268,10 @@ public class QaController extends QaStyleKpiResource {
     @Path("/qa-vendor-blocking-due-to-quality-issue/drilldown/export")
     @Produces("text/csv")
     public Response vendorBlockingQualityIssueDrilldownExport(@BeanParam KpiParams.DrilldownBase p) {
-        LocalDate from = RequiredParams.require(p.from, "from");
-        LocalDate to = RequiredParams.require(p.to, "to");
-        String csv = service.getVendorBlockingQualityIssueDrilldownExport(p.site, from, to,
+        // No date range applies (see QaDrilldownSpecs.VENDOR_BLOCKING_QUALITY_ISSUE), so the file is named for today.
+        LocalDate from = LocalDate.now();
+        LocalDate to = from;
+        String csv = service.getVendorBlockingQualityIssueDrilldownExport(p.site, p.from, p.to,
                 selectedFilters(VENDOR_BLOCKING_KPI_ID, uriInfo.getQueryParameters()), p.q, p.sort, p.colFilter, p.colSearch, p.colRange);
         return DrilldownExport.toCsvResponse(VENDOR_BLOCKING_KPI_ID, from, to, csv);
     }

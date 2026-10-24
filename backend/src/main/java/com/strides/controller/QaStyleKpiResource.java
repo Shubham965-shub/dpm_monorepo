@@ -4,6 +4,7 @@ import com.strides.dto.KpiCardResponse;
 import com.strides.dto.KpiParams;
 import com.strides.repository.QaKpiFilterColumns;
 import com.strides.repository.QaKpiSpec;
+import com.strides.repository.QaKpiSpecs;
 import com.strides.service.MfgKpiService;
 import com.strides.service.QaKpiService;
 import jakarta.inject.Inject;
@@ -95,6 +96,11 @@ public abstract class QaStyleKpiResource {
     @Path("/{kpiPath}/filter-options")
     public Map<String, List<String>> filterOptions(@PathParam("kpiPath") String kpiPath, @BeanParam KpiParams.DateRange p) {
         Map<String, Set<String>> selected = selectedFilters(kpiPath, uriInfo.getQueryParameters());
+        QaKpiFilterColumns.Mapping mapping = QaKpiFilterColumns.forKpiId(kpiPath);
+        // A snapshot card (no grain or period) is asked without a date window.
+        if (mapping != null && QaKpiSpecs.hasNoGrain(mapping.spec())) {
+            return service.filterOptions(kpiPath, p.site, null, null, null, selected);
+        }
         return service.filterOptions(kpiPath, p.site, RequiredParams.require(p.grain, "grain"),
                 RequiredParams.require(p.from, "from"), RequiredParams.require(p.to, "to"), selected);
     }
