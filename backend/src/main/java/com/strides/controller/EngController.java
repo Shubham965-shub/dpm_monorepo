@@ -4,18 +4,27 @@ import static com.strides.controller.KpiCardRules.divideRule;
 import static com.strides.controller.KpiCardRules.emptyAsZero;
 import static com.strides.controller.KpiCardRules.zeroAsBlank;
 
+import com.strides.dto.DrilldownPage;
+import com.strides.dto.DrilldownSupport;
 import com.strides.dto.KpiCardResponse;
 import com.strides.dto.KpiParams;
+import com.strides.repository.EngDrilldownSpecs;
 import com.strides.repository.EngKpiSpecs;
+import com.strides.repository.GenericDrilldownRepository;
 import com.strides.repository.QaKpiSpec;
 import com.strides.security.RequiresAdmin;
+import com.strides.service.GenericDrilldownService;
 import com.strides.service.MfgKpiService;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.BeanParam;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
@@ -32,6 +41,9 @@ public class EngController extends QaStyleKpiResource {
 
     @Inject
     MfgKpiService mfgService;
+
+    @Inject
+    GenericDrilldownService drilldownService;
 
     private static Map<String, String> allOf(String... columns) {
         Map<String, String> pins = new java.util.LinkedHashMap<>();
@@ -197,5 +209,61 @@ public class EngController extends QaStyleKpiResource {
     public List<KpiCardResponse> closureOfOpenChangeControls(@BeanParam KpiParams.DateRange p) {
         return mfgService.snapshot(EngKpiSpecs.CLOSURE_OF_OPEN_CCS, EngKpiSpecs.CLOSURE_AS_OF_COLUMN,
                 "eng-closure-of-open-change-controls-open-due-date-alerts", "Closure of Open Change Controls", p.site, RequiredParams.require(p.grain, "grain"));
+    }
+
+    /** The card's drill-down table; the two cards that fix a partition (M1/M2, PM/Calibration) narrow it the same way. */
+    private GenericDrilldownRepository.TableSpec drilldownSpec(String kpiId) {
+        GenericDrilldownRepository.TableSpec spec = EngDrilldownSpecs.BY_KPI.get(kpiId);
+        if (spec == null) {
+            throw new NotFoundException();
+        }
+        Map<String, String> fixed = new java.util.LinkedHashMap<>(spec.fixedFilters());
+        if ("eng-equipment-breakdown-m1-and-m2".equals(kpiId)) {
+            fixed.put("notification_type", picked(EngKpiSpecs.NOTIFICATION_PARAM, EngKpiSpecs.NOTIFICATION_M2)
+                    ? EngKpiSpecs.NOTIFICATION_M2 : EngKpiSpecs.NOTIFICATION_M1);
+        } else if ("eng-plan-vs-actual-pm-and-calibration-engineering".equals(kpiId)) {
+            fixed.put(EngKpiSpecs.ORDER_TYPE_COLUMN, picked(EngKpiSpecs.MAINTENANCE_TYPE_PARAM, EngKpiSpecs.MAINTENANCE_TYPE_CALIBRATION)
+                    ? EngKpiSpecs.ORDER_TYPE_CALIBRATION : EngKpiSpecs.ORDER_TYPE_PM);
+        }
+        return fixed.equals(spec.fixedFilters()) ? spec : new GenericDrilldownRepository.TableSpec(spec.table(), spec.siteColumn(),
+                spec.dateColumn(), spec.selectColumns(), spec.searchColumns(), spec.filterColumns(), fixed, spec.fixedCondition());
+    }
+
+    /** A snapshot card's table has no date column, so its range is not needed. */
+    private static LocalDate rangeEnd(GenericDrilldownRepository.TableSpec spec, LocalDate value, String name) {
+        return spec.dateColumn() == null ? value : RequiredParams.require(value, name);
+    }
+
+    @GET
+    @Path("/{kpiPath}/drilldown")
+    public DrilldownPage<Map<String, Object>> drilldown(@PathParam("kpiPath") String kpiId, @BeanParam KpiParams.DrilldownBase p) {
+        GenericDrilldownRepository.TableSpec spec = drilldownSpec(kpiId);
+        return drilldownService.fetch(spec, p.site, rangeEnd(spec, p.from, "from"), rangeEnd(spec, p.to, "to"),
+                selectedFilters(kpiId, uriInfo.getQueryParameters()), p.q, DrilldownSupport.parseSort(p.sort),
+                DrilldownSupport.parseColumnFilters(p.colFilter), DrilldownSupport.parseColumnSearches(p.colSearch),
+                DrilldownSupport.parseColumnRanges(p.colRange), p.page, p.pageSize);
+    }
+
+    @GET
+    @Path("/{kpiPath}/drilldown/column-options")
+    public Map<String, List<String>> drilldownColumnOptions(@PathParam("kpiPath") String kpiId, @BeanParam KpiParams.DrilldownBase p) {
+        GenericDrilldownRepository.TableSpec spec = drilldownSpec(kpiId);
+        return drilldownService.fetchColumnOptions(spec, p.site, rangeEnd(spec, p.from, "from"), rangeEnd(spec, p.to, "to"),
+                selectedFilters(kpiId, uriInfo.getQueryParameters()));
+    }
+
+    @GET
+    @Path("/{kpiPath}/drilldown/export")
+    @Produces("text/csv")
+    public Response drilldownExport(@PathParam("kpiPath") String kpiId, @BeanParam KpiParams.DrilldownBase p) {
+        GenericDrilldownRepository.TableSpec spec = drilldownSpec(kpiId);
+        LocalDate from = rangeEnd(spec, p.from, "from");
+        LocalDate to = rangeEnd(spec, p.to, "to");
+        List<Map<String, Object>> rows = drilldownService.fetchAllForExport(spec, p.site, from, to,
+                selectedFilters(kpiId, uriInfo.getQueryParameters()), p.q, DrilldownSupport.parseSort(p.sort),
+                DrilldownSupport.parseColumnFilters(p.colFilter), DrilldownSupport.parseColumnSearches(p.colSearch),
+                DrilldownSupport.parseColumnRanges(p.colRange));
+        List<String> headers = spec.selectColumns().stream().map(GenericDrilldownRepository.Column::jsonKey).toList();
+        return DrilldownExport.toCsvResponse(kpiId, from, to, DrilldownSupport.toCsv(headers, rows));
     }
 }
