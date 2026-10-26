@@ -106,6 +106,21 @@ jobs:
           NODE
 
 
+      - name: Show Frontend Log
+        if: failure()
+        run: cat "$RUNNER_TEMP/vite.log" || echo "No vite log found"
+
+      # ScreenshotUtils saves one per failed test - the quickest way to see what the page showed.
+      - name: Upload QA Failure Screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-failure-screenshots
+          path: |
+            qa/target/screenshots/
+            qa/target/surefire-reports/
+          if-no-files-found: warn
+
       - name: Upload QA Coverage Report
         if: ${{always()}}
         uses: actions/upload-artifact@v4    
