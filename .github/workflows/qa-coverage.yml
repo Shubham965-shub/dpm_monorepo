@@ -15,8 +15,8 @@ jobs:
         working-directory: qa
 
     # Read by ConfigReader as env vars (key upper-cased); baseUrl stays the config default (localhost).
+    # APIBASEURL is exported (normalized) by the start-frontend action.
     env:
-      APIBASEURL: ${{ vars.QA_API_URL }}
       EMAIL: ${{ secrets.QA_EMAIL }}
       PASSWORD: ${{ secrets.QA_PASSWORD }}
 

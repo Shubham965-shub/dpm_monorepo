@@ -22,12 +22,24 @@ runs:
       with:
         npm-token: ${{ inputs.npm-token }}
 
+    # Callers (frontend and QA tests) append /api/... themselves, so a trailing /api in the var
+    # would double up into /api/api/... and 404. Exported as APIBASEURL for the QA steps that follow.
+    - name: Normalize API URL
+      shell: bash
+      run: |
+        url="${API_URL%/}"
+        url="${url%/api}"
+        echo "APIBASEURL=$url" >> "$GITHUB_ENV"
+        echo "API base URL: $url"
+      env:
+        API_URL: ${{ inputs.api-url }}
+
     - name: Start dev server
       shell: bash
       working-directory: frontend
       run: nohup npx vite --port "${{ inputs.port }}" --strictPort > "$RUNNER_TEMP/vite.log" 2>&1 &
       env:
-        VITE_API_URL: ${{ inputs.api-url }}
+        VITE_API_URL: ${{ env.APIBASEURL }}
 
     - name: Wait for dev server
       shell: bash
