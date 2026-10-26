@@ -1,0 +1,112 @@
+name: QA Coverage Tests
+
+# Triggered only via coverage.yml, after the sanity job passes.
+on:
+  workflow_call:
+  workflow_dispatch:
+
+jobs:
+  java-qa-coverage:
+    name: Java QA Coverage Tests
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: qa
+
+    # Read by ConfigReader as env vars (key upper-cased), shared by both test runs.
+    env:
+      BASEURL: ${{ vars.QA_FRONTEND_URL }}
+      APIBASEURL: ${{ vars.QA_API_URL }}
+      EMAIL: ${{ secrets.QA_EMAIL }}
+      PASSWORD: ${{ secrets.QA_PASSWORD }}
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set Up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+          cache-dependency-path: qa/pom.xml
+
+      - name: Check Versions
+        run: |
+          java -version
+          mvn -version
+
+      - name: Run QA Tests
+        run: mvn --batch-mode --no-transfer-progress clean test -Dheadless=true
+
+      - name: Generate Coverage Report
+        run: mvn --batch-mode --no-transfer-progress jacoco:report
+
+      - name: Check Coverage
+        run: |
+          node <<'NODE'
+          const fs=require('fs');
+          const report='target/site/jacoco/jacoco.xml';
+
+          if(!fs.existsSync(report)){
+            console.error(`Coverage report not found: ${report}`);
+            console.error('Check that JaCoCo is configured in pom.xml');
+            process.exit(1);
+          }
+
+          const xml=fs.readFileSync(report,'utf8');
+          const counters=[
+            ...xml.matchAll(/<counter type="(LINE|BRANCH|INSTRUCTION|METHOD)" missed="(\d+)" covered="(\d+)"/g)];
+
+          const totals={};
+
+          for(const[,type,missed,covered]of counters){
+            const missedCount=Number(missed);
+            const coveredCount=Number(covered);
+            const totalCount=missedCount+coveredCount;
+
+            if(totalCount===0)continue;
+
+            totals[type]={
+              pct:(coveredCount/totalCount)*100,
+              covered:coveredCount,
+              total:totalCount
+            };
+          }
+
+          let passed=true;
+
+          const thresholds={LINE:80, BRANCH:70, INSTRUCTION:80, METHOD:80};
+          for(const[type,threshold]of Object.entries(thresholds)){
+            const metric=totals[type];
+            if(!metric){
+              console.warn(`${type}: No data found`);
+              continue;
+            }
+
+            console.log(`${type}: ${metric.pct.toFixed(2)}% (required ${threshold}%)`);
+            if(metric.pct<threshold){
+              console.error(`${type} coverage ${metric.pct.toFixed(2)}% is below ${threshold}%`);
+              passed=false;
+            }
+          }
+
+          if(!passed){
+            process.exit(1);
+          }
+
+          console.log('\nCoverage check passed');
+          NODE
+
+
+      - name: Upload QA Coverage Report
+        if: ${{always()}}
+        uses: actions/upload-artifact@v4    
+        with:
+            name: qa-coverage-report
+            path: qa/target/site/jacoco/
+            if-no-files-found: warn
+            retention-days: 7
+

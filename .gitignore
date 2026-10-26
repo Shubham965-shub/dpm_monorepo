@@ -1,5 +1,7 @@
-# Java / Maven (backend)
+# Java / Maven (backend, qa)
 backend/target/
+qa/target/
+qa/reports/
 *.class
 *.jar
 *.war

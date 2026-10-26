@@ -1,0 +1,13 @@
+
+FROM catthehacker/ubuntu:full-latest
+
+USER root
+
+RUN apt-get update && \
+    apt-get install -y ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+COPY zscaler-ca.crt /usr/local/share/ca-certificates/zscaler-ca.crt
+RUN update-ca-certificates
+
+ENV NODE_EXTRA_CA_CERTS=/usr/local/share/ca-certificates/zscaler-ca.crt
+

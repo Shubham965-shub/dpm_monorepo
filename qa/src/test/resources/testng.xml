@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+
+<suite name="QA Automation Suite">
+
+    <listeners>
+        <listener class-name="com.example.reports.ExtentTestListener"/>
+    </listeners>
+
+    <test name="Sanity Tests">
+
+        <groups>
+            <run>
+                <include name="sanity"/>
+            </run>
+        </groups>
+
+        <classes>
+            <class name="com.example.tests.SanityTest"/>
+            <class name="com.example.tests.LoginPageTest"/>
+            <class name="com.example.tests.DashboardPageTest"/>
+            <class name="com.example.tests.FavoriteSectionsTest"/>
+            <class name="com.example.tests.InstrumentHealthTest"/>
+            <!-- Last on purpose: its happy-path test changes and reverts the real account's
+                 password, which revokes every other outstanding refresh token server-side. -->
+            <class name="com.example.tests.ChangePasswordTest"/>
+        </classes>
+
+    </test>
+
+</suite>

@@ -1,0 +1,74 @@
+name: Sanity and Coverage
+
+on:
+  push:
+    branches:
+      - qa
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - "qa/**"
+      - ".github/workflows/coverage.yml"
+      - ".github/workflows/*-coverage.yml"
+  pull_request:
+    branches:
+      - qa
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - "qa/**"
+      - ".github/workflows/coverage.yml"
+      - ".github/workflows/*-coverage.yml"
+  workflow_dispatch:
+
+# Called workflows can't be granted more than the caller has; frontend needs packages:read.
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  sanity:
+    name: Sanity Test
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: qa
+
+    # Read by ConfigReader as env vars (key upper-cased).
+    env:
+      BASEURL: ${{ vars.QA_FRONTEND_URL }}
+      APIBASEURL: ${{ vars.QA_API_URL }}
+      EMAIL: ${{ secrets.QA_EMAIL }}
+      PASSWORD: ${{ secrets.QA_PASSWORD }}
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set Up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+          cache-dependency-path: qa/pom.xml
+
+      - name: Run Sanity Test
+        run: mvn --batch-mode --no-transfer-progress clean test -Dtest=SanityTest -Dheadless=true
+
+  # Each coverage workflow runs only if sanity passed; a sanity failure skips them and fails the run.
+  backend-coverage:
+    needs: sanity
+    uses: ./.github/workflows/backend-coverage.yml
+    secrets: inherit
+
+  frontend-coverage:
+    needs: sanity
+    uses: ./.github/workflows/frontend-coverage.yml
+    secrets: inherit
+
+  qa-coverage:
+    needs: sanity
+    uses: ./.github/workflows/qa-coverage.yml
+    secrets: inherit

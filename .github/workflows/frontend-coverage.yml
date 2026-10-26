@@ -1,0 +1,115 @@
+name: Frontend Test Coverage
+
+# Triggered only via coverage.yml, after the sanity job passes.
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  test:
+    name: Frontend Tests and Coverage
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run Frontend Tests and Coverage
+        run: npm run test:coverage
+
+      - name: Display Coverage Summary
+        if: always()
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+
+          const report = 'coverage/coverage-summary.json';
+
+          if (!fs.existsSync(report)) {
+            console.error(`Coverage Summary not found: ${report}`);
+            console.error(
+              'Check whether the test command generates JSON coverage.'
+            );
+            process.exit(1);
+          }
+
+          const data = JSON.parse(
+            fs.readFileSync(report, 'utf8')
+          );
+          const total = data.total;
+
+          if (!total) {
+            console.error(
+              'The coverage report does not contain total metrics.'
+            );
+            process.exit(1);
+          }
+
+          const metrics = [
+            'statements',
+            'branches',
+            'functions',
+            'lines'
+          ];
+
+          let passed = true;
+
+          
+
+          for (const metric of metrics) {
+            const value = total[metric]?.pct;
+            if (typeof value !== 'number') {
+              console.error(
+                `${metric.padEnd(12)}: Missing coverage data`
+              );
+              passed = false;
+              continue;
+            }
+
+            console.log(`${metric.padEnd(12)}: ${value.toFixed(2)}%`);
+            if (value < 80) {
+              passed = false;
+            }
+          }
+
+          console.log('-------------------------');
+          console.log(`Status: ${passed ? 'PASS' : 'FAIL'}`);
+
+          if (!passed) {
+            console.error('Coverage must be at least 80% for every metric.');
+            process.exit(1);
+          }
+
+          console.log(
+            'All coverage metrics meet the 80% threshold.'
+          );
+          NODE
+
+      - name: Upload Frontend Coverage Report
+        if: ${{ always()}}
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage-report
+          path: frontend/coverage/
+          if-no-files-found: warn
+          retention-days: 5

@@ -1,0 +1,109 @@
+name: Backend Test Coverage
+
+# Triggered only via coverage.yml, after the sanity job passes.
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend-test-coverage:
+    name: Backend Test Coverage
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Check Versions
+        run: |
+          java -version
+          mvn -version
+
+      - name: Run Tests and Generate Coverage
+        run: mvn --batch-mode --no-transfer-progress clean verify
+
+      - name: Check Coverage Threshold
+        if: success()
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const report = 'target/site/jacoco/jacoco.xml';
+          const threshold = 80;
+          if (!fs.existsSync(report)) {
+            console.error(`Coverage report not found: ${report}`);
+            process.exit(1);
+          }
+
+          const xml = fs.readFileSync(report, 'utf8');
+          const reportMatch = xml.match(/<report\b[^>]*>([\s\S]*?)<\/report>/);
+          if (!reportMatch) {
+            console.error('Invalid JaCoCo report format.');
+            process.exit(1);
+          }
+          const rootContent = reportMatch[1].replace(/<package\b[^>]*>[\s\S]*?<\/package>/g, '');
+          const counters = [...rootContent.matchAll(
+              /<counter\s+type="(INSTRUCTION|BRANCH|LINE|METHOD|CLASS)"\s+missed="(\d+)"\s+covered="(\d+)"\s*\/>/g
+            )];
+
+          if (counters.length === 0) {
+            console.error('No overall coverage counters found.');
+            process.exit(1);
+          }
+
+          const metrics = {};
+          for (const [, type, missed, covered] of counters) {
+            const missedCount = Number(missed);
+            const coveredCount = Number(covered);
+            const totalCount = missedCount + coveredCount;
+
+            if (totalCount === 0) continue;
+            metrics[type] = {
+              pct: (coveredCount / totalCount) * 100
+            };
+          }
+
+          console.log('\nBackend Coverage Summary');
+          let passed = true;
+          for (const type of ['INSTRUCTION','BRANCH','LINE','METHOD','CLASS']) {
+            const metric = metrics[type];
+            if (!metric) {
+              console.log(`${type}: N/A`);
+              continue;
+            }
+
+            const status = metric.pct >= threshold ? 'PASS' : 'FAIL';
+            console.log(`${type}: ${metric.pct.toFixed(2)}% (${status})`);
+            if (metric.pct < threshold) {
+              passed = false;
+            }
+          }
+
+          if (!passed) {
+            console.error(`Coverage check failed: at least ${threshold}% is required for every available metric.`);
+            process.exit(1);
+          }
+          console.log('Coverage check passed.');
+          NODE
+
+      - name: Upload Backend Coverage Report
+        if: ${{ always()}}
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage-report
+          path: backend/target/site/jacoco/
+          if-no-files-found: warn
+          retention-days: 7

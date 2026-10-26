@@ -59,17 +59,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   )
 
   const loginMutation = useMutation({
-    mutationFn: ({ email, password }: { email: string; password: string }) =>
-      postValidated(loginResponseSchema, '/api/auth/login', { email, password }),
-    onSuccess: (response) => {
-      setAccessToken(response.accessToken)
-      setRefreshToken(response.refreshToken)
-      // Wipe the whole cache, not just the session entry: any other query cached under the
-      // previous session (or a prior user, on a shared machine) must not leak into this one.
-      queryClient.clear()
-      queryClient.setQueryData(SESSION_QUERY_KEY, response.user)
-    },
-  })
+  mutationFn: async ({
+    email,
+    password,
+  }: {
+    email: string
+    password: string
+  }) => {
+    const response = await apiClient.post('/api/auth/login', {
+      email,
+      password,
+    })
+
+    console.log("Response: ",response);
+    
+    return loginResponseSchema.parse(response.data)
+  },
+
+  onSuccess: (response) => {
+    console.log('gin response:', response)
+    setAccessToken(response.accessToken)
+    setRefreshToken(response.refreshToken)
+    queryClient.clear()
+    queryClient.setQueryData(SESSION_QUERY_KEY, response.user)
+  },
+})
 
   const changePasswordMutation = useMutation({
     mutationFn: ({ currentPassword, newPassword }: { currentPassword: string; newPassword: string }) =>

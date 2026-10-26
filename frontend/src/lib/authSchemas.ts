@@ -11,7 +11,8 @@ export const userPublicSchema = z.object({
   // the one CXO shared across Mfg/Engg/SC&P) - gates which dashboard(s) are shown (see
   // roleAccess.ts's hasDepartmentAccess), mirroring RequiresDepartment's server-side check. ADMIN
   // (the role) bypasses this regardless of departments.
-  departments: z.array(z.string()),
+
+  departments: z.array(z.string()).optional().default([]),
   isActive: z.boolean(),
   // Fixed backend enum: 'CXO' | 'HOD' | 'MANAGER' | 'SUPERVISOR' | 'ANALYST' | 'ADMIN' |
   // 'CLUSTER_HEAD'. A user can hold more than one. Only 'ADMIN' gates anything server-side today
