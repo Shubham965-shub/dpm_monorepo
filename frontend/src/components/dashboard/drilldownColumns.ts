@@ -273,6 +273,7 @@ const OOT_TREND_COLUMNS: DrilldownColumn[] = [
   { key: 'recordId', label: 'Record ID' },
   { key: 'title', label: 'Title' },
   { key: 'dateOpened', label: 'Date Opened', filterType: 'date' },
+  { key: 'dateClosed', label: 'Date Closed', filterType: 'date' },
   { key: 'status', label: 'Status' },
   { key: 'conclusion', label: 'Conclusion' },
 ]
@@ -281,6 +282,7 @@ const OOS_TREND_COLUMNS: DrilldownColumn[] = [
   { key: 'recordId', label: 'Record ID' },
   { key: 'title', label: 'Title' },
   { key: 'dateOpened', label: 'Date Opened', filterType: 'date' },
+  { key: 'dateClosed', label: 'Date Closed', filterType: 'date' },
   { key: 'status', label: 'Status' },
   { key: 'conclusion', label: 'Conclusion' },
 ]
@@ -991,6 +993,14 @@ const BASE_DRILLDOWN_CONFIG: Record<string, DrilldownConfig> = {
   'qa-product-complaint-criticality': { rowSchema: genericDrilldownRowSchema, columns: QA_MARKET_COMPLAINT_MASTER_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-repeat-complaints': { rowSchema: genericDrilldownRowSchema, columns: QA_MARKET_COMPLAINT_MASTER_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-market-complaints-cn-tracking-ack-investigation-closure': { rowSchema: genericDrilldownRowSchema, columns: QA_MARKET_COMPLAINT_MASTER_COLUMNS, drilldownAdvancedFiltering: true },
+  'qa-deviations-per-1000-tests-qc': { rowSchema: genericDrilldownRowSchema, columns: DEVIATIONS_COLUMNS, drilldownAdvancedFiltering: true },
+  'qa-deviations-per-1000-batches-human': { rowSchema: genericDrilldownRowSchema, columns: DEVIATIONS_COLUMNS, drilldownAdvancedFiltering: true },
+  'qa-deviations-due-to-suppliers-materials-1000-batches': { rowSchema: genericDrilldownRowSchema, columns: DEVIATIONS_COLUMNS, drilldownAdvancedFiltering: true },
+  'qa-oos-due-to-suppliers-materials-1000-batches': { rowSchema: genericDrilldownRowSchema, columns: OOS_TREND_COLUMNS, drilldownAdvancedFiltering: true },
+  'qa-analyst-error-ioos': { rowSchema: genericDrilldownRowSchema, columns: OOS_TREND_COLUMNS, drilldownAdvancedFiltering: true },
+  'qa-oos-logged': { rowSchema: genericDrilldownRowSchema, columns: OOS_TREND_COLUMNS, drilldownAdvancedFiltering: true },
+  'qa-confirmed-oos-logged': { rowSchema: genericDrilldownRowSchema, columns: QA_VALID_OOS_COLUMNS, drilldownAdvancedFiltering: true },
+  'qa-breakdown-time-lims-instruments': { rowSchema: genericDrilldownRowSchema, columns: BREAKDOWN_FREQUENCY_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-recall-event-density': { rowSchema: genericDrilldownRowSchema, columns: QA_RECALL_EVENT_DENSITY_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-far-alert-event-density': { rowSchema: genericDrilldownRowSchema, columns: QA_FAR_ALERT_EVENT_DENSITY_COLUMNS, drilldownAdvancedFiltering: true },
 }
@@ -1013,10 +1023,140 @@ const ENGG_OWN_DRILLDOWN_CONFIG: Record<string, DrilldownConfig> = {
   'engg-open-new-equipment-and-facility-modification-ccs': { rowSchema: genericDrilldownRowSchema, columns: ENGG_OPEN_NEW_CCS_COLUMNS, drilldownAdvancedFiltering: true },
 }
 
+// Manufacturing / Supply Chain cards that read their own fact tables (backend MfgDrilldownSpecs), keyed by their dashboard card id.
+const MFG_SLA_IP_COLUMNS: DrilldownColumn[] = [
+  { key: 'sampleNumber', label: 'Sample Number' },
+  { key: 'textId', label: 'Text ID' },
+  { key: 'batchName', label: 'Batch Name' },
+  { key: 'productName', label: 'Product Name' },
+  { key: 'groupName', label: 'Group Name' },
+  { key: 'sampleType', label: 'Sample Type' },
+  { key: 'batchCategory', label: 'Batch Category' },
+  { key: 'sampledDate', label: 'Sampled Date', filterType: 'date' },
+  { key: 'completedDate', label: 'Completed Date', filterType: 'date' },
+  { key: 'status', label: 'Status' },
+  { key: 'tatWorkingDays', label: 'TAT (Working Days)', align: 'right' },
+  { key: 'slaDays', label: 'SLA Days', align: 'right' },
+  { key: 'slaStatus', label: 'SLA Status' },
+  { key: 'daysMissedSla', label: 'Days Missed SLA', align: 'right' },
+]
+
+const MFG_CHANGEOVER_COLUMNS: DrilldownColumn[] = [
+  { key: 'name', label: 'Name' },
+  { key: 'equipmentName', label: 'Equipment Name' },
+  { key: 'completedDate', label: 'Completed Date', filterType: 'date' },
+  { key: 'executionTime', label: 'Execution Time' },
+]
+
+const MFG_YIELD_COLUMNS: DrilldownColumn[] = [
+  { key: 'batchNo', label: 'Batch No' },
+  { key: 'material', label: 'Material' },
+  { key: 'materialDescription', label: 'Material Description' },
+  { key: 'materialGroup', label: 'Material Group' },
+  { key: 'baseUom', label: 'Base UoM' },
+  { key: 'batchSize', label: 'Batch Size', align: 'right' },
+  { key: 'outputQty', label: 'Output Qty', align: 'right' },
+  { key: 'actualYield', label: 'Actual Yield', align: 'right' },
+  { key: 'dateOfManufacture', label: 'Date of Manufacture', filterType: 'date' },
+  { key: 'dateOfExpiry', label: 'Date of Expiry' },
+]
+
+const MFG_LOT_ACCEPTANCE_COLUMNS: DrilldownColumn[] = [
+  { key: 'inspectionLot', label: 'Inspection Lot' },
+  { key: 'insplotOrigin', label: 'Inspection Lot Origin' },
+  { key: 'material', label: 'Material' },
+  { key: 'materialDescription', label: 'Material Description' },
+  { key: 'materialType', label: 'Material Type' },
+  { key: 'batch', label: 'Batch' },
+  { key: 'udCode', label: 'UD Code' },
+  { key: 'udCodeDate', label: 'UD Code Date', filterType: 'date' },
+]
+
+const MFG_OTIF_COLUMNS: DrilldownColumn[] = [
+  { key: 'po', label: 'PO' },
+  { key: 'material', label: 'Material' },
+  { key: 'materialGroup', label: 'Material Group' },
+  { key: 'vendorName', label: 'Vendor Name' },
+  { key: 'materialType', label: 'Material Type' },
+  { key: 'orderedQty', label: 'Ordered Qty', align: 'right' },
+  { key: 'receivedQty', label: 'Received Qty', align: 'right' },
+  { key: 'poDeliveryDate', label: 'PO Delivery Date', filterType: 'date' },
+  { key: 'actualGrDate', label: 'Actual GR Date', filterType: 'date' },
+  { key: 'deadline', label: 'Deadline', filterType: 'date' },
+  { key: 'daysLate', label: 'Days Late', align: 'right' },
+  { key: 'inFull', label: 'In Full' },
+  { key: 'onTime', label: 'On Time' },
+  { key: 'otifStatus', label: 'OTIF Status' },
+]
+
+const MFG_AQL_COLUMNS: DrilldownColumn[] = [
+  { key: 'orderNumber', label: 'Order Number' },
+  { key: 'itemCode', label: 'Item Code' },
+  { key: 'itemDescription', label: 'Item Description' },
+  { key: 'instanceDescription', label: 'Instance Description' },
+  { key: 'isAqlPass', label: 'AQL Pass', align: 'right' },
+  { key: 'isAqlFail', label: 'AQL Fail', align: 'right' },
+  { key: 'aqlResultDate', label: 'AQL Result Date', filterType: 'date' },
+]
+
+const MFG_IA_RESPONSE_TRACKING_COLUMNS: DrilldownColumn[] = [
+  { key: 'recordId', label: 'Record ID' },
+  { key: 'title', label: 'Title' },
+  { key: 'recordStatus', label: 'Record Status' },
+  { key: 'observationCategory', label: 'Observation Category' },
+  { key: 'severity', label: 'Severity' },
+  { key: 'dateCreated', label: 'Date Created', filterType: 'date' },
+  { key: 'actionDueDate', label: 'Action Due Date', filterType: 'date' },
+  { key: 'responseCompleted', label: 'Response Completed', filterType: 'date' },
+  { key: 'responseAgingDays', label: 'Response Aging (Days)', align: 'right' },
+  { key: 'extensionCount', label: 'Extensions', align: 'right' },
+  { key: 'status', label: 'Status' },
+]
+
+const MFG_NEW_LAUNCH_COLUMNS: DrilldownColumn[] = [
+  { key: 'recordId', label: 'Record ID' },
+  { key: 'ccTitle', label: 'CC Title' },
+  { key: 'ccCategory', label: 'CC Category' },
+  { key: 'recordStatus', label: 'Record Status' },
+  { key: 'dateOpened', label: 'Date Opened', filterType: 'date' },
+  { key: 'initialDueDate', label: 'Initial Due Date' },
+  { key: 'dueDate', label: 'Due Date' },
+  { key: 'dateClosed', label: 'Date Closed' },
+  { key: 'extensionCounter', label: 'Extension Counter' },
+]
+
+const MFG_CASUAL_MANPOWER_COLUMNS: DrilldownColumn[] = [
+  { key: 'attendanceDate', label: 'Attendance Date', filterType: 'date' },
+  { key: 'shift', label: 'Shift' },
+  { key: 'location', label: 'Location' },
+  { key: 'empCode', label: 'Emp Code' },
+  { key: 'empName', label: 'Emp Name' },
+]
+
+const generic = (columns: DrilldownColumn[]): DrilldownConfig => ({ rowSchema: genericDrilldownRowSchema, columns, drilldownAdvancedFiltering: true })
+
+const MFG_OWN_DRILLDOWN_CONFIG: Record<string, DrilldownConfig> = {
+  'mfg-sla-ip-in-process-sample-turnaround': generic(MFG_SLA_IP_COLUMNS),
+  'mfg-serial-changeover-time': generic(MFG_CHANGEOVER_COLUMNS),
+  'mfg-non-serial-changeover-time': generic(MFG_CHANGEOVER_COLUMNS),
+  'mfg-yield': generic(MFG_YIELD_COLUMNS),
+  'mfg-lot-acceptance-rate': generic(MFG_LOT_ACCEPTANCE_COLUMNS),
+  'mfg-difot-of-suppliers': generic(MFG_OTIF_COLUMNS),
+  'mfg-aql-success-rate': generic(MFG_AQL_COLUMNS),
+  'mfg-ia-response-tracking-and-timely-adherence': generic(MFG_IA_RESPONSE_TRACKING_COLUMNS),
+  'mfg-new-launches-and-site-transfer-on-time': generic(MFG_NEW_LAUNCH_COLUMNS),
+  'mfg-casual-manpower-available': generic(MFG_CASUAL_MANPOWER_COLUMNS),
+}
+
 // An admin-department card that reuses a QA endpoint shows that card's drill-down table, so it reads the same columns
 // under its own id (DRILLDOWN_CONFIG is keyed by kpi.id).
-export const DRILLDOWN_CONFIG: Record<string, DrilldownConfig> = {
+const OWN_DRILLDOWN_CONFIG: Record<string, DrilldownConfig> = {
   ...BASE_DRILLDOWN_CONFIG,
   ...ENGG_OWN_DRILLDOWN_CONFIG,
-  ...Object.fromEntries(Object.entries(ADMIN_DRILLDOWN_SOURCE).map(([kpiId, source]) => [kpiId, BASE_DRILLDOWN_CONFIG[source]])),
+  ...MFG_OWN_DRILLDOWN_CONFIG,
+}
+
+export const DRILLDOWN_CONFIG: Record<string, DrilldownConfig> = {
+  ...OWN_DRILLDOWN_CONFIG,
+  ...Object.fromEntries(Object.entries(ADMIN_DRILLDOWN_SOURCE).map(([kpiId, source]) => [kpiId, OWN_DRILLDOWN_CONFIG[source]])),
 }

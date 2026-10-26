@@ -234,7 +234,8 @@ export function ExtraFilterControl({
                 <ChevronDown className="size-3 shrink-0 opacity-60" />
               </button>
             </PopoverTrigger>
-            <PopoverContent align="start" className="w-56 gap-1 p-1.5">
+            {/* z-[70]: above the compact card's Filters panel (z-[60], FiltersPopoverButton) this list can open from, or the panel covers it. */}
+            <PopoverContent align="start" className="z-[70] w-56 gap-1 p-1.5">
               <MultiSelectOptions state={state} options={options} onChange={onChange} />
             </PopoverContent>
           </Popover>

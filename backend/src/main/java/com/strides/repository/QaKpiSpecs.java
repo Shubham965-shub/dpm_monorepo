@@ -12,7 +12,6 @@ package com.strides.repository;
  *
  * Several frontend QA KPI ids still have no real table, confirmed live as of 2026-10-12 (not an
  * oversight - there is genuinely nothing to query yet):
- * - deviations-per-1000-tests-qc: no table combines the right numerator with a QC-test-count denominator.
  * The three per-1000-batches KPIs (human deviations, supplier/material deviations, supplier/material OOS) read the
  * `agg_tw_*_per_1000_batches` tables from the DPM_QA Power BI handover (2026-10-23, Ankur).
  *
@@ -112,6 +111,9 @@ public final class QaKpiSpecs {
 
     private static final double PER_THOUSAND = 1000;
     private static final String PER_1000_BATCHES_UNIT = "per 1000 batches";
+
+    public static final QaKpiSpec DEVIATIONS_PER_1000_TESTS_QC = QaKpiSpec.ratio(
+            "agg_tw_deviations_per_1000_tests_qc", "site", "deviation_count", "test_count", PER_THOUSAND, "per 1000 tests");
 
     public static final QaKpiSpec OOS_SUPPLIERS_MATERIALS_PER_1000_BATCHES = QaKpiSpec.ratio(
             "agg_tw_oos_suppliers_materials_per_1000_batches", "site", "oos_count", "rm_grn_batch_count", PER_THOUSAND, PER_1000_BATCHES_UNIT);
@@ -314,12 +316,16 @@ public final class QaKpiSpecs {
     public static final QaKpiSpec REPEAT_COMPLAINTS = QaKpiSpec.ratioNumeratorWhere(
             "agg_tw_market_complaint_master", "site", "complaint_count", "is_recurring = 'Yes'", "complaint_count", 100, "%");
 
-    // The original frontend KPI bundles ack/investigation/closure tracking into one card - this
-    // reads the closure-aging figure (the doc's own distinct "Market complaint closure aging" row)
-    // as the primary value; ack-aging and investigation-aging are separate columns on the same
-    // table, not folded in here - flag if the dashboard needs all three as separate cards instead.
+    // One card, three trends from the same table: closure aging (the primary series, whose limits the card carries),
+    // then investigation and acknowledgement aging. A period with no rows for a stage reads "no data", not 0.
     public static final QaKpiSpec MARKET_COMPLAINTS_TRACKING = QaKpiSpec.average(
             "agg_tw_market_complaint_master", "site", "sum_closure_aging_days", "closure_aging_rows", "days");
+
+    public static final QaKpiSpec MARKET_COMPLAINTS_INVESTIGATION_AGING = QaKpiSpec.average(
+            "agg_tw_market_complaint_master", "site", "sum_investigation_aging_days", "investigation_aging_rows", "days");
+
+    public static final QaKpiSpec MARKET_COMPLAINTS_ACK_AGING = QaKpiSpec.average(
+            "agg_tw_market_complaint_master", "site", "sum_ack_aging_days", "ack_aging_rows", "days");
 
     public static final QaKpiSpec RECALL_EVENT_DENSITY = QaKpiSpec.count(
             "agg_tw_recall_event_density", "site", "recall_count", "recalls");

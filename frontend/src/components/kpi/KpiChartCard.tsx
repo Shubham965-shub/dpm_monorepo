@@ -56,7 +56,9 @@ export function toChartData(rows: KpiCardResponse[], axis?: ChartAxis) {
       // Rows are ordered by periodStart from the backend, so the last write wins as "latest".
       seriesByKey.get(key)!.latestStatus = row.status
     }
-    const bucket = byPeriod.get(row.periodStart) ?? { periodStart: row.periodStart }
+    // A category card plots one bar per `category`; the bucket keeps the `periodStart` key the charts read as their x value.
+    const x = row.category ?? row.periodStart
+    const bucket = byPeriod.get(x) ?? { periodStart: x }
     bucket[key] = row.value
     // Stashed alongside the plottable value (not nested under it) so `key` can still be used
     // directly as a Line/Bar dataKey - KpiLineTooltip looks these companion keys up by seriesKey.
@@ -65,7 +67,7 @@ export function toChartData(rows: KpiCardResponse[], axis?: ChartAxis) {
     if (row.numerator != null) bucket[`${key}__numerator`] = row.numerator
     if (row.denominator != null) bucket[`${key}__denominator`] = row.denominator
     if (row.breakdown) bucket[`${key}__breakdown`] = JSON.stringify(row.breakdown)
-    byPeriod.set(row.periodStart, bucket)
+    byPeriod.set(x, bucket)
   }
 
   if (axis) {

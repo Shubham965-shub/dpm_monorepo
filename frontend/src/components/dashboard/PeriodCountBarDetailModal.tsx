@@ -100,7 +100,7 @@ export function PeriodCountBarDetailModal({
           {/* max-w-xs: without a real width to wrap against, FilterPills' own flex-wrap never
           activates (a flex item with no width constraint just grows to fit one unwrapped row). */}
           <div className="flex max-w-xs flex-col items-end gap-3">
-            <GrainToggle grain={grain} onChange={onGrainChange} activeHex={GREEN.solidHex} size="modal" />
+            {!kpi.categoryAxis && <GrainToggle grain={grain} onChange={onGrainChange} activeHex={GREEN.solidHex} size="modal" />}
             <FilterPills
               kpi={kpi}
               extraStates={extraStates}
@@ -136,14 +136,14 @@ export function PeriodCountBarDetailModal({
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                   <XAxis
                     dataKey="periodStart"
-                    tickFormatter={(p: string) => formatPeriodTick(p, grain, NEVER_CURRENT_YEAR)}
+                    tickFormatter={(p: string) => (kpi.categoryAxis ? p : formatPeriodTick(p, grain, NEVER_CURRENT_YEAR))}
                     interval={evenTickInterval(chartData.length, MAX_X_TICKS)}
                     tick={{ fontSize: 11 }}
                     stroke="var(--muted-foreground)"
                   />
                   <YAxis allowDecimals={false} tick={{ fontSize: 11 }} stroke="var(--muted-foreground)" />
                   <Tooltip
-                    content={(props) => <CountTooltip {...props} periodLabel={formatRangeStart(String(props.label), grain)} />}
+                    content={(props) => <CountTooltip {...props} periodLabel={kpi.categoryAxis ? String(props.label) : formatRangeStart(String(props.label), grain)} />}
                     wrapperStyle={{ zIndex: TOOLTIP_Z_INDEX }}
                     cursor={{ fill: GREEN.paleHex, fillOpacity: 0.4 }}
                   />

@@ -36,4 +36,15 @@ final class KpiCardRules {
             return card.numerator().signum() == 0 ? card.withValue(null) : card;
         }).toList();
     }
+
+    /** "Per 1000" measures, DIVIDE(count, n, 0) * 1000: an empty count is blank (BLANK * 1000 stays blank), a count
+     * with no denominator is 0. Unlike divideRule, the empty count wins when both are zero. */
+    static List<KpiCardResponse> emptyCountAsBlank(List<KpiCardResponse> cards) {
+        return cards.stream().map(card -> {
+            if (card.numerator() == null || card.numerator().signum() == 0) {
+                return card.withValue(null);
+            }
+            return card.denominator() == null || card.denominator().signum() == 0 ? card.withValue(zero()) : card;
+        }).toList();
+    }
 }

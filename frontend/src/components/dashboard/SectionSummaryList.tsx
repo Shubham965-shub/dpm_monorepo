@@ -349,13 +349,17 @@ export const SectionSummaryList = forwardRef<
         // BEFORE this narrowing - the header's own "no threshold" number must stay the true total
         // regardless of which bucket is currently selected, same as every other tier's count there.
         const stackedKpisForCount = stackedKpis
+        const categoryColumnCount = columnKpis.filter((kpi) => kpi.categoryAxis).length
         // A stacked-share KPI has no threshold by design (stackedShareNoThresholdCount) - same
         // 3-state meaning as DomainSeverityBoard's own highlightSeverity: undefined (no filter
         // control on this page at all) always shows it, same as every no-threshold card there in
         // that case; null (a control exists, nothing selected) or any severity OTHER than
         // 'no-threshold' hides it, since it can never match a real severity and the no-threshold
         // band itself is hidden by default whenever that control exists.
-        if (highlightSeverity !== undefined && highlightSeverity !== 'no-threshold') stackedKpis = []
+        if (highlightSeverity !== undefined && highlightSeverity !== 'no-threshold') {
+          stackedKpis = []
+          columnKpis = columnKpis.filter((kpi) => !kpi.categoryAxis)
+        }
         // Always paired with its host (see HEATMAP_COMPANION_HOST_ID) - not independently
         // searchable/rendered, so it isn't part of the search filter or hasMatch above. A function
         // (not a plain node) so DomainSeverityBoard can pass the host's own live severity through -
@@ -430,7 +434,7 @@ export const SectionSummaryList = forwardRef<
             domain={domain}
             trendKpis={trendKpis}
             stackedKpis={stackedKpis}
-            stackedNoThresholdCount={stackedKpisForCount.length}
+            stackedNoThresholdCount={stackedKpisForCount.length + categoryColumnCount}
             columnKpis={columnKpis}
             rankingKpis={rankingKpis}
             companions={companions}

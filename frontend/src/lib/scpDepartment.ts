@@ -107,11 +107,11 @@ export const SCP_DOMAINS: KpiDomain[] = [
       { id: 'scp-delays-in-sampling-affecting-material-availability', label: 'Delays in sampling affecting material availability', path: 'delays-in-sampling-affecting-material-availability', extraFilters: [] },
       // Needs: No data source yet (the sheet names none).
       { id: 'scp-check-for-product-license-availability', label: 'Check for product license availability', path: 'check-for-product-license-availability', extraFilters: [] },
-      { id: 'scp-difot-of-suppliers', label: 'DIFOT of suppliers', path: 'mfg/mfg-difot-of-suppliers', site: 'ALL', extraFilters: [], mock: false },
-      { id: 'scp-vendor-blocking-due-to-quality-issue-rq-tac-bac-ta-regulatory-import-alert', label: 'Vendor blocking due to quality issue (RQ, TAC/BAC, TA, Regulatory, Import alert)', path: 'qa/qa-vendor-blocking-due-to-quality-issue', extraFilters: [{ kind: 'multiSelect', param: 'materialType' }, { kind: 'multiSelect', param: 'blockCategory' }], snapshot: true, mock: false, drilldownPath: 'qa/qa-vendor-blocking-due-to-quality-issue/drilldown' },
-      { id: 'scp-oos-due-to-suppliers-and-materials-1000-batches', label: 'OOS due to suppliers & materials / 1000 batches', path: 'qa/qa-oos-due-to-suppliers-materials-1000-batches', extraFilters: [], mock: false },
-      { id: 'scp-deviations-due-to-suppliers-and-materials-1000-batches', label: 'Deviations due to suppliers & materials / 1000 batches', path: 'qa/qa-deviations-due-to-suppliers-materials-1000-batches', extraFilters: [], mock: false },
-      { id: 'scp-batches-with-error-on-incoming-inspection', label: '% Batches with error on incoming inspection', path: 'mfg/mfg-batches-with-error-on-incoming-inspection', site: 'ALL', extraFilters: [], mock: false },
+      { id: 'scp-difot-of-suppliers', label: 'DIFOT of suppliers', path: 'mfg/mfg-difot-of-suppliers', site: 'ALL', extraFilters: [], mock: false, drilldownPath: 'mfg/mfg-difot-of-suppliers/drilldown' },
+      { id: 'scp-vendor-blocking-due-to-quality-issue-rq-tac-bac-ta-regulatory-import-alert', label: 'Vendor blocking due to quality issue (RQ, TAC/BAC, TA, Regulatory, Import alert)', path: 'qa/qa-vendor-blocking-due-to-quality-issue', extraFilters: [{ kind: 'multiSelect', param: 'materialType' }, { kind: 'multiSelect', param: 'blockCategory' }], chartType: 'column', categoryAxis: true, snapshot: true, mock: false, drilldownPath: 'qa/qa-vendor-blocking-due-to-quality-issue/drilldown' },
+      { id: 'scp-oos-due-to-suppliers-and-materials-1000-batches', label: 'OOS due to suppliers & materials / 1000 batches', path: 'qa/qa-oos-due-to-suppliers-materials-1000-batches', extraFilters: [], mock: false, drilldownPath: 'qa/qa-oos-due-to-suppliers-materials-1000-batches/drilldown' },
+      { id: 'scp-deviations-due-to-suppliers-and-materials-1000-batches', label: 'Deviations due to suppliers & materials / 1000 batches', path: 'qa/qa-deviations-due-to-suppliers-materials-1000-batches', extraFilters: [], mock: false, drilldownPath: 'qa/qa-deviations-due-to-suppliers-materials-1000-batches/drilldown' },
+      { id: 'scp-batches-with-error-on-incoming-inspection', label: '% Batches with error on incoming inspection', path: 'mfg/mfg-batches-with-error-on-incoming-inspection', site: 'ALL', extraFilters: [], mock: false, drilldownPath: 'qa/qa-batches-with-error-on-incoming-inspection/drilldown' },
     ],
   },
   {
@@ -129,10 +129,10 @@ export const SCP_DOMAINS: KpiDomain[] = [
       { id: 'scp-deviations-per-1000-batches-shopfloor', label: 'Deviations per 1000 batches - Shopfloor', path: 'qa/qa-deviations-per-1000-batches-shopfloor', extraFilters: [], mock: false, drilldownPath: 'qa/qa-deviations-per-1000-batches-shopfloor/drilldown' },
       { id: 'scp-equipment-error-deviations', label: 'Equipment error deviations', path: 'qa/qa-equipment-error-deviations', extraFilters: [{ kind: 'multiSelect', param: 'respDept' }], mock: false, drilldownPath: 'qa/qa-equipment-error-deviations/drilldown' },
       { id: 'scp-rft-right-first-time', label: '% RFT (Right First Time)', path: 'qa/qa-right-first-time-rft', extraFilters: [{ kind: 'multiSelect', param: 'materialType' }, { kind: 'multiSelect', param: 'sapDisposition' }], mock: false, drilldownPath: 'qa/qa-right-first-time-rft/drilldown' },
-      { id: 'scp-lot-acceptance-rate', label: 'Lot acceptance rate', path: 'mfg/mfg-lot-acceptance-rate', site: 'ALL', extraFilters: [], mock: false },
+      { id: 'scp-lot-acceptance-rate', label: 'Lot acceptance rate', path: 'mfg/mfg-lot-acceptance-rate', site: 'ALL', extraFilters: [], mock: false, drilldownPath: 'mfg/mfg-lot-acceptance-rate/drilldown' },
       // Needs: Complaint counts exist (manufacturing.agg_tw_market_complaint_master_mfg) but no volume denominator for a rate yet.
       { id: 'scp-product-complaint-rate', label: 'Product complaint rate', path: 'product-complaint-rate', extraFilters: [] },
-      { id: 'scp-repeat-complaints', label: '% Repeat complaints', path: 'mfg/mfg-repeat-complaints', site: 'ALL', extraFilters: [{ kind: 'multiSelect', param: 'initialClassification' }, { kind: 'multiSelect', param: 'finalClassification' }], mock: false },
+      { id: 'scp-repeat-complaints', label: '% Repeat complaints', path: 'mfg/mfg-repeat-complaints', site: 'ALL', extraFilters: [{ kind: 'multiSelect', param: 'initialClassification' }, { kind: 'multiSelect', param: 'finalClassification' }], mock: false, drilldownPath: 'qa/qa-repeat-complaints/drilldown' },
       // Needs: No data source yet (the sheet names none).
       { id: 'scp-waste', label: 'Waste', path: 'waste', extraFilters: [] },
     ],
@@ -163,7 +163,7 @@ export const SCP_DOMAINS: KpiDomain[] = [
     kpis: [
       // Needs: Supplier DIFOT exists (manufacturing.agg_sap_otif) but the B2B manufacturing-DIFOT definition is not confirmed.
       { id: 'scp-manufacturing-difot-adherence-b2b', label: 'Manufacturing DIFOT adherence (B2B)', path: 'manufacturing-difot-adherence-b2b', extraFilters: [] },
-      { id: 'scp-sla-ip-in-process-sample-turnaround', label: 'SLA - IP (in-process sample turnaround)', path: 'mfg/mfg-sla-ip-in-process-sample-turnaround', site: 'ALL', extraFilters: [], mock: false },
+      { id: 'scp-sla-ip-in-process-sample-turnaround', label: 'SLA - IP (in-process sample turnaround)', path: 'mfg/mfg-sla-ip-in-process-sample-turnaround', site: 'ALL', extraFilters: [], mock: false, drilldownPath: 'mfg/mfg-sla-ip-in-process-sample-turnaround/drilldown' },
     ],
   },
 ]
@@ -379,6 +379,13 @@ export const SCP_KPI_DEFAULT_GRAIN: Partial<Record<string, Partial<Record<KpiVis
 
 /** Drill-down column configs borrowed from the QA KPI each card reuses (see DRILLDOWN_CONFIG). */
 export const SCP_DRILLDOWN_SOURCE: Record<string, string> = {
+  'scp-oos-due-to-suppliers-and-materials-1000-batches': 'qa-oos-due-to-suppliers-materials-1000-batches',
+  'scp-deviations-due-to-suppliers-and-materials-1000-batches': 'qa-deviations-due-to-suppliers-materials-1000-batches',
+  'scp-batches-with-error-on-incoming-inspection': 'qa-batches-with-error-on-incoming-inspection',
+  'scp-repeat-complaints': 'qa-repeat-complaints',
+  'scp-sla-ip-in-process-sample-turnaround': 'mfg-sla-ip-in-process-sample-turnaround',
+  'scp-lot-acceptance-rate': 'mfg-lot-acceptance-rate',
+  'scp-difot-of-suppliers': 'mfg-difot-of-suppliers',
   'scp-semi-finished-goods-release-delays': 'qa-semi-finished-goods-release-delays',
   'scp-undispensed-bmr-bpr-beyond-30-60-days-from-issuance': 'qa-undispensed-bmrbpr-beyond-3060-days-from-issuance',
   'scp-vendor-blocking-due-to-quality-issue-rq-tac-bac-ta-regulatory-import-alert': 'qa-vendor-blocking-due-to-quality-issue',

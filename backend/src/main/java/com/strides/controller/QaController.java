@@ -6,6 +6,7 @@ import com.strides.dto.KpiCardResponse;
 import com.strides.dto.KpiParams;
 import com.strides.repository.GenericDrilldownRepository;
 import com.strides.repository.QaDrilldownSpecs;
+import com.strides.repository.DrilldownSpecs;
 import com.strides.repository.QaKpiSpecs;
 import com.strides.security.RequiresDepartment;
 import jakarta.ws.rs.BeanParam;
@@ -15,6 +16,7 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -30,7 +32,21 @@ import java.util.Map;
 @Path("/api/qa")
 @Produces(MediaType.APPLICATION_JSON)
 @RequiresDepartment(Department.QA)
-public class QaController extends QaStyleKpiResource {
+public class QaController extends GenericDrilldownResource {
+
+    /** QA cards that read a shared public.fact_* table: their table is the QC card's own, served by the generic endpoints. */
+    @Override
+    protected Map<String, GenericDrilldownRepository.TableSpec> drilldownSpecs() {
+        return Map.of(
+                "qa-oos-logged", DrilldownSpecs.OOS_TREND,
+                "qa-confirmed-oos-logged", DrilldownSpecs.VALID_OOS_RATE,
+                "qa-breakdown-time-lims-instruments", DrilldownSpecs.BREAKDOWN_FREQUENCY,
+                "qa-deviations-per-1000-tests-qc", QaDrilldownSpecs.DEVIATIONS_QC,
+                "qa-deviations-per-1000-batches-human", QaDrilldownSpecs.DEVIATIONS_HUMAN,
+                "qa-deviations-due-to-suppliers-materials-1000-batches", QaDrilldownSpecs.DEVIATIONS_SUPPLIERS_MATERIALS,
+                "qa-oos-due-to-suppliers-materials-1000-batches", QaDrilldownSpecs.OOS_SUPPLIERS_MATERIALS,
+                "qa-analyst-error-ioos", QaDrilldownSpecs.ANALYST_ERROR_IOOS);
+    }
 
     private static final String CLOSURE_OPEN_CCS_KPI_ID = "qa-closure-of-open-change-controls";
     private static final String IA_RESPONSE_KPI_ID = "qa-ia-response-on-time";
@@ -41,6 +57,7 @@ public class QaController extends QaStyleKpiResource {
     private static final String CAPA_EFFECTIVENESS_KPI_ID = "qa-capa-effectiveness-verification-pass-rate";
     private static final String PROCEDURAL_ERROR_KPI_ID = "qa-procedural-error-deviations";
     private static final String CAPA_IMPLEMENT_KPI_ID = "qa-average-time-to-implement-capa";
+    private static final String MARKET_COMPLAINTS_KPI_ID = "qa-market-complaints-cn-tracking-ack-investigation-closure";
     private static final String VENDOR_BLOCKING_KPI_ID = "qa-vendor-blocking-due-to-quality-issue";
     private static final String OVERDUE_INVESTIGATIONS_KPI_ID = "qa-overdue-investigation-crossing-30-days";
     private static final String CLOSED_CRITICAL_KPI_ID = "qa-closed-critical-deviations";
@@ -162,9 +179,9 @@ public class QaController extends QaStyleKpiResource {
     @GET
     @Path("/qa-vendor-blocking-due-to-quality-issue")
     public List<KpiCardResponse> vendorBlockingQualityIssue(@BeanParam KpiParams.DateRange p) {
-        return fetchSnapshotPinnedUnlessPicked(QaKpiSpecs.VENDOR_BLOCKING_QUALITY_ISSUE, VENDOR_BLOCKING_KPI_ID,
-                "Vendor Blocking due to Quality Issue", p, Map.of(QaKpiSpecs.VENDOR_MATERIAL_TYPE_COLUMN, QaKpiSpecs.VENDOR_SLICE_ALL,
-                        QaKpiSpecs.VENDOR_BLOCK_CATEGORY_COLUMN, QaKpiSpecs.VENDOR_SLICE_ALL));
+        return snapshotService.stacked(QaKpiSpecs.VENDOR_BLOCKING_QUALITY_ISSUE, QaKpiSpecs.VENDOR_MATERIAL_TYPE_COLUMN,
+                QaKpiSpecs.VENDOR_BLOCK_CATEGORY_COLUMN, VENDOR_BLOCKING_KPI_ID, p.site, RequiredParams.require(p.grain, "grain"),
+                selectedFilters(VENDOR_BLOCKING_KPI_ID, uriInfo.getQueryParameters()));
     }
 
     @GET
@@ -197,21 +214,28 @@ public class QaController extends QaStyleKpiResource {
     @GET
     @Path("/qa-deviations-per-1000-batches-human")
     public List<KpiCardResponse> deviationsPer1000BatchesHuman(@BeanParam KpiParams.DateRange p) {
-        return KpiCardRules.emptyAsZero(fetch(QaKpiSpecs.DEVIATIONS_HUMAN_PER_1000_BATCHES, "qa-deviations-per-1000-batches-human",
+        return KpiCardRules.emptyCountAsBlank(fetch(QaKpiSpecs.DEVIATIONS_HUMAN_PER_1000_BATCHES, "qa-deviations-per-1000-batches-human",
                 "Deviations per 1000 Batches - Human", p));
+    }
+
+    @GET
+    @Path("/qa-deviations-per-1000-tests-qc")
+    public List<KpiCardResponse> deviationsPer1000TestsQc(@BeanParam KpiParams.DateRange p) {
+        return KpiCardRules.emptyCountAsBlank(fetch(QaKpiSpecs.DEVIATIONS_PER_1000_TESTS_QC, "qa-deviations-per-1000-tests-qc",
+                "Deviations per 1000 Tests - QC", p));
     }
 
     @GET
     @Path("/qa-deviations-due-to-suppliers-materials-1000-batches")
     public List<KpiCardResponse> deviationsSuppliersMaterialsPer1000Batches(@BeanParam KpiParams.DateRange p) {
-        return KpiCardRules.emptyAsZero(fetch(QaKpiSpecs.DEVIATIONS_SUPPLIERS_MATERIALS_PER_1000_BATCHES,
+        return KpiCardRules.emptyCountAsBlank(fetch(QaKpiSpecs.DEVIATIONS_SUPPLIERS_MATERIALS_PER_1000_BATCHES,
                 "qa-deviations-due-to-suppliers-materials-1000-batches", "Deviations due to Suppliers & Materials / 1000 Batches", p));
     }
 
     @GET
     @Path("/qa-oos-due-to-suppliers-materials-1000-batches")
     public List<KpiCardResponse> oosSuppliersMaterialsPer1000Batches(@BeanParam KpiParams.DateRange p) {
-        return KpiCardRules.emptyAsZero(fetch(QaKpiSpecs.OOS_SUPPLIERS_MATERIALS_PER_1000_BATCHES,
+        return KpiCardRules.emptyCountAsBlank(fetch(QaKpiSpecs.OOS_SUPPLIERS_MATERIALS_PER_1000_BATCHES,
                 "qa-oos-due-to-suppliers-materials-1000-batches", "OOS due to Suppliers & Materials / 1000 Batches", p));
     }
 
@@ -407,8 +431,14 @@ public class QaController extends QaStyleKpiResource {
     @GET
     @Path("/qa-market-complaints-cn-tracking-ack-investigation-closure")
     public List<KpiCardResponse> marketComplaintsTracking(@BeanParam KpiParams.DateRange p) {
-        return fetch(QaKpiSpecs.MARKET_COMPLAINTS_TRACKING, "qa-market-complaints-cn-tracking-ack-investigation-closure",
-                "Market Complaints & CN Tracking (ack / investigation / closure)", p);
+        List<KpiCardResponse> cards = new ArrayList<>(fetch(QaKpiSpecs.MARKET_COMPLAINTS_TRACKING, MARKET_COMPLAINTS_KPI_ID,
+                "Closure aging", p));
+        // Own kpiIds so the closure limits (looked up by kpiId) are not drawn on the other two stages.
+        cards.addAll(fetch(QaKpiSpecs.MARKET_COMPLAINTS_INVESTIGATION_AGING, MARKET_COMPLAINTS_KPI_ID + "-investigation",
+                "Investigation aging", p));
+        cards.addAll(fetch(QaKpiSpecs.MARKET_COMPLAINTS_ACK_AGING, MARKET_COMPLAINTS_KPI_ID + "-acknowledgement",
+                "Acknowledgement aging", p));
+        return cards;
     }
 
     @GET

@@ -50,6 +50,8 @@ export interface KpiDefinition {
    * column charts, for plain counts with no threshold (see PeriodCountBarCard).
    */
   chartType?: 'line' | 'bar' | 'column'
+  /** 'column' only: one bar per row `category` (e.g. material type) rather than per period, stacked by `name`. */
+  categoryAxis?: boolean
   /** Which view a time-series card opens in; every card can switch to the other. Default 'line'. */
   defaultView?: 'line' | 'bar'
   /** Bar view only: each bar's amber deepens the older its period is (see ageShadeOpacity). */

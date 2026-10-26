@@ -82,6 +82,11 @@ public class GenericDrilldownRepository extends AbstractAggRepository<Map<String
             this(table, siteColumn, dateColumn, selectColumns, searchColumns, filterColumns, fixedFilters, null);
         }
 
+        /** The same table shape over another (schema-qualified) table. */
+        public TableSpec withTable(String newTable) {
+            return new TableSpec(newTable, siteColumn, dateColumn, selectColumns, searchColumns, filterColumns, fixedFilters, fixedCondition);
+        }
+
         /** sortBy must match a real, already-selected column's own jsonKey - never interpolate the
          * caller's sortBy value itself, whatever it is. */
         public String resolveSortColumn(String sortBy) {
@@ -139,7 +144,8 @@ public class GenericDrilldownRepository extends AbstractAggRepository<Map<String
         params.add(site);
         // A null dateColumn is a KPI with no date dimension (its card ignores the range), so the range is not applied.
         if (spec.dateColumn() != null) {
-            sql.append(" AND ").append(spec.dateColumn()).append(" BETWEEN ? AND ?");
+            // Cast so a timestamp column still includes the whole last day of the range.
+            sql.append(" AND CAST(").append(spec.dateColumn()).append(" AS date) BETWEEN ? AND ?");
             params.add(from);
             params.add(to);
         }

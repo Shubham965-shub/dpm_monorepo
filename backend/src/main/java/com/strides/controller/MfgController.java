@@ -7,6 +7,8 @@ import static com.strides.controller.KpiCardRules.zeroAsBlank;
 import com.strides.dto.DrilldownPage;
 import com.strides.dto.KpiCardResponse;
 import com.strides.dto.KpiParams;
+import com.strides.repository.GenericDrilldownRepository;
+import com.strides.repository.MfgDrilldownSpecs;
 import com.strides.repository.MfgKpiSpecs;
 import com.strides.repository.QaKpiSpecs;
 import com.strides.security.RequiresAdmin;
@@ -31,10 +33,15 @@ import java.util.Map;
 @Path("/api/mfg")
 @Produces(MediaType.APPLICATION_JSON)
 @RequiresAdmin
-public class MfgController extends QaStyleKpiResource {
+public class MfgController extends GenericDrilldownResource {
 
     @Inject
     MfgKpiService mfgService;
+
+    @Override
+    protected Map<String, GenericDrilldownRepository.TableSpec> drilldownSpecs() {
+        return MfgDrilldownSpecs.BY_KPI;
+    }
 
     private static final String UNDISPENSED_ID = "mfg-undispensed-bmr-bpr-beyond-30-60-days-from-issuance";
     private static final String UNDISPENSED_30_QA_ID = "qa-undispensed-bmrbpr-beyond-3060-days-from-issuance";
