@@ -37,3 +37,4 @@ Azure Static Web Apps (frontend) + Container Apps (backend), deployed from the `
 ## Deployment (PRD01)
 
 Lighthouse PRD01 as use case **helios**: App Service web apps (Quarkus backend + nginx-served frontend) behind private endpoints, released from a laptop by promoting the QA-built backend image. Runbook: `deploy/prd01/DEPLOYMENT-prd01.md`.
+# dpm_monorepo
