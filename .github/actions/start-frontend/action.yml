@@ -1,0 +1,41 @@
+name: Start Frontend
+description: Serve the frontend on localhost in the background so the Selenium suite can reach it.
+
+inputs:
+  npm-token:
+    description: Token with read:packages on the Strides org.
+    required: true
+  api-url:
+    description: Backend the frontend calls; must allow http://localhost:<port> in its CORS_ORIGINS.
+    required: true
+  port:
+    description: Must match baseUrl in qa/src/test/resources/config.properties.
+    default: "5174"
+  ready-timeout-seconds:
+    description: How long to wait for the dev server to answer before failing.
+    default: "60"
+
+runs:
+  using: composite
+  steps:
+    - uses: ./.github/actions/setup-frontend
+      with:
+        npm-token: ${{ inputs.npm-token }}
+
+    - name: Start dev server
+      shell: bash
+      working-directory: frontend
+      run: nohup npx vite --port "${{ inputs.port }}" --strictPort > "$RUNNER_TEMP/vite.log" 2>&1 &
+      env:
+        VITE_API_URL: ${{ inputs.api-url }}
+
+    - name: Wait for dev server
+      shell: bash
+      run: |
+        for ((i = 0; i < ${{ inputs.ready-timeout-seconds }}; i++)); do
+          curl -sf "http://localhost:${{ inputs.port }}" > /dev/null && exit 0
+          sleep 1
+        done
+        echo "Frontend did not start within ${{ inputs.ready-timeout-seconds }}s"
+        cat "$RUNNER_TEMP/vite.log"
+        exit 1

@@ -44,5 +44,6 @@ the rest of the run.
 ## CI (`.github/workflows/coverage.yml`)
 
 `SanityTest` runs first as a gate; only if it passes do the backend, frontend and QA coverage
-workflows (`*-coverage.yml`, called as reusable workflows) run, otherwise the run fails. It needs repo variables
-`QA_FRONTEND_URL`/`QA_API_URL` and secrets `QA_EMAIL`/`QA_PASSWORD`.
+workflows (`*-coverage.yml`, called as reusable workflows) run, otherwise the run fails. The frontend is served on
+`localhost:5174` inside the job (`.github/actions/start-frontend`). It needs repo variable `QA_API_URL`
+and secrets `QA_EMAIL`/`QA_PASSWORD`/`NPM_TOKEN` (`read:packages` on the Strides org).

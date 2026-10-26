@@ -14,9 +14,8 @@ jobs:
       run:
         working-directory: qa
 
-    # Read by ConfigReader as env vars (key upper-cased), shared by both test runs.
+    # Read by ConfigReader as env vars (key upper-cased); baseUrl stays the config default (localhost).
     env:
-      BASEURL: ${{ vars.QA_FRONTEND_URL }}
       APIBASEURL: ${{ vars.QA_API_URL }}
       EMAIL: ${{ secrets.QA_EMAIL }}
       PASSWORD: ${{ secrets.QA_PASSWORD }}
@@ -24,6 +23,12 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+
+      - name: Start Frontend
+        uses: ./.github/actions/start-frontend
+        with:
+          npm-token: ${{ secrets.NPM_TOKEN }}
+          api-url: ${{ vars.QA_API_URL }}
 
       - name: Set Up Java
         uses: actions/setup-java@v4
