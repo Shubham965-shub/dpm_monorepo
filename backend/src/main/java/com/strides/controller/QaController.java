@@ -40,7 +40,12 @@ public class QaController extends GenericDrilldownResource {
         return Map.of(
                 "qa-oos-logged", DrilldownSpecs.OOS_TREND,
                 "qa-confirmed-oos-logged", DrilldownSpecs.VALID_OOS_RATE,
-                "qa-breakdown-time-lims-instruments", DrilldownSpecs.BREAKDOWN_FREQUENCY);
+                "qa-breakdown-time-lims-instruments", DrilldownSpecs.BREAKDOWN_FREQUENCY,
+                "qa-deviations-per-1000-tests-qc", QaDrilldownSpecs.DEVIATIONS_QC,
+                "qa-deviations-per-1000-batches-human", QaDrilldownSpecs.DEVIATIONS_HUMAN,
+                "qa-deviations-due-to-suppliers-materials-1000-batches", QaDrilldownSpecs.DEVIATIONS_SUPPLIERS_MATERIALS,
+                "qa-oos-due-to-suppliers-materials-1000-batches", QaDrilldownSpecs.OOS_SUPPLIERS_MATERIALS,
+                "qa-analyst-error-ioos", QaDrilldownSpecs.ANALYST_ERROR_IOOS);
     }
 
     private static final String CLOSURE_OPEN_CCS_KPI_ID = "qa-closure-of-open-change-controls";

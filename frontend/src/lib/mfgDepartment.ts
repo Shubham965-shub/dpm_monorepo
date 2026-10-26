@@ -71,7 +71,7 @@ export const MFG_DOMAINS: KpiDomain[] = [
       // Needs: Flagged for removal in the ownership package (replaced by Repeat Quality Event Rate).
       { id: 'mfg-repeat-deviations', label: 'Repeat Deviations', path: 'repeat-deviations', extraFilters: [] },
       { id: 'mfg-deviations-per-1000-batches-shopfloor', label: 'Deviations per 1000 Batches - Shopfloor', path: 'qa/qa-deviations-per-1000-batches-shopfloor', extraFilters: [], mock: false, drilldownPath: 'qa/qa-deviations-per-1000-batches-shopfloor/drilldown' },
-      { id: 'mfg-deviations-per-1000-batches-human', label: 'Deviations per 1000 Batches - Human', path: 'qa/qa-deviations-per-1000-batches-human', extraFilters: [], mock: false },
+      { id: 'mfg-deviations-per-1000-batches-human', label: 'Deviations per 1000 Batches - Human', path: 'qa/qa-deviations-per-1000-batches-human', extraFilters: [], mock: false, drilldownPath: 'qa/qa-deviations-per-1000-batches-human/drilldown' },
       { id: 'mfg-procedural-error-deviations', label: 'Procedural Error Deviations', path: 'qa/qa-procedural-error-deviations', extraFilters: [], mock: false, drilldownPath: 'qa/qa-procedural-error-deviations/drilldown' },
       // Needs: QC's Human Error Rate is per test; the sheet wants a per-batch figure - no table yet.
       { id: 'mfg-human-error-rate-batch', label: 'Human Error Rate (Batch)', path: 'human-error-rate-batch', extraFilters: [] },
@@ -341,6 +341,7 @@ export const MFG_KPI_DEFAULT_GRAIN: Partial<Record<string, Partial<Record<KpiVis
 
 /** Drill-down column configs borrowed from the QA KPI each card reuses (see DRILLDOWN_CONFIG). */
 export const MFG_DRILLDOWN_SOURCE: Record<string, string> = {
+  'mfg-deviations-per-1000-batches-human': 'qa-deviations-per-1000-batches-human',
   'mfg-uptime-of-equipment-areas': 'engg-uptime-of-equipment-areas',
   'mfg-mttr-mean-time-to-repair': 'engg-mttr-mean-time-to-repair',
   'mfg-mtbf-mean-time-between-failures': 'engg-mtbf-mean-time-between-failures',

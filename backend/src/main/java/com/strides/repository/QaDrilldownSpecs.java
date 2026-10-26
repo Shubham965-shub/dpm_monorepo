@@ -33,6 +33,30 @@ public final class QaDrilldownSpecs {
     private QaDrilldownSpecs() {
     }
 
+    /** The QA per-1000 and IOOS cards count rows of the shared QC deviation / OOS tables under their own rule and date. */
+    private static TableSpec narrowed(TableSpec base, String dateColumn, Map<String, String> fixedFilters, String fixedCondition) {
+        return new TableSpec(base.table(), base.siteColumn(), dateColumn, base.selectColumns(), base.searchColumns(),
+                base.filterColumns(), fixedFilters, fixedCondition);
+    }
+
+    private static final String HUMAN_ROOT_CAUSE = "(cf_category = 'People' OR root_cause_bucket = 'By Human')";
+    private static final String SUPPLIER_ROOT_CAUSE = "(cf_category = 'Material' OR root_cause_bucket = 'By Vendor')";
+
+    public static final TableSpec DEVIATIONS_QC = narrowed(DrilldownSpecs.DEVIATIONS.withTable("public.fact_tw_deviations"),
+            "open_date_ist", Map.of("resp_dept", "Quality Control Department"), null);
+
+    public static final TableSpec DEVIATIONS_HUMAN = narrowed(DrilldownSpecs.DEVIATIONS.withTable("public.fact_tw_deviations"),
+            "close_date_ist", Map.of(), HUMAN_ROOT_CAUSE);
+
+    public static final TableSpec DEVIATIONS_SUPPLIERS_MATERIALS = narrowed(DrilldownSpecs.DEVIATIONS.withTable("public.fact_tw_deviations"),
+            "close_date_ist", Map.of(), SUPPLIER_ROOT_CAUSE);
+
+    public static final TableSpec OOS_SUPPLIERS_MATERIALS = narrowed(DrilldownSpecs.OOS_TREND.withTable("public.fact_tw_oos_trend"),
+            "open_date", Map.of(), "cf_category = 'Material'");
+
+    public static final TableSpec ANALYST_ERROR_IOOS = narrowed(DrilldownSpecs.OOS_TREND.withTable("public.fact_tw_oos_trend"),
+            "date_closed_ist::date", Map.of(), "root_cause_bucket = 'By Human'");
+
     public static final TableSpec STABILITY_TESTING_PENDING = new TableSpec(
             "qa.fact_lims_stability_testing_pending", "site_name", "sampled_date",
             List.of(
