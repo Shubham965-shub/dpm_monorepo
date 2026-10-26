@@ -59,8 +59,53 @@ jobs:
           cache: maven
           cache-dependency-path: qa/pom.xml
 
+      # Never echoes secret values - only presence, length and stray whitespace (a common paste error).
+      - name: Debug Config
+        run: |
+          echo "APIBASEURL=${APIBASEURL:-<empty>}"
+          for name in EMAIL PASSWORD; do
+            value="${!name}"
+            if [ -z "$value" ]; then
+              echo "::error::$name is empty - is the QA_$name secret set on this repo?"
+              continue
+            fi
+            trimmed="$(printf '%s' "$value" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+            echo "$name: length=${#value}"
+            [ "$trimmed" != "$value" ] && echo "::warning::$name has leading/trailing whitespace or a newline"
+          done
+          echo "EMAIL domain: ${EMAIL#*@}"
+
+      - name: Debug Frontend Reachable
+        run: curl -sS -o /dev/null -w "frontend http://localhost:5174 -> HTTP %{http_code}\n" http://localhost:5174
+
+      # One real login with the job's credentials, so a 401/429 shows up here instead of deep in TestNG.
+      - name: Debug Login
+        run: |
+          body="$(jq -nc --arg email "$EMAIL" --arg password "$PASSWORD" '{email: $email, password: $password}')"
+          status="$(curl -sS -o "$RUNNER_TEMP/login.json" -w '%{http_code}' -X POST "$APIBASEURL/api/auth/login" \
+            -H 'Content-Type: application/json' -d "$body")"
+          echo "POST $APIBASEURL/api/auth/login -> HTTP $status"
+          case "$status" in
+            200) echo "Login OK" ;;
+            401) echo "::error::401 - QA_EMAIL/QA_PASSWORD don't match an active user on this backend" ;;
+            429) echo "::error::429 - account locked after repeated failures; retry after the lockout window" ;;
+            *)   echo "::error::Unexpected status"; head -c 500 "$RUNNER_TEMP/login.json"; echo ;;
+          esac
+
       - name: Run Sanity Test
-        run: mvn --batch-mode --no-transfer-progress clean test -Dtest=SanityTest -Dheadless=true
+        run: mvn --batch-mode --no-transfer-progress -e clean test -Dtest=SanityTest -Dheadless=true
+
+      - name: Show Frontend Log
+        if: failure()
+        run: cat "$RUNNER_TEMP/vite.log" || echo "No vite log found"
+
+      - name: Upload Sanity Reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sanity-reports
+          path: qa/target/surefire-reports/
+          if-no-files-found: warn
 
   # Each coverage workflow runs only if sanity passed; a sanity failure skips them and fails the run.
   backend-coverage:
