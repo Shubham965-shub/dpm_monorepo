@@ -54,6 +54,17 @@ public class MfgKpiService {
                 spec.multiplier(), kpiId, name, spec.unit(), dateColumn == null ? null : "As of " + asOf);
     }
 
+    /** A stacked column chart from a no-grain table: one bar per `rowColumn` value (the card's category), one segment per
+     * `segmentColumn` value (its name), each segment its pair's count - a bar's height is the sum of its segments. */
+    public List<KpiCardResponse> stacked(QaKpiSpec spec, String rowColumn, String segmentColumn, String kpiId, String site,
+            String grain, Map<String, java.util.Set<String>> extraFilters) {
+        LocalDate shownAt = LocalDate.now();
+        return repository.findSliceTotals(spec, rowColumn, segmentColumn, site, extraFilters).stream()
+                .map(slice -> new KpiCardResponse(kpiId, slice.segment(), BigDecimal.valueOf(slice.total()).setScale(VALUE_SCALE, RoundingMode.HALF_UP),
+                        spec.unit(), null, grain, shownAt, null).withCategory(slice.row()))
+                .toList();
+    }
+
     /** One card per category (name = the category), largest first, summed over [from, to]: a ranking, not a trend. */
     public List<KpiCardResponse> ranking(QaKpiSpec spec, String categoryColumn, String kpiId, String site, LocalDate from, LocalDate to) {
         return repository.findCategorySums(spec, categoryColumn, site, DAILY, from, to).entrySet().stream()

@@ -200,6 +200,25 @@ public class QaAggRepository extends AbstractAggRepository<PeriodTotal> {
                 .orElse(new SnapshotTotal(0, 0, null));
     }
 
+    public record SliceTotal(String row, String segment, double total) {
+    }
+
+    /** One total per (row, segment) pair of a no-grain table that also carries 'All' rows, which are left out here so the
+     * pairs never double-count; the filters narrow the pairs. Both columns are constants. */
+    public List<SliceTotal> findSliceTotals(QaKpiSpec spec, String rowColumn, String segmentColumn, String site,
+            Map<String, Set<String>> extraFilters) {
+        List<Object> params = new ArrayList<>();
+        StringBuilder sql = new StringBuilder("SELECT ").append(validatedColumn(rowColumn)).append(" AS row_key, ")
+                .append(validatedColumn(segmentColumn)).append(" AS segment_key, ").append(spec.numeratorColumn()).append(" AS total FROM ")
+                .append(qualify(spec.table())).append(" WHERE ").append(spec.siteColumn()).append(" = ? AND UPPER(").append(rowColumn)
+                .append(") <> 'ALL' AND UPPER(").append(segmentColumn).append(") <> 'ALL'");
+        params.add(site);
+        appendFilters(sql, params, Map.of(), extraFilters);
+        sql.append(" ORDER BY ").append(rowColumn).append(", ").append(segmentColumn);
+        return query(sql.toString(), rs -> new SliceTotal(rs.getString("row_key"), rs.getString("segment_key"), rs.getDouble("total")),
+                params.toArray());
+    }
+
     /** The spec's numerator (under its own condition) summed per value of categoryColumn over the whole [from, to]
      * range, largest first - for a ranking of categories rather than a trend. categoryColumn is a constant. */
     public java.util.Map<String, Double> findCategorySums(QaKpiSpec spec, String categoryColumn, String site, String grain,

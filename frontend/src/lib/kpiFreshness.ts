@@ -9,6 +9,22 @@ export function coarserGrain(a: Grain, b: Grain | null | undefined): Grain {
   return b != null && GRAIN_ORDER.indexOf(b) > GRAIN_ORDER.indexOf(a) ? b : a
 }
 
+/** Event counts (and their per-1000 rates) where a period with no matching records means nothing happened, not that
+ * the feed stopped - Power BI plots no point there, so the card is never flagged stale. */
+export const EMPTY_PERIOD_IS_NOT_STALE_KPI_IDS: ReadonlySet<string> = new Set([
+  'qa-open-critical-deviations',
+  'qa-closed-critical-deviations',
+  'mfg-critical-deviations',
+  'scp-critical-deviations',
+  'qa-deviations-per-1000-batches-human',
+  'qa-deviations-per-1000-tests-qc',
+  'qa-deviations-due-to-suppliers-materials-1000-batches',
+  'qa-oos-due-to-suppliers-materials-1000-batches',
+  'mfg-deviations-per-1000-batches-human',
+  'scp-deviations-due-to-suppliers-and-materials-1000-batches',
+  'scp-oos-due-to-suppliers-and-materials-1000-batches',
+])
+
 /** The date the KPI's data stopped at, when a whole period after it has already finished with nothing reported
  * (i.e. the latest data is more than one full period old at this grain) - null while the data is current.
  * `asOf` is today, or the range's end when the user picked a past range. */

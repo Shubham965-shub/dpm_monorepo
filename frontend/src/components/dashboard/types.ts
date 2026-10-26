@@ -343,7 +343,8 @@ export function trendKpisForDomain(domain: KpiDomain | undefined, visibleKpiIds:
  * not a missing/stale config the way a real trend KPI's "no threshold" can be. It's still counted in
  * the section header's own tier breakdown (see DomainTierCounts/DomainSeverityBoard's
  * extraNoThreshold), even though PriorityComplianceCard's own stacked-percentage view never goes
- * grey itself - this only affects the header's count, not that card's rendering. */
+ * grey itself - this only affects the header's count, not that card's rendering. A categoryAxis column card (Vendor
+ * Blocking's stacked columns) has no limits either, so it counts the same way. */
 export function stackedShareNoThresholdCount(domain: KpiDomain | undefined, visibleKpiIds: Set<string>): number {
-  return domain?.kpis.filter((kpi) => visibleKpiIds.has(kpi.id) && STACKED_SHARE_KPI_IDS.has(kpi.id)).length ?? 0
+  return domain?.kpis.filter((kpi) => visibleKpiIds.has(kpi.id) && (STACKED_SHARE_KPI_IDS.has(kpi.id) || kpi.categoryAxis)).length ?? 0
 }
