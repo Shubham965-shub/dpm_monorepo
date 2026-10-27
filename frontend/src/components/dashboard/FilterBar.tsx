@@ -7,20 +7,29 @@ import type { SectionKey } from './mockData'
 
 export type SectionFilterValue = 'all' | SectionKey
 
+/** 'default' keeps every KPI on its own per-lens cadence (see kpiDefaultGrain.ts / qaDefaultGrain.ts); a real grain
+ * overrides all of them at once. Shared by the QC and QA dashboards' Timeline filters. */
+export type Timeline = 'default' | Grain
+
+export const DEFAULT_TIMELINE = 'default' satisfies Timeline
+
 export interface DashboardFilters {
   section: SectionFilterValue
-  grain: Grain
+  grain: Timeline
 }
 
-export const DEFAULT_DASHBOARD_FILTERS: DashboardFilters = { section: 'all', grain: 'monthly' }
+export const DEFAULT_DASHBOARD_FILTERS: DashboardFilters = { section: 'all', grain: DEFAULT_TIMELINE }
 
-const GRAIN_LABEL: Record<Grain, string> = {
+const TIMELINE_LABEL: Record<Timeline, string> = {
+  default: 'Default (per KPI)',
   daily: 'Daily',
   weekly: 'Weekly',
   monthly: 'Monthly',
   quarterly: 'Quarterly',
   yearly: 'Yearly',
 }
+
+export const TIMELINE_OPTIONS = (['default', ...GRAINS] as Timeline[]).map((value) => ({ value, label: TIMELINE_LABEL[value] }))
 
 /** Only 1 plant ever exists today (see DashboardPage's hardcoded site="KRSG" elsewhere) - stays a
  * fixed display rather than a dropdown with nothing to actually choose between. Section/Timeline
@@ -99,7 +108,6 @@ export function FilterBar({
     { value: 'all' as const, label: 'All sections' },
     ...KPI_DOMAINS.map((d) => ({ value: d.key as SectionKey, label: d.label })),
   ]
-  const grainOptions = GRAINS.map((g) => ({ value: g, label: GRAIN_LABEL[g] }))
 
   return (
     <div className="flex flex-wrap gap-3 px-6 py-3 md:px-10 lg:px-20">
@@ -115,7 +123,7 @@ export function FilterBar({
         label="Timeline"
         value={value.grain}
         defaultValue={DEFAULT_DASHBOARD_FILTERS.grain}
-        options={grainOptions}
+        options={TIMELINE_OPTIONS}
         onChange={(grain) => onChange({ ...value, grain })}
       />
       {(value.section !== DEFAULT_DASHBOARD_FILTERS.section || value.grain !== DEFAULT_DASHBOARD_FILTERS.grain) && (

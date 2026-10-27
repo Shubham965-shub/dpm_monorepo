@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { useKpiInfo } from '@/hooks/useKpiInfo'
 import type { KpiDomain, KpiDefinition } from '@/lib/kpiConfig'
+import { summaryHasSourceLine } from '@/lib/kpiInfoText'
 import { SEVERITY_META } from '@/components/dashboard/types'
 import { cn } from '@/lib/utils'
 
@@ -89,7 +90,8 @@ export function KpiInfoDropdown({ domain, kpi, className }: { domain: KpiDomain;
         <div className="flex flex-col gap-1 px-1 pt-1 text-sm">
           {isLoading && <p className="text-muted-foreground">Loading…</p>}
           {!isLoading && (isError || !hasInfo) && <p className="text-muted-foreground">No KPI info available.</p>}
-          {data?.sourceSystem && (
+          {/* A summary that already has its own Source line (every QC one does) isn't followed by the field again. */}
+          {data?.sourceSystem && !summaryHasSourceLine(data.summary) && (
             <span className="font-medium" style={{ color: SEVERITY_META['in-control'].solidHex }}>
               Source: {data.sourceSystem}
             </span>

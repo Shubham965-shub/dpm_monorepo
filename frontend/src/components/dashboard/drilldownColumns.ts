@@ -1,5 +1,6 @@
 import { genericDrilldownRowSchema } from '@/lib/drilldownSchemas'
 import type { ZodTypeAny } from 'zod'
+import { ADMIN_DRILLDOWN_SOURCE } from '@/lib/adminDepartments'
 
 /** One column of a KPI's drill-down table - key/label straight from
  * DPM_QC_Drilldown_Schema_v2.xlsx's "Column (raw name)"/"Displayed As" pair for that KPI. Rows are
@@ -272,6 +273,7 @@ const OOT_TREND_COLUMNS: DrilldownColumn[] = [
   { key: 'recordId', label: 'Record ID' },
   { key: 'title', label: 'Title' },
   { key: 'dateOpened', label: 'Date Opened', filterType: 'date' },
+  { key: 'dateClosed', label: 'Date Closed', filterType: 'date' },
   { key: 'status', label: 'Status' },
   { key: 'conclusion', label: 'Conclusion' },
 ]
@@ -280,6 +282,7 @@ const OOS_TREND_COLUMNS: DrilldownColumn[] = [
   { key: 'recordId', label: 'Record ID' },
   { key: 'title', label: 'Title' },
   { key: 'dateOpened', label: 'Date Opened', filterType: 'date' },
+  { key: 'dateClosed', label: 'Date Closed', filterType: 'date' },
   { key: 'status', label: 'Status' },
   { key: 'conclusion', label: 'Conclusion' },
 ]
@@ -745,7 +748,169 @@ const QA_FAR_ALERT_EVENT_DENSITY_COLUMNS: DrilldownColumn[] = [
   { key: 'dateClosed', label: 'Date Closed', filterType: 'date' },
 ]
 
-export const DRILLDOWN_CONFIG: Record<string, DrilldownConfig> = {
+const ENGG_FTE_COUNT_COLUMNS: DrilldownColumn[] = [
+  { key: 'date', label: 'Date', filterType: 'date' },
+  { key: 'businessUnit', label: 'Business Unit' },
+  { key: 'departmentName', label: 'Department Name' },
+  { key: 'fteCount', label: 'Fte Count', align: 'right' },
+]
+
+const ENGG_UPTIME_COLUMNS: DrilldownColumn[] = [
+  { key: 'equipmentName', label: 'Equipment Name' },
+  { key: 'classification', label: 'Classification' },
+  { key: 'eventName', label: 'Event Name' },
+  { key: 'description', label: 'Description' },
+  { key: 'startedDate', label: 'Started Date' },
+  { key: 'completedDate', label: 'Completed Date', filterType: 'date' },
+  { key: 'executionTime', label: 'Execution Time' },
+  { key: 'overallTime', label: 'Overall Time' },
+  { key: 'currentProductCode', label: 'Current Product Code' },
+  { key: 'currentOrderNumber', label: 'Current Order Number' },
+]
+
+const ENGG_MTTR_COLUMNS: DrilldownColumn[] = [
+  { key: 'machineId', label: 'Machine Id' },
+  { key: 'notificationType', label: 'Notification Type' },
+  { key: 'notificationNumber', label: 'Notification Number' },
+  { key: 'sapNumber', label: 'Sap Number' },
+  { key: 'breakdownDescription', label: 'Breakdown Description' },
+  { key: 'breakdownStart', label: 'Breakdown Start' },
+  { key: 'breakdownEnd', label: 'Breakdown End', filterType: 'date' },
+  { key: 'status', label: 'Status' },
+  { key: 'repairHours', label: 'Repair Hours', align: 'right' },
+  { key: 'batch', label: 'Batch' },
+  { key: 'material', label: 'Material' },
+  { key: 'materialDescription', label: 'Material Description' },
+]
+
+const ENGG_MTBF_COLUMNS: DrilldownColumn[] = [
+  { key: 'machineId', label: 'Machine Id' },
+  { key: 'notificationType', label: 'Notification Type' },
+  { key: 'notificationNumber', label: 'Notification Number' },
+  { key: 'sapNumber', label: 'Sap Number' },
+  { key: 'breakdownDescription', label: 'Breakdown Description' },
+  { key: 'breakdownStart', label: 'Breakdown Start', filterType: 'date' },
+  { key: 'breakdownEnd', label: 'Breakdown End' },
+  { key: 'status', label: 'Status' },
+  { key: 'betweenFailuresDays', label: 'Between Failures Days', align: 'right' },
+  { key: 'batch', label: 'Batch' },
+  { key: 'material', label: 'Material' },
+  { key: 'materialDescription', label: 'Material Description' },
+]
+
+const ENGG_BREAKDOWN_M1_M2_COLUMNS: DrilldownColumn[] = [
+  { key: 'machineId', label: 'Machine Id' },
+  { key: 'notificationType', label: 'Notification Type' },
+  { key: 'notificationNumber', label: 'Notification Number' },
+  { key: 'sapNumber', label: 'Sap Number' },
+  { key: 'description', label: 'Description' },
+  { key: 'priority', label: 'Priority' },
+  { key: 'startDatetime', label: 'Start Datetime' },
+  { key: 'endDatetime', label: 'End Datetime' },
+  { key: 'durationHours', label: 'Duration Hours', align: 'right' },
+  { key: 'isBreakdown', label: 'Is Breakdown' },
+  { key: 'status', label: 'Status' },
+  { key: 'mainWorkCenter', label: 'Main Work Center' },
+  { key: 'notificationDate', label: 'Notification Date', filterType: 'date' },
+  { key: 'batch', label: 'Batch' },
+  { key: 'material', label: 'Material' },
+  { key: 'materialDescription', label: 'Material Description' },
+]
+
+const ENGG_BREAKDOWN_COLUMNS: DrilldownColumn[] = [
+  { key: 'machineId', label: 'Machine Id' },
+  { key: 'notificationType', label: 'Notification Type' },
+  { key: 'notificationNumber', label: 'Notification Number' },
+  { key: 'sapNumber', label: 'Sap Number' },
+  { key: 'description', label: 'Description' },
+  { key: 'priority', label: 'Priority' },
+  { key: 'startDatetime', label: 'Start Datetime' },
+  { key: 'endDatetime', label: 'End Datetime' },
+  { key: 'durationHours', label: 'Duration Hours', align: 'right' },
+  { key: 'isBreakdown', label: 'Is Breakdown' },
+  { key: 'status', label: 'Status' },
+  { key: 'mainWorkCenter', label: 'Main Work Center' },
+  { key: 'notificationDate', label: 'Notification Date', filterType: 'date' },
+  { key: 'batch', label: 'Batch' },
+  { key: 'material', label: 'Material' },
+  { key: 'materialDescription', label: 'Material Description' },
+]
+
+const ENGG_CONTINUOUS_MONITORING_COLUMNS: DrilldownColumn[] = [
+  { key: 'snapshotDate', label: 'Snapshot Date', filterType: 'date' },
+  { key: 'equipmentName', label: 'Equipment Name' },
+  { key: 'equipmentId', label: 'Equipment Id' },
+  { key: 'equipmentNumber', label: 'Equipment Number' },
+  { key: 'plant', label: 'Plant' },
+  { key: 'groupName', label: 'Group Name' },
+  { key: 'connectedWithDataLake', label: 'Connected With Data Lake' },
+  { key: 'isContinuouslyMonitored', label: 'Is Continuously Monitored', align: 'right' },
+]
+
+const ENGG_REAL_TIME_ACCURACY_COLUMNS: DrilldownColumn[] = [
+  { key: 'batch', label: 'Batch' },
+  { key: 'batchDate', label: 'Batch Date', filterType: 'date' },
+  { key: 'sourceSystem', label: 'Source System' },
+  { key: 'plant', label: 'Plant' },
+  { key: 'materialNumber', label: 'Material Number' },
+  { key: 'processOrder', label: 'Process Order' },
+  { key: 'syncadeParamDescription', label: 'Syncade Param Description' },
+  { key: 'batchFoundInSap', label: 'Batch Found In Sap' },
+  { key: 'batchFoundInSyncade', label: 'Batch Found In Syncade' },
+]
+
+const ENGG_BUILDING_MAINTENANCE_COLUMNS: DrilldownColumn[] = [
+  { key: 'order', label: 'Order' },
+  { key: 'description', label: 'Description' },
+  { key: 'strategy', label: 'Strategy' },
+  { key: 'orderType', label: 'Order Type' },
+  { key: 'plannedDate', label: 'Planned Date', filterType: 'date' },
+  { key: 'actualOrderFinishDate', label: 'Actual Order Finish Date', filterType: 'date' },
+  { key: 'maintenanceStatus', label: 'Maintenance Status' },
+  { key: 'maintenanceDelay', label: 'Maintenance Delay', align: 'right' },
+]
+
+const ENGG_CRITICAL_SPARE_PARTS_COLUMNS: DrilldownColumn[] = [
+  { key: 'material', label: 'Material' },
+  { key: 'materialDescription', label: 'Material Description' },
+  { key: 'openingStock', label: 'Opening Stock', align: 'right' },
+  { key: 'netMovement', label: 'Net Movement', align: 'right' },
+  { key: 'qtyRemaining', label: 'Qty Remaining', align: 'right' },
+  { key: 'availabilityStatus', label: 'Availability Status' },
+]
+
+const ENGG_PLAN_VS_ACTUAL_COLUMNS: DrilldownColumn[] = [
+  { key: 'order', label: 'Order' },
+  { key: 'equipment', label: 'Equipment' },
+  { key: 'description', label: 'Description' },
+  { key: 'orderType', label: 'Order Type' },
+  { key: 'plannedDate', label: 'Planned Date', filterType: 'date' },
+  { key: 'completionDate', label: 'Completion Date', filterType: 'date' },
+  { key: 'systemStatus', label: 'System Status' },
+  { key: 'maintenanceCategory', label: 'Maintenance Category' },
+  { key: 'status', label: 'Status' },
+]
+
+const ENGG_DISCIPLINE_COLUMNS: DrilldownColumn[] = [
+  { key: 'forumId', label: 'Forum Id' },
+  { key: 'code', label: 'Code' },
+  { key: 'monthYear', label: 'Month Year' },
+  { key: 'interventionType', label: 'Intervention Type' },
+  { key: 'userCode', label: 'User Code' },
+  { key: 'attendanceStatus', label: 'Attendance Status' },
+  { key: 'company', label: 'Company' },
+]
+const ENGG_OPEN_NEW_CCS_COLUMNS: DrilldownColumn[] = [
+  { key: 'recordId', label: 'Record ID' },
+  { key: 'title', label: 'Title' },
+  { key: 'ccCategory', label: 'Cc Category' },
+  { key: 'status', label: 'Status' },
+  { key: 'agingDays', label: 'Aging Days', align: 'right' },
+  { key: 'agingBucket', label: 'Aging Bucket' },
+  { key: 'dateOpened', label: 'Date Opened', filterType: 'date' },
+]
+
+const BASE_DRILLDOWN_CONFIG: Record<string, DrilldownConfig> = {
   'sample-tat': { rowSchema: genericDrilldownRowSchema, columns: SAMPLE_TAT_COLUMNS, drilldownAdvancedFiltering: true },
   'sla-adherence': { rowSchema: genericDrilldownRowSchema, columns: SLA_ADHERENCE_COLUMNS, drilldownAdvancedFiltering: true },
   'tests-per-analyst': { rowSchema: genericDrilldownRowSchema, columns: TESTS_PER_ANALYST_COLUMNS, drilldownAdvancedFiltering: true },
@@ -828,6 +993,170 @@ export const DRILLDOWN_CONFIG: Record<string, DrilldownConfig> = {
   'qa-product-complaint-criticality': { rowSchema: genericDrilldownRowSchema, columns: QA_MARKET_COMPLAINT_MASTER_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-repeat-complaints': { rowSchema: genericDrilldownRowSchema, columns: QA_MARKET_COMPLAINT_MASTER_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-market-complaints-cn-tracking-ack-investigation-closure': { rowSchema: genericDrilldownRowSchema, columns: QA_MARKET_COMPLAINT_MASTER_COLUMNS, drilldownAdvancedFiltering: true },
+  'qa-deviations-per-1000-tests-qc': { rowSchema: genericDrilldownRowSchema, columns: DEVIATIONS_COLUMNS, drilldownAdvancedFiltering: true },
+  'qa-deviations-per-1000-batches-human': { rowSchema: genericDrilldownRowSchema, columns: DEVIATIONS_COLUMNS, drilldownAdvancedFiltering: true },
+  'qa-deviations-due-to-suppliers-materials-1000-batches': { rowSchema: genericDrilldownRowSchema, columns: DEVIATIONS_COLUMNS, drilldownAdvancedFiltering: true },
+  'qa-oos-due-to-suppliers-materials-1000-batches': { rowSchema: genericDrilldownRowSchema, columns: OOS_TREND_COLUMNS, drilldownAdvancedFiltering: true },
+  'qa-analyst-error-ioos': { rowSchema: genericDrilldownRowSchema, columns: OOS_TREND_COLUMNS, drilldownAdvancedFiltering: true },
+  'qa-oos-logged': { rowSchema: genericDrilldownRowSchema, columns: OOS_TREND_COLUMNS, drilldownAdvancedFiltering: true },
+  'qa-confirmed-oos-logged': { rowSchema: genericDrilldownRowSchema, columns: QA_VALID_OOS_COLUMNS, drilldownAdvancedFiltering: true },
+  'qa-breakdown-time-lims-instruments': { rowSchema: genericDrilldownRowSchema, columns: BREAKDOWN_FREQUENCY_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-recall-event-density': { rowSchema: genericDrilldownRowSchema, columns: QA_RECALL_EVENT_DENSITY_COLUMNS, drilldownAdvancedFiltering: true },
   'qa-far-alert-event-density': { rowSchema: genericDrilldownRowSchema, columns: QA_FAR_ALERT_EVENT_DENSITY_COLUMNS, drilldownAdvancedFiltering: true },
+}
+
+// Engineering cards that read their own facts (backend EngDrilldownSpecs), keyed by their dashboard card id.
+const ENGG_OWN_DRILLDOWN_CONFIG: Record<string, DrilldownConfig> = {
+  'engg-fte-count': { rowSchema: genericDrilldownRowSchema, columns: ENGG_FTE_COUNT_COLUMNS, drilldownAdvancedFiltering: true },
+  'engg-uptime-of-equipment-areas': { rowSchema: genericDrilldownRowSchema, columns: ENGG_UPTIME_COLUMNS, drilldownAdvancedFiltering: true },
+  'engg-mttr-mean-time-to-repair': { rowSchema: genericDrilldownRowSchema, columns: ENGG_MTTR_COLUMNS, drilldownAdvancedFiltering: true },
+  'engg-mtbf-mean-time-between-failures': { rowSchema: genericDrilldownRowSchema, columns: ENGG_MTBF_COLUMNS, drilldownAdvancedFiltering: true },
+  'engg-equipment-breakdown-m1-and-m2': { rowSchema: genericDrilldownRowSchema, columns: ENGG_BREAKDOWN_M1_M2_COLUMNS, drilldownAdvancedFiltering: true },
+  'engg-breakdown-variance-actual-vs-baseline': { rowSchema: genericDrilldownRowSchema, columns: ENGG_BREAKDOWN_COLUMNS, drilldownAdvancedFiltering: true },
+  'engg-breakdown-frequency-rate': { rowSchema: genericDrilldownRowSchema, columns: ENGG_BREAKDOWN_COLUMNS, drilldownAdvancedFiltering: true },
+  'engg-of-process-equipment-with-continuous-monitoring': { rowSchema: genericDrilldownRowSchema, columns: ENGG_CONTINUOUS_MONITORING_COLUMNS, drilldownAdvancedFiltering: true },
+  'engg-real-time-data-accuracy-rate': { rowSchema: genericDrilldownRowSchema, columns: ENGG_REAL_TIME_ACCURACY_COLUMNS, drilldownAdvancedFiltering: true },
+  'engg-building-maintenance-adherence': { rowSchema: genericDrilldownRowSchema, columns: ENGG_BUILDING_MAINTENANCE_COLUMNS, drilldownAdvancedFiltering: true },
+  'engg-critical-spare-parts-availability': { rowSchema: genericDrilldownRowSchema, columns: ENGG_CRITICAL_SPARE_PARTS_COLUMNS, drilldownAdvancedFiltering: true },
+  'engg-plan-vs-actual-pm-and-calibration-engineering': { rowSchema: genericDrilldownRowSchema, columns: ENGG_PLAN_VS_ACTUAL_COLUMNS, drilldownAdvancedFiltering: true },
+  'engg-discipline-in-attending-site-quality-forum-meetings': { rowSchema: genericDrilldownRowSchema, columns: ENGG_DISCIPLINE_COLUMNS, drilldownAdvancedFiltering: true },
+  'engg-open-new-equipment-and-facility-modification-ccs': { rowSchema: genericDrilldownRowSchema, columns: ENGG_OPEN_NEW_CCS_COLUMNS, drilldownAdvancedFiltering: true },
+}
+
+// Manufacturing / Supply Chain cards that read their own fact tables (backend MfgDrilldownSpecs), keyed by their dashboard card id.
+const MFG_SLA_IP_COLUMNS: DrilldownColumn[] = [
+  { key: 'sampleNumber', label: 'Sample Number' },
+  { key: 'textId', label: 'Text ID' },
+  { key: 'batchName', label: 'Batch Name' },
+  { key: 'productName', label: 'Product Name' },
+  { key: 'groupName', label: 'Group Name' },
+  { key: 'sampleType', label: 'Sample Type' },
+  { key: 'batchCategory', label: 'Batch Category' },
+  { key: 'sampledDate', label: 'Sampled Date', filterType: 'date' },
+  { key: 'completedDate', label: 'Completed Date', filterType: 'date' },
+  { key: 'status', label: 'Status' },
+  { key: 'tatWorkingDays', label: 'TAT (Working Days)', align: 'right' },
+  { key: 'slaDays', label: 'SLA Days', align: 'right' },
+  { key: 'slaStatus', label: 'SLA Status' },
+  { key: 'daysMissedSla', label: 'Days Missed SLA', align: 'right' },
+]
+
+const MFG_CHANGEOVER_COLUMNS: DrilldownColumn[] = [
+  { key: 'name', label: 'Name' },
+  { key: 'equipmentName', label: 'Equipment Name' },
+  { key: 'completedDate', label: 'Completed Date', filterType: 'date' },
+  { key: 'executionTime', label: 'Execution Time' },
+]
+
+const MFG_YIELD_COLUMNS: DrilldownColumn[] = [
+  { key: 'batchNo', label: 'Batch No' },
+  { key: 'material', label: 'Material' },
+  { key: 'materialDescription', label: 'Material Description' },
+  { key: 'materialGroup', label: 'Material Group' },
+  { key: 'baseUom', label: 'Base UoM' },
+  { key: 'batchSize', label: 'Batch Size', align: 'right' },
+  { key: 'outputQty', label: 'Output Qty', align: 'right' },
+  { key: 'actualYield', label: 'Actual Yield', align: 'right' },
+  { key: 'dateOfManufacture', label: 'Date of Manufacture', filterType: 'date' },
+  { key: 'dateOfExpiry', label: 'Date of Expiry' },
+]
+
+const MFG_LOT_ACCEPTANCE_COLUMNS: DrilldownColumn[] = [
+  { key: 'inspectionLot', label: 'Inspection Lot' },
+  { key: 'insplotOrigin', label: 'Inspection Lot Origin' },
+  { key: 'material', label: 'Material' },
+  { key: 'materialDescription', label: 'Material Description' },
+  { key: 'materialType', label: 'Material Type' },
+  { key: 'batch', label: 'Batch' },
+  { key: 'udCode', label: 'UD Code' },
+  { key: 'udCodeDate', label: 'UD Code Date', filterType: 'date' },
+]
+
+const MFG_OTIF_COLUMNS: DrilldownColumn[] = [
+  { key: 'po', label: 'PO' },
+  { key: 'material', label: 'Material' },
+  { key: 'materialGroup', label: 'Material Group' },
+  { key: 'vendorName', label: 'Vendor Name' },
+  { key: 'materialType', label: 'Material Type' },
+  { key: 'orderedQty', label: 'Ordered Qty', align: 'right' },
+  { key: 'receivedQty', label: 'Received Qty', align: 'right' },
+  { key: 'poDeliveryDate', label: 'PO Delivery Date', filterType: 'date' },
+  { key: 'actualGrDate', label: 'Actual GR Date', filterType: 'date' },
+  { key: 'deadline', label: 'Deadline', filterType: 'date' },
+  { key: 'daysLate', label: 'Days Late', align: 'right' },
+  { key: 'inFull', label: 'In Full' },
+  { key: 'onTime', label: 'On Time' },
+  { key: 'otifStatus', label: 'OTIF Status' },
+]
+
+const MFG_AQL_COLUMNS: DrilldownColumn[] = [
+  { key: 'orderNumber', label: 'Order Number' },
+  { key: 'itemCode', label: 'Item Code' },
+  { key: 'itemDescription', label: 'Item Description' },
+  { key: 'instanceDescription', label: 'Instance Description' },
+  { key: 'isAqlPass', label: 'AQL Pass', align: 'right' },
+  { key: 'isAqlFail', label: 'AQL Fail', align: 'right' },
+  { key: 'aqlResultDate', label: 'AQL Result Date', filterType: 'date' },
+]
+
+const MFG_IA_RESPONSE_TRACKING_COLUMNS: DrilldownColumn[] = [
+  { key: 'recordId', label: 'Record ID' },
+  { key: 'title', label: 'Title' },
+  { key: 'recordStatus', label: 'Record Status' },
+  { key: 'observationCategory', label: 'Observation Category' },
+  { key: 'severity', label: 'Severity' },
+  { key: 'dateCreated', label: 'Date Created', filterType: 'date' },
+  { key: 'actionDueDate', label: 'Action Due Date', filterType: 'date' },
+  { key: 'responseCompleted', label: 'Response Completed', filterType: 'date' },
+  { key: 'responseAgingDays', label: 'Response Aging (Days)', align: 'right' },
+  { key: 'extensionCount', label: 'Extensions', align: 'right' },
+  { key: 'status', label: 'Status' },
+]
+
+const MFG_NEW_LAUNCH_COLUMNS: DrilldownColumn[] = [
+  { key: 'recordId', label: 'Record ID' },
+  { key: 'ccTitle', label: 'CC Title' },
+  { key: 'ccCategory', label: 'CC Category' },
+  { key: 'recordStatus', label: 'Record Status' },
+  { key: 'dateOpened', label: 'Date Opened', filterType: 'date' },
+  { key: 'initialDueDate', label: 'Initial Due Date' },
+  { key: 'dueDate', label: 'Due Date' },
+  { key: 'dateClosed', label: 'Date Closed' },
+  { key: 'extensionCounter', label: 'Extension Counter' },
+]
+
+const MFG_CASUAL_MANPOWER_COLUMNS: DrilldownColumn[] = [
+  { key: 'attendanceDate', label: 'Attendance Date', filterType: 'date' },
+  { key: 'shift', label: 'Shift' },
+  { key: 'location', label: 'Location' },
+  { key: 'empCode', label: 'Emp Code' },
+  { key: 'empName', label: 'Emp Name' },
+]
+
+const generic = (columns: DrilldownColumn[]): DrilldownConfig => ({ rowSchema: genericDrilldownRowSchema, columns, drilldownAdvancedFiltering: true })
+
+const MFG_OWN_DRILLDOWN_CONFIG: Record<string, DrilldownConfig> = {
+  'mfg-sla-ip-in-process-sample-turnaround': generic(MFG_SLA_IP_COLUMNS),
+  'mfg-serial-changeover-time': generic(MFG_CHANGEOVER_COLUMNS),
+  'mfg-non-serial-changeover-time': generic(MFG_CHANGEOVER_COLUMNS),
+  'mfg-yield': generic(MFG_YIELD_COLUMNS),
+  'mfg-lot-acceptance-rate': generic(MFG_LOT_ACCEPTANCE_COLUMNS),
+  'mfg-difot-of-suppliers': generic(MFG_OTIF_COLUMNS),
+  'mfg-aql-success-rate': generic(MFG_AQL_COLUMNS),
+  'mfg-ia-response-tracking-and-timely-adherence': generic(MFG_IA_RESPONSE_TRACKING_COLUMNS),
+  'mfg-new-launches-and-site-transfer-on-time': generic(MFG_NEW_LAUNCH_COLUMNS),
+  'mfg-casual-manpower-available': generic(MFG_CASUAL_MANPOWER_COLUMNS),
+}
+
+// An admin-department card that reuses a QA endpoint shows that card's drill-down table, so it reads the same columns
+// under its own id (DRILLDOWN_CONFIG is keyed by kpi.id).
+const OWN_DRILLDOWN_CONFIG: Record<string, DrilldownConfig> = {
+  ...BASE_DRILLDOWN_CONFIG,
+  ...ENGG_OWN_DRILLDOWN_CONFIG,
+  ...MFG_OWN_DRILLDOWN_CONFIG,
+}
+
+export const DRILLDOWN_CONFIG: Record<string, DrilldownConfig> = {
+  ...OWN_DRILLDOWN_CONFIG,
+  ...Object.fromEntries(Object.entries(ADMIN_DRILLDOWN_SOURCE).map(([kpiId, source]) => [kpiId, OWN_DRILLDOWN_CONFIG[source]])),
 }

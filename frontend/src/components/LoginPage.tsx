@@ -1,61 +1,50 @@
-import { useEffect, useState, type FormEvent } from "react";
-import heliosLogo from "@/assets/helios-logo.svg";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { useAuth } from "@/hooks/useAuth";
-import { useTheme } from "@/hooks/useTheme";
-import { LoginHero } from "./login/LoginHero";
-import "./login/login.css";
+import { useEffect, useState, type FormEvent } from 'react'
+import { Eye, EyeOff } from 'lucide-react'
+import heliosLogo from '@/assets/helios-logo.svg'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { useAuth } from '@/hooks/useAuth'
+import { useTheme } from '@/hooks/useTheme'
+import { LoginHero } from './login/LoginHero'
+import './login/login.css'
 
 // Below this width the hero art drops to 10% opacity behind the sign-in card and stops rotating
 // (see login.css's matching breakpoint) - a login screen that's mid-transition when someone's
 // trying to read a form on a small screen is just noise.
-const NARROW_BREAKPOINT_QUERY = "(max-width: 860px)";
+const NARROW_BREAKPOINT_QUERY = '(max-width: 860px)'
 
 export function LoginPage() {
-  const { login } = useAuth();
-  const { theme, toggleTheme } = useTheme();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { login } = useAuth()
+  const { theme, toggleTheme } = useTheme()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   // Pause on hover or focus in the sign-in card - never animate behind someone typing a password.
-  const [signinActive, setSigninActive] = useState(false);
+  const [signinActive, setSigninActive] = useState(false)
   const [isNarrow, setIsNarrow] = useState(
-    () =>
-      typeof window !== "undefined" &&
-      window.matchMedia(NARROW_BREAKPOINT_QUERY).matches,
-  );
+    () => typeof window !== 'undefined' && window.matchMedia(NARROW_BREAKPOINT_QUERY).matches,
+  )
 
   useEffect(() => {
-    const mql = window.matchMedia(NARROW_BREAKPOINT_QUERY);
-    const onChange = () => setIsNarrow(mql.matches);
-    mql.addEventListener("change", onChange);
-    return () => mql.removeEventListener("change", onChange);
-  }, []);
+    const mql = window.matchMedia(NARROW_BREAKPOINT_QUERY)
+    const onChange = () => setIsNarrow(mql.matches)
+    mql.addEventListener('change', onChange)
+    return () => mql.removeEventListener('change', onChange)
+  }, [])
 
   async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    setIsSubmitting(true);
-    setError(null);
-
+    e.preventDefault()
+    setIsSubmitting(true)
+    setError(null)
     try {
-      await login(email, password);
-    } catch (error: unknown) {
-      console.error("Login failed:", error);
-      if (error instanceof Error) {
-        console.error("Error name:", error.name);
-        console.error("Error message:", error.message);
-      }
-
-      setError(
-        error instanceof Error
-          ? `${error.name}: ${error.message}`
-          : "Login failed. Check the browser console.",
-      );
+      await login(email, password)
+    } catch {
+      setError('Incorrect email or password.')
     } finally {
-      setIsSubmitting(false);
+      setIsSubmitting(false)
     }
   }
 
@@ -75,20 +64,9 @@ export function LoginPage() {
           className="dpm-login__theme-btn"
           onClick={toggleTheme}
           aria-label="Switch colour scheme"
-          title={
-            theme === "dark" ? "Switch to light mode" : "Switch to dark mode"
-          }
+          title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
         >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z" />
           </svg>
         </button>
@@ -123,38 +101,44 @@ export function LoginPage() {
               />
             </div>
             <div className="mb-3.5 space-y-1.5">
-              <Label
-                htmlFor="login-password"
-                className="dpm-login__field-label"
-              >
+              <Label htmlFor="login-password" className="dpm-login__field-label">
                 Password
               </Label>
-              <Input
-                id="login-password"
-                type="password"
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="dpm-login__input"
-              />
+              <div className="relative">
+                <Input
+                  id="login-password"
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="dpm-login__input pr-10"
+                />
+                {/* Lets someone check a pasted password before signing in; held in state, so it re-hides on reload. */}
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((shown) => !shown)}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  aria-pressed={showPassword}
+                  title={showPassword ? 'Hide password' : 'Show password'}
+                  className="text-muted-foreground hover:text-foreground absolute inset-y-0 right-0 flex items-center px-3"
+                >
+                  {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </div>
             </div>
             {error && (
               <p role="alert" className="dpm-login__error mb-2">
                 {error}
               </p>
             )}
-            <Button
-              type="submit"
-              disabled={isSubmitting}
-              className="dpm-login__submit"
-            >
-              {isSubmitting ? "Signing in…" : "Enter DPM"}
+            <Button type="submit" disabled={isSubmitting} className="dpm-login__submit">
+              {isSubmitting ? 'Signing in…' : 'Enter DPM'}
             </Button>
           </form>
           <p className="dpm-login__fine">SSO · KRSG DOMAIN · 2026 STRIDES</p>
         </div>
       </div>
     </div>
-  );
+  )
 }

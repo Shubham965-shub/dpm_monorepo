@@ -43,7 +43,16 @@ public record KpiCardResponse(
         Boolean inProgress,
         String numeratorLabel,
         String denominatorLabel,
-        Map<String, Long> breakdown) {
+        Map<String, Long> breakdown,
+        String category) {
+
+    /** A row of a card that stacks by a second dimension: `name` is the stacked segment, `category` the bar it sits in (null: plotted by period). */
+    public KpiCardResponse(String kpiId, String name, BigDecimal value, String unit, KpiStatus status,
+            String grain, LocalDate periodStart, String note, BigDecimal numerator, BigDecimal denominator,
+            KpiThresholds thresholds, Boolean inProgress, String numeratorLabel, String denominatorLabel, Map<String, Long> breakdown) {
+        this(kpiId, name, value, unit, status, grain, periodStart, note, numerator, denominator, thresholds, inProgress,
+                numeratorLabel, denominatorLabel, breakdown, null);
+    }
 
     public KpiCardResponse(String kpiId, String name, BigDecimal value, String unit, KpiStatus status,
             String grain, LocalDate periodStart, String note, BigDecimal numerator, BigDecimal denominator) {
@@ -61,23 +70,28 @@ public record KpiCardResponse(
 
     public KpiCardResponse withThresholdStatus(KpiStatus newStatus, KpiThresholds newThresholds, Boolean newInProgress) {
         return new KpiCardResponse(kpiId, name, value, unit, newStatus, grain, periodStart, note,
-                numerator, denominator, newThresholds, newInProgress, numeratorLabel, denominatorLabel, breakdown);
+                numerator, denominator, newThresholds, newInProgress, numeratorLabel, denominatorLabel, breakdown, category);
     }
 
     public KpiCardResponse withValue(BigDecimal newValue) {
         return new KpiCardResponse(kpiId, name, newValue, unit, status, grain, periodStart, note,
-                numerator, denominator, thresholds, inProgress, numeratorLabel, denominatorLabel, breakdown);
+                numerator, denominator, thresholds, inProgress, numeratorLabel, denominatorLabel, breakdown, category);
     }
 
     /** For a plain count, whose stored "n / 1" is an artefact of the shared ratio shape, not a real denominator. */
     public KpiCardResponse withoutRatio() {
         return new KpiCardResponse(kpiId, name, value, unit, status, grain, periodStart, note,
-                null, null, thresholds, inProgress, null, null, breakdown);
+                null, null, thresholds, inProgress, null, null, breakdown, category);
+    }
+
+    public KpiCardResponse withCategory(String newCategory) {
+        return new KpiCardResponse(kpiId, name, value, unit, status, grain, periodStart, note,
+                numerator, denominator, thresholds, inProgress, numeratorLabel, denominatorLabel, breakdown, newCategory);
     }
 
     public KpiCardResponse withBreakdown(Map<String, Long> newBreakdown) {
         return new KpiCardResponse(kpiId, name, value, unit, status, grain, periodStart, note,
-                numerator, denominator, thresholds, inProgress, numeratorLabel, denominatorLabel, newBreakdown);
+                numerator, denominator, thresholds, inProgress, numeratorLabel, denominatorLabel, newBreakdown, category);
     }
 
     /** Back-compat shape for the many KPIs with no numerator/denominator breakdown to show. */

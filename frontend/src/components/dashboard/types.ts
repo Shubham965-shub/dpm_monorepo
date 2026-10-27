@@ -140,7 +140,7 @@ export function bandSeverity(band: ScoreBand): Severity | null {
 }
 
 // KPI Scoring Specification section 8's interpretation of each band.
-const BAND_LABEL: Record<NonNullable<ScoreBand>, string> = { GREEN: 'Performing', AMBER: 'Watch', RED: 'Unacceptable' }
+const BAND_LABEL: Record<NonNullable<ScoreBand>, string> = { GREEN: 'On Track', AMBER: 'Needs Attention', RED: 'Action Required' }
 
 export function scoreBandLabel(band: ScoreBand): string {
   return band ? BAND_LABEL[band] : 'No data'
@@ -178,6 +178,14 @@ const STATUS_TO_SEVERITY: Record<Exclude<KpiStatus, null>, Severity> = {
 
 export function severityFromStatus(status: KpiStatus | undefined): Severity | null {
   return status ? STATUS_TO_SEVERITY[status] : null
+}
+
+/** A bar's own colour from its period's status (what a card's value is judged against its limits as), so under-limit bars
+ * are green and over-limit ones red whatever the latest period is. null for no status or an unknown one - the caller keeps
+ * its own colour. */
+export function statusBarHex(status: unknown): string | null {
+  if (typeof status !== 'string' || !(status in STATUS_TO_SEVERITY)) return null
+  return severityMeta(STATUS_TO_SEVERITY[status as keyof typeof STATUS_TO_SEVERITY]).solidHex
 }
 
 export interface BoundaryLine {
@@ -335,7 +343,8 @@ export function trendKpisForDomain(domain: KpiDomain | undefined, visibleKpiIds:
  * not a missing/stale config the way a real trend KPI's "no threshold" can be. It's still counted in
  * the section header's own tier breakdown (see DomainTierCounts/DomainSeverityBoard's
  * extraNoThreshold), even though PriorityComplianceCard's own stacked-percentage view never goes
- * grey itself - this only affects the header's count, not that card's rendering. */
+ * grey itself - this only affects the header's count, not that card's rendering. A categoryAxis column card (Vendor
+ * Blocking's stacked columns) has no limits either, so it counts the same way. */
 export function stackedShareNoThresholdCount(domain: KpiDomain | undefined, visibleKpiIds: Set<string>): number {
-  return domain?.kpis.filter((kpi) => visibleKpiIds.has(kpi.id) && STACKED_SHARE_KPI_IDS.has(kpi.id)).length ?? 0
+  return domain?.kpis.filter((kpi) => visibleKpiIds.has(kpi.id) && (STACKED_SHARE_KPI_IDS.has(kpi.id) || kpi.categoryAxis)).length ?? 0
 }

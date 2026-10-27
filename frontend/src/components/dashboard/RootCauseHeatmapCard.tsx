@@ -95,7 +95,8 @@ export function RootCauseHeatmapGrid({
                           </div>
                         </td>
                       </TooltipTrigger>
-                      <TooltipContent>
+                      {/* flex-col: the base content is a flex row, which would lay these lines side by side. */}
+                      <TooltipContent className="flex-col items-start gap-0">
                         <div>Category: {formatPeriodTick(period, grain)}</div>
                         <div>Y: By {row.label}</div>
                         <div>Value: {value ?? 'No data'}</div>

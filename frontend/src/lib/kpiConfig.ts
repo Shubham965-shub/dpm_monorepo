@@ -17,8 +17,8 @@ export type ExtraFilter =
   /** repeated: true sends selections as repeated params (?param=A&param=B) instead of comma-joined -
    * required when an option value can itself contain a comma (e.g. a department name), see
    * backend/README.md's "Filter syntax" note. defaultValue: preselected instead of blank/"All" -
-   * same convention as select's, but seeds a single-value selection rather than a locked choice. */
-  | { kind: 'multiSelect'; param: string; repeated?: boolean; defaultValue?: string }
+   * same convention as select's, but seeds a selection (one value, or several as an array) rather than a locked choice. */
+  | { kind: 'multiSelect'; param: string; repeated?: boolean; defaultValue?: string | string[] }
   | { kind: 'numberInput'; param: string }
 
 export interface KpiDefinition {
@@ -31,6 +31,9 @@ export interface KpiDefinition {
    * KPIs now have a real agg table but a handful still don't). Falls back to the domain's `mock`
    * when unset. */
   mock?: boolean
+  /** Sent as this card's `site` in place of the page's - for a card scoped differently from the rest of its page (the
+   * Manufacturing cards read ALL sites, the Power BI default, while the QA cards they reuse stay on one site). */
+  site?: string
   /** Empty = no filter beyond the shared site/grain/from/to. */
   extraFilters: ExtraFilter[]
   /** Sent on every fetch and not user-changeable - lets one endpoint back several cards, each pinned to one slice. */
@@ -47,6 +50,8 @@ export interface KpiDefinition {
    * column charts, for plain counts with no threshold (see PeriodCountBarCard).
    */
   chartType?: 'line' | 'bar' | 'column'
+  /** 'column' only: one bar per row `category` (e.g. material type) rather than per period, stacked by `name`. */
+  categoryAxis?: boolean
   /** Which view a time-series card opens in; every card can switch to the other. Default 'line'. */
   defaultView?: 'line' | 'bar'
   /** Bar view only: each bar's amber deepens the older its period is (see ageShadeOpacity). */
@@ -175,8 +180,8 @@ export const KPI_DOMAINS: KpiDomain[] = [
     category: 'Compliance System',
     basePath: '/api/qms',
     kpis: [
-      // Blank testScope = All tests; RISE / Commercial are the switchable variants (QmsService.getInvalidOosRate).
-      { id: 'invalid-oos-rate', label: 'Invalid OOS Rate', path: 'invalid-oos-rate', drilldownPath: 'invalid-oos-rate/drilldown', extraFilters: [{ kind: 'select', param: 'testScope' }] },
+      // Opens on RISE (business request); blank testScope = All tests and Commercial are the other choices (QmsService.getInvalidOosRate).
+      { id: 'invalid-oos-rate', label: 'Invalid OOS Rate', path: 'invalid-oos-rate', drilldownPath: 'invalid-oos-rate/drilldown', extraFilters: [{ kind: 'select', param: 'testScope', defaultValue: 'RISE' }] },
       { id: 'confirmed-oos-rate', label: 'Confirmed OOS Rate', path: 'confirmed-oos-rate', drilldownPath: 'confirmed-oos-rate/drilldown', extraFilters: [{ kind: 'multiSelect', param: 'productType' }] },
       { id: 'oos-trend', label: 'OOS Trend', path: 'oos-trend', drilldownPath: 'oos-trend/drilldown', extraFilters: [{ kind: 'multiSelect', param: 'rootCauseBucket' }, { kind: 'multiSelect', param: 'conclusion' }] },
       { id: 'oot-trend', label: 'OOT Trend', path: 'oot-trend', drilldownPath: 'oot-trend/drilldown', extraFilters: [{ kind: 'multiSelect', param: 'rootCauseBucket' }, { kind: 'multiSelect', param: 'conclusion' }] },

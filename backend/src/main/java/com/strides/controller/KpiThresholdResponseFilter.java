@@ -35,7 +35,7 @@ import java.util.function.Function;
 public class KpiThresholdResponseFilter implements ContainerResponseFilter {
 
     /** Snapshot filter names are DB columns; the KPI endpoints take their camelCase form, except these. */
-    private static final Map<String, String> PARAM_FOR_FILTER = Map.of("site_name", "site");
+    private static final Map<String, String> PARAM_FOR_FILTER = Map.of("site_name", "site", "root_cause_bucket", "rootCause");
     private static final Map<String, String> PARAM_DEFAULTS = Map.of("site", KpiParams.DEFAULT_SITE);
     /** A KPI data endpoint's own distinct-values list can offer "Unknown" for a blank department -
      * kpi_threshold_snapshot has no such row (it stores blanks as "(blank)"), so a single "Unknown"

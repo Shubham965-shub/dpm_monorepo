@@ -1,3 +1,4 @@
+import { Fragment } from 'react'
 import { Sun, Moon, Bell, Compass } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -8,13 +9,15 @@ import { useTheme } from '@/hooks/useTheme'
 import { cn } from '@/lib/utils'
 import type { UserPublic } from '@/lib/authSchemas'
 import type { RoleTab, KpiVisibilityLens } from '@/lib/roleAccess'
+import type { AdminDepartmentId } from '@/lib/adminDepartments'
 import { DataFreshnessLabel } from './DataFreshnessLabel'
 import { FeedbackLauncher } from './FeedbackLauncher'
+import type { FeedbackScope } from '@/lib/feedbackSubject'
 import { ProfileMenu } from './ProfileMenu'
 
 /** A real vertical bar, not a text "|" glyph - matches InvestigationAI's header divider. */
 function NavDivider({ className }: { className?: string }) {
-  return <div className={cn('h-6 w-px bg-brand/30', className)} />
+  return <div className={cn('h-6 w-px shrink-0 bg-brand/30', className)} />
 }
 
 // Wireframe shows CXO / Leadership / Operations tabs, which don't map onto the backend's fixed
@@ -33,6 +36,7 @@ export function TopNav({
   onActiveRoleChange,
   locked,
   onReplayTour,
+  feedbackScope,
 }: {
   user: UserPublic
   onLogout: () => void
@@ -45,6 +49,8 @@ export function TopNav({
    * undefined on a view with no coach tour of its own (QA/Performance), which hides the button
    * rather than wiring it to a no-op. */
   onReplayTour?: () => void
+  /** The dashboard being viewed, for the feedback button's "what is this about" step (see FeedbackLauncher). */
+  feedbackScope: FeedbackScope
 }) {
   const { theme, toggleTheme } = useTheme()
 
@@ -57,7 +63,7 @@ export function TopNav({
         <img src={heliosLogo} alt="Helios" className="h-8 w-auto" />
       </div>
       <nav className="flex items-center gap-6 text-sm">
-        <FeedbackLauncher />
+        <FeedbackLauncher scope={feedbackScope} />
         {onReplayTour && (
           <button
             type="button"
@@ -100,7 +106,7 @@ export function TopNav({
   )
 }
 
-export type SubNavView = 'dashboard' | 'performance' | 'qa'
+export type SubNavView = 'dashboard' | 'performance' | 'qa' | AdminDepartmentId
 
 /** A sub-choice within whichever TopNav role tab is active - QC's Operations tab splits further
  * into Analyst/Supervisor, QA's CXO tab splits further into CXO/Cluster Head (see
@@ -147,6 +153,7 @@ export function SubNav({
   secondaryToggle,
   showDashboardTab = true,
   showQaTab = false,
+  adminTabs = [],
 }: {
   view: SubNavView
   onViewChange: (view: SubNavView) => void
@@ -168,12 +175,16 @@ export function SubNav({
    * hasDepartmentAccess / DashboardPage) - hides the tab entirely for everyone else rather than
    * just being blocked if somehow navigated to. */
   showQaTab?: boolean
+  /** Admin-only department dashboards (see adminDepartments.ts) - DashboardPage passes the list for ADMIN and an
+   * empty one for everyone else, so the tabs never render for a non-admin. */
+  adminTabs?: { view: SubNavView; label: string }[]
 }) {
   return (
     <div className="flex items-center justify-between border-b border-border px-6 py-2 md:px-10 lg:px-20">
       {/* Both dashboards (QC, QA) sit together first, Performance last - keeps the two "pick a
       dashboard" tabs adjacent instead of splitting them across Performance. */}
-      <div className="flex items-center gap-4 text-sm">
+      {/* nowrap + scroll: with the admin department tabs the row outgrows narrow widths, and a tab label must never wrap to two lines. */}
+      <div className="flex min-w-0 items-center gap-4 overflow-x-auto whitespace-nowrap text-sm">
         {showDashboardTab && (
           <button
             onClick={() => onViewChange('dashboard')}
@@ -191,7 +202,18 @@ export function SubNav({
             QA Dashboard
           </button>
         )}
-        {(showDashboardTab || showQaTab) && <NavDivider className="bg-border" />}
+        {adminTabs.map((tab) => (
+          <Fragment key={tab.view}>
+            <NavDivider className="bg-border" />
+            <button
+              onClick={() => onViewChange(tab.view)}
+              className={view === tab.view ? 'font-semibold text-brand' : 'text-muted-foreground hover:text-foreground'}
+            >
+              {tab.label}
+            </button>
+          </Fragment>
+        ))}
+        {(showDashboardTab || showQaTab || adminTabs.length > 0) && <NavDivider className="bg-border" />}
         <button
           onClick={() => onViewChange('performance')}
           className={view === 'performance' ? 'font-semibold text-brand' : 'text-muted-foreground hover:text-foreground'}
@@ -199,7 +221,7 @@ export function SubNav({
           Performance
         </button>
       </div>
-      <div className="flex items-center gap-4">
+      <div className="flex shrink-0 items-center gap-4 whitespace-nowrap">
         <DataFreshnessLabel />
         {secondaryToggle && (
           <SubNavLensToggle

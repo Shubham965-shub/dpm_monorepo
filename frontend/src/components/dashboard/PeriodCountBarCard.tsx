@@ -122,7 +122,8 @@ export function PeriodCountBarCard({
           {viewLabel && <p className="text-muted-foreground text-[11px]">By {viewLabel}</p>}
         </div>
         <div className="flex shrink-0 items-center gap-1">
-          <GrainToggle grain={grain} onChange={setGrain} activeHex={GREEN.solidHex} borderHex={GREEN.paleHex} />
+          {/* A card plotted by category has no date to bucket, so a grain toggle would do nothing. */}
+          {!kpi.categoryAxis && <GrainToggle grain={grain} onChange={setGrain} activeHex={GREEN.solidHex} borderHex={GREEN.paleHex} />}
           <FiltersPopoverButton kpi={kpi} filters={filters} />
           <button className="text-muted-foreground hover:text-foreground" onClick={() => setDetailOpen(true)} title="Expand view">
             <Maximize2 className="size-3.5" />
@@ -150,14 +151,14 @@ export function PeriodCountBarCard({
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
               <XAxis
                 dataKey="periodStart"
-                tickFormatter={(p: string) => formatPeriodTick(p, grain, NEVER_CURRENT_YEAR)}
+                tickFormatter={(p: string) => (kpi.categoryAxis ? p : formatPeriodTick(p, grain, NEVER_CURRENT_YEAR))}
                 interval={evenTickInterval(chartData.length, MAX_X_TICKS)}
                 tick={{ fontSize: 9 }}
                 stroke="var(--muted-foreground)"
               />
               <YAxis allowDecimals={false} tick={{ fontSize: 9 }} stroke="var(--muted-foreground)" />
               <Tooltip
-                content={(props) => <CountTooltip {...props} periodLabel={formatRangeStart(String(props.label), grain)} />}
+                content={(props) => <CountTooltip {...props} periodLabel={kpi.categoryAxis ? String(props.label) : formatRangeStart(String(props.label), grain)} />}
                 wrapperStyle={{ zIndex: TOOLTIP_Z_INDEX }}
                 cursor={{ fill: GREEN.paleHex, fillOpacity: 0.4 }}
               />
