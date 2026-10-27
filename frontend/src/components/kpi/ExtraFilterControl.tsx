@@ -21,8 +21,8 @@ export function initialExtraFilterState(filter: ExtraFilter): ExtraFilterState {
     case 'select':
       return { kind: 'select', value: filter.defaultValue ?? '' }
     case 'multiSelect':
-      return filter.defaultValue
-        ? { kind: 'multiSelect', value: [filter.defaultValue], allChecked: false }
+      return filter.defaultValue && filter.defaultValue.length > 0
+        ? { kind: 'multiSelect', value: [filter.defaultValue].flat(), allChecked: false }
         : { kind: 'multiSelect', value: [], allChecked: true }
     case 'numberInput':
       return { kind: 'numberInput', value: '' }
@@ -234,7 +234,8 @@ export function ExtraFilterControl({
                 <ChevronDown className="size-3 shrink-0 opacity-60" />
               </button>
             </PopoverTrigger>
-            <PopoverContent align="start" className="w-56 gap-1 p-1.5">
+            {/* z-[70]: above the compact card's Filters panel (z-[60], FiltersPopoverButton) this list can open from, or the panel covers it. */}
+            <PopoverContent align="start" className="z-[70] w-56 gap-1 p-1.5">
               <MultiSelectOptions state={state} options={options} onChange={onChange} />
             </PopoverContent>
           </Popover>

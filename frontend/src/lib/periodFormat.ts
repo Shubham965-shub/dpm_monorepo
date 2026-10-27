@@ -94,3 +94,39 @@ export function formatNoDataPeriod(periodStart: string, grain: Grain): string {
   if (grain === 'quarterly') return formatQuarter(date)
   return formatPeriodLabel(periodStart, grain)
 }
+
+const DATE_ONLY = (date: Date, options: Intl.DateTimeFormatOptions) => date.toLocaleDateString('en-US', options)
+
+/**
+ * A stretch of consecutive empty periods as one range: a single period names itself, a daily run drops what both ends
+ * share ("Sep 25 – 26, 2026", "Sep 28 – Oct 4, 2026"), and any other grain joins its two ends ("Jun 2026 – Aug 2026").
+ */
+export function formatNoDataRange(first: string, last: string, grain: Grain): string {
+  if (first === last) return formatNoDataPeriod(first, grain)
+  if (grain !== 'daily') return `${formatNoDataPeriod(first, grain)} – ${formatNoDataPeriod(last, grain)}`
+  const start = new Date(`${first}T00:00:00`)
+  const end = new Date(`${last}T00:00:00`)
+  if (start.getFullYear() !== end.getFullYear()) return `${formatNoDataPeriod(first, grain)} – ${formatNoDataPeriod(last, grain)}`
+  const year = start.getFullYear()
+  if (start.getMonth() === end.getMonth()) {
+    return `${DATE_ONLY(start, { month: 'short', day: 'numeric' })} – ${end.getDate()}, ${year}`
+  }
+  return `${DATE_ONLY(start, { month: 'short', day: 'numeric' })} – ${DATE_ONLY(end, { month: 'short', day: 'numeric' })}, ${year}`
+}
+
+/** The unbroken runs of empty points, in order, as [first, last] period starts - a point with data ends a run. */
+export function emptyRuns(points: { periodStart: string; empty: boolean }[]): [string, string][] {
+  const runs: [string, string][] = []
+  let open: [string, string] | null = null
+  for (const point of points) {
+    if (!point.empty) {
+      open = null
+    } else if (open) {
+      open[1] = point.periodStart
+    } else {
+      open = [point.periodStart, point.periodStart]
+      runs.push(open)
+    }
+  }
+  return runs
+}

@@ -3,6 +3,7 @@ import { getValidated } from '@/lib/apiClient'
 import { kpiCardListSchema, type KpiCardResponse } from '@/lib/kpiSchemas'
 import type { KpiDomain, KpiDefinition } from '@/lib/kpiConfig'
 import { generateMockKpiSeries } from '@/lib/mockKpiSeries'
+import { isThresholdless, withoutThresholds } from '@/lib/thresholdless'
 import { defaultExtraParams } from '@/components/kpi/ExtraFilterControl'
 
 export interface GlobalKpiFilters {
@@ -29,7 +30,7 @@ export type ExtraParams = [string, string][]
  * board-level fetch matches what the card itself sends before its filters are touched. */
 export function buildKpiQueryString(globalFilters: GlobalKpiFilters, kpi: KpiDefinition, extraParams: ExtraParams = defaultExtraParams(kpi)) {
   const params = new URLSearchParams()
-  params.set('site', globalFilters.site)
+  params.set('site', kpi.site ?? globalFilters.site)
   params.set('grain', globalFilters.grain)
   if (!kpi.snapshot) {
     params.set('from', globalFilters.from)
@@ -45,8 +46,10 @@ export function buildKpiQueryString(globalFilters: GlobalKpiFilters, kpi: KpiDef
  * response would be. Shared by useKpiData's own query and useDomainTrendKpis' batch fetch, so both
  * resolve a mock KPI the same way. */
 export function fetchKpiCardData(domain: KpiDomain, kpi: KpiDefinition, globalFilters: GlobalKpiFilters, queryString: string): Promise<KpiCardResponse[]> {
-  if (kpi.mock ?? domain.mock) return Promise.resolve(kpiCardListSchema.parse(generateMockKpiSeries(domain, kpi, globalFilters)))
-  return getValidated(kpiCardListSchema, `${domain.basePath}/${kpi.path}?${queryString}`)
+  const rows = kpi.mock ?? domain.mock
+    ? Promise.resolve(kpiCardListSchema.parse(generateMockKpiSeries(domain, kpi, globalFilters)))
+    : getValidated(kpiCardListSchema, `${domain.basePath}/${kpi.path}?${queryString}`)
+  return isThresholdless(domain) ? rows.then(withoutThresholds) : rows
 }
 
 export function useKpiData(

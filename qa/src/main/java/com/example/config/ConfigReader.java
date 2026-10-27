@@ -32,39 +32,28 @@ public final class ConfigReader {
     }
 
     public static String get(String key) {
-        Objects.requireNonNull(key, "Configuration key must not be null");
-        String systemValue = System.getProperty(key);
-        if (systemValue != null && !systemValue.isBlank()) {
-            return systemValue.trim();
-        }
-        String envKey = key.toUpperCase(Locale.ROOT) .replace('.', '_').replace('-', '_');
-        String environmentValue = System.getenv(envKey);
-        if (environmentValue != null && !environmentValue.isBlank()) {
-            return environmentValue.trim();
-        }
-        String fileValue = PROPERTIES.getProperty(key);
-        if (fileValue == null || fileValue.isBlank()) {
+        String value = lookup(key);
+        if (value == null) {
             throw new IllegalStateException("Missing required configuration: " + key );
         }
-        return fileValue.trim();
+        return value;
     }
 
     public static String get(String key, String defaultValue) {
+        String value = lookup(key);
+        return value != null ? value : Objects.requireNonNull( defaultValue,"Default value must not be null");
+    }
+
+    /** System property > env var (upper-cased, '.'/'-' as '_') > config.properties; null when none is set. */
+    private static String lookup(String key) {
         Objects.requireNonNull(key, "Configuration key must not be null");
-        String systemValue = System.getProperty(key);
-        if (systemValue != null && !systemValue.isBlank()) {
-            return systemValue.trim();
+        String envKey = key.toUpperCase(Locale.ROOT).replace('.', '_').replace('-', '_');
+        for (String value : new String[] { System.getProperty(key), System.getenv(envKey), PROPERTIES.getProperty(key) }) {
+            if (value != null && !value.isBlank()) {
+                return value.trim();
+            }
         }
-        String envKey = key.toUpperCase(Locale.ROOT) .replace('.', '_') .replace('-', '_');
-        String environmentValue = System.getenv(envKey);
-        if (environmentValue != null && !environmentValue.isBlank()) {
-            return environmentValue.trim();
-        }
-        String fileValue = PROPERTIES.getProperty(key);
-        if (fileValue != null && !fileValue.isBlank()) {
-            return fileValue.trim();
-        }
-        return Objects.requireNonNull( defaultValue,"Default value must not be null");
+        return null;
     }
 
     public static int getInt(String key, int defaultValue) {

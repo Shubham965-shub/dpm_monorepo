@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { boundaryLines, boundaryZones, SEVERITY_META } from './types'
+import { boundaryLines, boundaryZones, SEVERITY_META, statusBarHex } from './types'
 
 const GREEN = SEVERITY_META['in-control'].paleHex
 const AMBER = SEVERITY_META.alert.paleHex
@@ -81,5 +81,19 @@ describe('boundaryZones opacity', () => {
     const action = zones.find((z) => z.fillHex === RED)!
     const alert = zones.find((z) => z.fillHex === AMBER)!
     expect(action.fillOpacity).toBeLessThan(alert.fillOpacity)
+  })
+})
+
+describe('statusBarHex', () => {
+  it('colours a bar by its own period status', () => {
+    expect(statusBarHex('GREEN')).toBe(SEVERITY_META['in-control'].solidHex)
+    expect(statusBarHex('AMBER')).toBe(SEVERITY_META.alert.solidHex)
+    expect(statusBarHex('RED')).toBe(SEVERITY_META.action.solidHex)
+  })
+
+  it('leaves the series colour when there is no usable status', () => {
+    expect(statusBarHex(null)).toBeNull()
+    expect(statusBarHex(undefined)).toBeNull()
+    expect(statusBarHex('PURPLE')).toBeNull()
   })
 })

@@ -112,6 +112,21 @@ public class InstrumentHealth extends BasePage {
                 .collect(Collectors.toList());
     }
 
+    // Bands fill in one card at a time as each KPI's RAG status arrives, so on a slow link a band's
+    // "N KPIs" header can briefly run ahead of the cards actually moved into it.
+    public void waitForBandsToSettle(List<String> bandLabels) {
+        WaitUtils.waitUntil(driver -> bandLabels.stream().allMatch(this::bandLabelMatchesCardCount));
+    }
+
+    private boolean bandLabelMatchesCardCount(String bandLabel) {
+        int cards = getCardCountInBand(bandLabel);
+        if (cards == 0) {
+            return true;
+        }
+        List<WebElement> labels = getDriver().findElements(By.xpath(bandHeaderLabelXpath(bandLabel) + "/following-sibling::span[1]"));
+        return !labels.isEmpty() && labels.get(0).getText().replaceAll("\\D", "").equals(String.valueOf(cards));
+    }
+
     public String getBandCountLabel(String bandLabel) {
         return getDriver()
                 .findElement(By.xpath(bandHeaderLabelXpath(bandLabel) + "/following-sibling::span[1]"))

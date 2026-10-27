@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { evenTickInterval, formatNoDataPeriod, formatPeriodLabel, formatPeriodTick, formatRangeEnd, formatRangeStart } from './periodFormat'
+import { emptyRuns, evenTickInterval, formatNoDataPeriod, formatNoDataRange, formatPeriodLabel, formatPeriodTick, formatRangeEnd, formatRangeStart } from './periodFormat'
 
 describe('formatPeriodTick', () => {
   const TODAY = new Date(2026, 8, 29)
@@ -64,5 +64,31 @@ describe('formatNoDataPeriod', () => {
     expect(formatNoDataPeriod('2026-10-01', 'monthly')).toBe('Oct 2026')
     expect(formatNoDataPeriod('2026-10-01', 'quarterly')).toBe('Q4 2026')
     expect(formatNoDataPeriod('2026-01-01', 'yearly')).toBe('2026')
+  })
+})
+
+describe('no-data ranges', () => {
+  it('writes a daily run inside one month with the shared month and year once', () => {
+    expect(formatNoDataRange('2026-09-25', '2026-09-26', 'daily')).toBe('Sep 25 – 26, 2026')
+  })
+
+  it('keeps both months when a daily run crosses one, and both years when it crosses a year', () => {
+    expect(formatNoDataRange('2026-09-28', '2026-10-04', 'daily')).toBe('Sep 28 – Oct 4, 2026')
+    expect(formatNoDataRange('2025-12-30', '2026-01-02', 'daily')).toBe('Dec 30, 2025 – Jan 2, 2026')
+  })
+
+  it('names a single period on its own and joins the ends for other grains', () => {
+    expect(formatNoDataRange('2026-09-25', '2026-09-25', 'daily')).toBe(formatNoDataPeriod('2026-09-25', 'daily'))
+    expect(formatNoDataRange('2026-06-01', '2026-08-01', 'monthly')).toBe('Jun 2026 – Aug 2026')
+  })
+
+  it('groups consecutive empty periods and splits on a period with data', () => {
+    const point = (periodStart: string, empty: boolean) => ({ periodStart, empty })
+    expect(
+      emptyRuns([point('2026-09-23', true), point('2026-09-24', false), point('2026-09-25', true), point('2026-09-26', true), point('2026-09-27', false)]),
+    ).toEqual([
+      ['2026-09-23', '2026-09-23'],
+      ['2026-09-25', '2026-09-26'],
+    ])
   })
 })

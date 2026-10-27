@@ -27,8 +27,27 @@ jobs:
         with:
           npm-token: ${{ secrets.NPM_TOKEN }}
 
+      - name: Record start time
+        id: timing
+        run: echo "started_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
+      # The JSON reporter writes test-results.json so the dashboard can show test counts.
       - name: Run Frontend Tests and Coverage
-        run: npm run test:coverage
+        id: test
+        run: npm run test:coverage -- --reporter=default --reporter=json --outputFile=test-results.json
+
+      # Send this job's coverage to the feedback-service CI dashboard (feedback-admin → CI / Builds).
+      # Runs even when tests fail, before the threshold gate, and never fails the job itself.
+      - name: Report FRONTEND coverage to CI dashboard
+        if: always()
+        env:
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          CI_API_BASE_URL: ${{ vars.CI_API_BASE_URL }}
+          WORKFLOW_NAME: ${{ github.workflow }}
+          BUILD_STATUS: ${{ steps.test.outcome == 'success' && 'SUCCESS' || 'FAILED' }}
+          STARTED_AT: ${{ steps.timing.outputs.started_at }}
+          COVERAGE_THRESHOLD: "80"
+        run: bash ../.github/scripts/report-coverage.sh FRONTEND .
 
       - name: Display Coverage Summary
         if: always()

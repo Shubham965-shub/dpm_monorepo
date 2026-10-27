@@ -58,8 +58,8 @@ export function countActiveFilters(filters: ExtraFilter[], states: ExtraFilterSt
  * its heatmap cells and section grouping actually describe. */
 export function defaultFilterSummaries(kpi: KpiDefinition): string[] {
   const fromFilters = kpi.extraFilters.flatMap((filter) =>
-    (filter.kind === 'select' || filter.kind === 'multiSelect') && filter.defaultValue
-      ? [`${filterLabel(filter.param)}: ${filter.defaultValue}`]
+    (filter.kind === 'select' || filter.kind === 'multiSelect') && filter.defaultValue && filter.defaultValue.length > 0
+      ? [`${filterLabel(filter.param)}: ${[filter.defaultValue].flat().join(', ')}`]
       : [],
   )
   return kpi.defaultNarrowing ? [...fromFilters, kpi.defaultNarrowing] : fromFilters

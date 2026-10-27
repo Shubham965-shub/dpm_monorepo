@@ -23,7 +23,7 @@ import { FiltersPopoverButton } from '@/components/kpi/FiltersPopoverButton'
 import { GrainToggle } from '@/components/kpi/GrainToggle'
 import { KpiLineTooltip } from '@/components/kpi/KpiLineTooltip'
 import { ageShadeOpacity } from '@/lib/ageShade'
-import { ALERT_LIMIT_HEX, boundaryHex, boundaryLines, boundaryZones, kpiAnchorId, severityMeta, type Severity } from './types'
+import { ALERT_LIMIT_HEX, statusBarHex, boundaryHex, boundaryLines, boundaryZones, kpiAnchorId, severityMeta, type Severity } from './types'
 import { renderBoundaryOverlay } from './boundaryOverlay'
 import { DemoDataBadge } from './DemoDataBadge'
 import { KpiDetailModal } from './KpiDetailModal'
@@ -335,8 +335,13 @@ export function SeverityKpiCard({
               {renderBoundaryOverlay(zones, lines, CARD_OVERLAY_STYLE)}
               {shownSeries.map((s, i) => (
                 <Bar key={s.seriesKey} dataKey={s.seriesKey} name={s.label} fill={seriesColor(i)} radius={[2, 2, 0, 0]}>
-                  {result.kpi.barAgeShading && chartData.map((row) => (
-                    <Cell key={String(row.periodStart)} fill={ALERT_LIMIT_HEX} fillOpacity={ageShadeOpacity(String(row.periodStart), String(chartData[0].periodStart))} />
+                  {/* A lone series: each bar takes its own period's status colour (or amber-by-age where configured). */}
+                  {(result.kpi.barAgeShading || shownSeries.length === 1) && chartData.map((row) => (
+                    <Cell
+                      key={String(row.periodStart)}
+                      fill={result.kpi.barAgeShading ? ALERT_LIMIT_HEX : (statusBarHex(row[`${s.seriesKey}__status`]) ?? seriesColor(i))}
+                      fillOpacity={result.kpi.barAgeShading ? ageShadeOpacity(String(row.periodStart), String(chartData[0].periodStart)) : undefined}
+                    />
                   ))}
                 </Bar>
               ))}

@@ -33,6 +33,30 @@ public final class QaDrilldownSpecs {
     private QaDrilldownSpecs() {
     }
 
+    /** The QA per-1000 and IOOS cards count rows of the shared QC deviation / OOS tables under their own rule and date. */
+    private static TableSpec narrowed(TableSpec base, String dateColumn, Map<String, String> fixedFilters, String fixedCondition) {
+        return new TableSpec(base.table(), base.siteColumn(), dateColumn, base.selectColumns(), base.searchColumns(),
+                base.filterColumns(), fixedFilters, fixedCondition);
+    }
+
+    private static final String HUMAN_ROOT_CAUSE = "(cf_category = 'People' OR root_cause_bucket = 'By Human')";
+    private static final String SUPPLIER_ROOT_CAUSE = "(cf_category = 'Material' OR root_cause_bucket = 'By Vendor')";
+
+    public static final TableSpec DEVIATIONS_QC = narrowed(DrilldownSpecs.DEVIATIONS.withTable("public.fact_tw_deviations"),
+            "open_date_ist", Map.of("resp_dept", "Quality Control Department"), null);
+
+    public static final TableSpec DEVIATIONS_HUMAN = narrowed(DrilldownSpecs.DEVIATIONS.withTable("public.fact_tw_deviations"),
+            "close_date_ist", Map.of(), HUMAN_ROOT_CAUSE);
+
+    public static final TableSpec DEVIATIONS_SUPPLIERS_MATERIALS = narrowed(DrilldownSpecs.DEVIATIONS.withTable("public.fact_tw_deviations"),
+            "close_date_ist", Map.of(), SUPPLIER_ROOT_CAUSE);
+
+    public static final TableSpec OOS_SUPPLIERS_MATERIALS = narrowed(DrilldownSpecs.OOS_TREND.withTable("public.fact_tw_oos_trend"),
+            "open_date", Map.of(), "cf_category = 'Material'");
+
+    public static final TableSpec ANALYST_ERROR_IOOS = narrowed(DrilldownSpecs.OOS_TREND.withTable("public.fact_tw_oos_trend"),
+            "date_closed_ist::date", Map.of(), "root_cause_bucket = 'By Human'");
+
     public static final TableSpec STABILITY_TESTING_PENDING = new TableSpec(
             "qa.fact_lims_stability_testing_pending", "site_name", "sampled_date",
             List.of(
@@ -198,7 +222,7 @@ public final class QaDrilldownSpecs {
             Map.of());
 
     public static final TableSpec PM_PLAN_VS_ACTUAL = new TableSpec(
-            "qa.fact_sap_consolidated_pm_calibration_plan_vs_actual", "site_name", "planned_date",
+            "qa.fact_sap_consolidated_pm_calibration_plan_vs_actual", "site_name", QaKpiSpecs.PLAN_VS_ACTUAL_DATE_COLUMN,
             List.of(
                     new Column("plant", "plant"),
                     new Column("\"order\"", "orderNumber"),
@@ -214,7 +238,7 @@ public final class QaDrilldownSpecs {
             Map.of(), Map.of("order_type", "PM03"));
 
     public static final TableSpec CALIBRATION_PLAN_VS_ACTUAL = new TableSpec(
-            "qa.fact_sap_consolidated_pm_calibration_plan_vs_actual", "site_name", "planned_date",
+            "qa.fact_sap_consolidated_pm_calibration_plan_vs_actual", "site_name", QaKpiSpecs.PLAN_VS_ACTUAL_DATE_COLUMN,
             List.of(
                     new Column("plant", "plant"),
                     new Column("\"order\"", "orderNumber"),
@@ -313,14 +337,6 @@ public final class QaDrilldownSpecs {
             List.of("\"user\"", "training"),
             Map.of("department", "dept_name", "training_type", "training_type"));
 
-    /** Rows the card counts: Critical at open, opened in the period, still open - from the public.* deviations
-     * fact table built for QC (no qa.* equivalent). Filter keys are the agg table's own column names. */
-    public static final TableSpec OPEN_CRITICAL_DEVIATIONS = new TableSpec(
-            DrilldownSpecs.DEVIATIONS.table(), DrilldownSpecs.DEVIATIONS.siteColumn(), DrilldownSpecs.DEVIATIONS.dateColumn(),
-            DrilldownSpecs.DEVIATIONS.selectColumns(), DrilldownSpecs.DEVIATIONS.searchColumns(),
-            Map.of("resp_dept", "resp_dept", "level", "level"),
-            Map.of("preliminary_classification", "Critical"), "date_closed IS NULL");
-
     /** The deviation cards count closed records per root-cause bucket, one row per record_id (a record can span several
      * fact rows), from the public.* deviations fact table built for QC (no qa.* equivalent). Deduped inside the
      * subquery so a record counted in another bucket is not lost. */
@@ -335,9 +351,16 @@ public final class QaDrilldownSpecs {
                 DrilldownSpecs.DEVIATIONS.selectColumns(), DrilldownSpecs.DEVIATIONS.searchColumns(), filterColumns);
     }
 
-    /** Counted by open date, like the card's agg (qa.agg_tw_deviations_aging). */
+    /** Both critical-deviation cards count by close date (qa.agg_tw_critical_deviations): "Open" is Critical at the
+     * preliminary classification, "Closed" at the final one. Filter keys are the agg table's own slice columns. */
+    private static final Map<String, String> CRITICAL_FILTER_COLUMNS = Map.of(
+            QaKpiSpecs.CRITICAL_RESP_DEPT_COLUMN, "resp_dept", QaKpiSpecs.CRITICAL_ROOT_CAUSE_COLUMN, "root_cause_bucket");
+
+    public static final TableSpec OPEN_CRITICAL_DEVIATIONS = deviationsOneRowPerRecord(
+            "preliminary_classification = 'Critical'", "close_date_ist", CRITICAL_FILTER_COLUMNS);
+
     public static final TableSpec CLOSED_CRITICAL_DEVIATIONS = deviationsOneRowPerRecord(
-            "final_dev_classification = 'Critical'", "open_date_ist", Map.of("resp_dept", "resp_dept", "level", "level"));
+            "final_dev_classification = 'Critical'", "close_date_ist", CRITICAL_FILTER_COLUMNS);
 
     public static final TableSpec EQUIPMENT_ERROR_DEVIATIONS = closedDeviationsByBucket(
             "root_cause_bucket = 'By Equipment'", Map.of("resp_dept", "resp_dept"));
@@ -373,10 +396,10 @@ public final class QaDrilldownSpecs {
             Map.of(QaKpiSpecs.CAPA_IMPLEMENT_DEPT_COLUMN, "resp_dept"),
             Map.of(), "date_completed_ist IS NOT NULL");
 
-    /** Quality-blocked vendor/material rows. The card buckets by release_until (the table has no logged/opened date),
-     * and counts distinct vendors, so this lists more rows than the card's value. */
+    /** Quality-blocked vendor/material rows, all-time like the card (no date range applies), so it lists more rows than
+     * the card's distinct-vendor value. */
     public static final TableSpec VENDOR_BLOCKING_QUALITY_ISSUE = new TableSpec(
-            "qa.fact_vendor_quality_block", "site_name", "release_until",
+            "qa.fact_vendor_quality_block", "site_name", null,
             List.of(
                     new Column("site_name", "siteName"),
                     new Column("block_category", "blockCategory"),
@@ -389,7 +412,7 @@ public final class QaDrilldownSpecs {
                     new Column("release_until", "releaseUntil", ColumnKind.DATE),
                     new Column("reset_on", "resetOn", ColumnKind.DATE)),
             List.of("vendor_name", "material_name", "block_reason"),
-            Map.of("block_category", "block_category"),
+            Map.of(QaKpiSpecs.VENDOR_MATERIAL_TYPE_COLUMN, "material_type", QaKpiSpecs.VENDOR_BLOCK_CATEGORY_COLUMN, "block_category"),
             Map.of(), "is_quality_block");
 
     public static final TableSpec CAPA_APPROVAL_WITHIN_SLA = new TableSpec(
@@ -631,10 +654,11 @@ public final class QaDrilldownSpecs {
                 RECEIPT_BACK_BMR_BPR.table(), RECEIPT_BACK_BMR_BPR.siteColumn(), RECEIPT_BACK_BMR_BPR.dateColumn(),
                 RECEIPT_BACK_BMR_BPR.selectColumns().stream().filter(column -> !"site_source".equals(column.sqlColumn())).toList(),
                 RECEIPT_BACK_BMR_BPR.searchColumns(), RECEIPT_BACK_BMR_BPR.filterColumns(), RECEIPT_BACK_BMR_BPR.fixedFilters(),
-                durationBandCondition);
+                durationBandCondition + " AND NOT is_dispensed");
     }
 
-    // Same bands as the cards' numerators (QaKpiSpecs.UNDISPENSED_BMR_BPR_BEYOND_*), so the table rows match the counts.
+    // Same bands as the cards' numerators (QaKpiSpecs.UNDISPENSED_BMR_BPR_BEYOND_*), undispensed records only, so the
+    // table rows match the counts.
     public static final TableSpec UNDISPENSED_BMR_BPR_BEYOND_30_DAYS = undispensedBeyond(
             "duration_band IN ('Within 60 days', 'Beyond 60 days')");
     public static final TableSpec UNDISPENSED_BMR_BPR_BEYOND_60_DAYS = undispensedBeyond("duration_band = 'Beyond 60 days'");

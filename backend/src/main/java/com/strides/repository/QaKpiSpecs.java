@@ -12,13 +12,8 @@ package com.strides.repository;
  *
  * Several frontend QA KPI ids still have no real table, confirmed live as of 2026-10-12 (not an
  * oversight - there is genuinely nothing to query yet):
- * - deviations-per-1000-tests-qc, deviations-due-to-suppliers-materials-1000-batches,
- *   oos-due-to-suppliers-materials-1000-batches: no table combines the right numerator with a
- *   batch/test denominator - the closest candidates (agg_tw_deviations, agg_tw_oos_trend) have no
- *   batch-count or QC-test-count column to divide by.
- * - deviations-per-1000-batches-human: agg_tw_human_error_rate looked like a match by name, but its
- *   own denominator is test_count, not a batch count - it's the real source for "Human Error Index"
- *   (a different, not-yet-added KPI from the same fact-table sheet), not this one.
+ * The three per-1000-batches KPIs (human deviations, supplier/material deviations, supplier/material OOS) read the
+ * `agg_tw_*_per_1000_batches` tables from the DPM_QA Power BI handover (2026-10-23, Ankur).
  *
  * closure-of-open-change-controls: one card with a closure-level filter (L1-L5), defaulting to L5.
  * The hand-off doc's only limit (KPI-QA-042B) is for L5, so limits apply to the L5 selection alone
@@ -61,16 +56,24 @@ public final class QaKpiSpecs {
     public static final QaKpiSpec RECEIPT_BACK_BMR_BPR = QaKpiSpec.ratio(
             "agg_bmr_bpr_receipt_back", "site", "received_back_records", "issued_records", 100, "%");
 
-    // Undispensed beyond 30 days (threshold KPI-QA-011A): the fact never produces a 'Beyond 30 Days'
-    // band, so "beyond 30" is the 'Within 60 days' + 'Beyond 60 days' bands together; beyond 60 days
-    // (KPI-QA-011B) is the 'Beyond 60 days' band alone. Exact case - the DAX matched case-insensitively,
-    // Postgres does not.
+    // Undispensed beyond 30 days (threshold KPI-QA-011A): records not yet dispensed (all_records - dispensed_records)
+    // aged over 30 days, over every record issued in the period. The fact never produces a 'Beyond 30 Days' band
+    // (Power BI's measure matches that band name and so reads 0 every month), so "beyond 30" is the 'Within 60 days'
+    // + 'Beyond 60 days' bands; beyond 60 days (KPI-QA-011B) is the 'Beyond 60 days' band alone. Already-dispensed
+    // records in those bands are left out - they are not undispensed. The drill-down lists exactly these rows
+    // (QaDrilldownSpecs.UNDISPENSED_BMR_BPR_BEYOND_*). Exact case - the DAX matched case-insensitively, Postgres does not.
+    private static final String UNDISPENSED_RECORDS = "(all_records - dispensed_records)";
     public static final QaKpiSpec UNDISPENSED_BMR_BPR_BEYOND_30_DAYS = QaKpiSpec.ratioNumeratorWhere(
-            "agg_bmr_bpr_receipt_back", "site", "issued_records",
+            "agg_bmr_bpr_receipt_back", "site", UNDISPENSED_RECORDS,
             "duration_band IN ('Within 60 days', 'Beyond 60 days')", "all_records", 100, "%");
 
+    // The Manufacturing card is one KPI with a filter choosing between the two QA cards' definitions.
+    public static final String UNDISPENSED_BEYOND_PARAM = "beyondDays";
+    public static final String UNDISPENSED_BEYOND_30 = "Beyond 30 Days";
+    public static final String UNDISPENSED_BEYOND_60 = "Beyond 60 Days";
+
     public static final QaKpiSpec UNDISPENSED_BMR_BPR_BEYOND_60_DAYS = QaKpiSpec.ratioNumeratorWhere(
-            "agg_bmr_bpr_receipt_back", "site", "issued_records",
+            "agg_bmr_bpr_receipt_back", "site", UNDISPENSED_RECORDS,
             "duration_band = 'Beyond 60 days'", "all_records", 100, "%");
 
     public static final QaKpiSpec SUCCESS_RATE_VALIDATION_BATCHES = QaKpiSpec.ratioNumeratorWhere(
@@ -91,18 +94,40 @@ public final class QaKpiSpecs {
     public static final QaKpiSpec SFG_RELEASE_DELAYS = QaKpiSpec.ratioNumeratorWhere(
             "agg_sap_consolidated_sfg_release_delays", "site_name", "batch_count", "status = 'On Time'", "batch_count", 100, "%");
 
-    // PM03 = preventive maintenance orders, PM05 = calibration orders (inferred from the order descriptions
-    // in the fact table - PM05 rows say "calibration", PM03 rows never do).
-    public static final QaKpiSpec PM_PLAN_VS_ACTUAL = QaKpiSpec.countWhere(
-            "agg_sap_consolidated_pm_calibration_plan_vs_actual", "site_name", "order_count",
-            "order_type = 'PM03'", "orders");
+    // PM03 = Preventive Maintenance orders, PM05 = Calibration orders (the fact's own maintenance_category says so). Each card
+    // is the share of its orders done on time (status 'On Time' of 'On Time' + 'Not On Time') - the percentage Power BI shows.
+    // Power BI dates these by completion_date (orders completed in the period), not by planned_date as the agg table's period
+    // is, so the cards read the fact directly (see QaAggRepository.findTotalsByDate); the drill-down uses the same date.
+    public static final String PLAN_VS_ACTUAL_DATE_COLUMN = "completion_date";
+    private static final String PM_ORDER_TYPE_COLUMN = "order_type";
+    private static final String PLAN_VS_ACTUAL_ON_TIME = "status ILIKE 'On Time'";
+    private static final String ONE_ROW = "1";
 
-    public static final QaKpiSpec CALIBRATION_PLAN_VS_ACTUAL = QaKpiSpec.countWhere(
-            "agg_sap_consolidated_pm_calibration_plan_vs_actual", "site_name", "order_count",
-            "order_type = 'PM05'", "orders");
+    private static QaKpiSpec planVsActualOnTime(String orderType) {
+        String ofType = PM_ORDER_TYPE_COLUMN + " = '" + orderType + "'";
+        return new QaKpiSpec("fact_sap_consolidated_pm_calibration_plan_vs_actual", "site_name", ONE_ROW,
+                ofType + " AND " + PLAN_VS_ACTUAL_ON_TIME, ONE_ROW, ofType, 100, "%");
+    }
 
-    public static final QaKpiSpec VENDOR_QUALITY_BLOCK = QaKpiSpec.count(
-            "agg_vendor_quality_block", "site_name", "quality_blocked_vendors", "vendors");
+    private static final double PER_THOUSAND = 1000;
+    private static final String PER_1000_BATCHES_UNIT = "per 1000 batches";
+
+    public static final QaKpiSpec DEVIATIONS_PER_1000_TESTS_QC = QaKpiSpec.ratio(
+            "agg_tw_deviations_per_1000_tests_qc", "site", "deviation_count", "test_count", PER_THOUSAND, "per 1000 tests");
+
+    public static final QaKpiSpec OOS_SUPPLIERS_MATERIALS_PER_1000_BATCHES = QaKpiSpec.ratio(
+            "agg_tw_oos_suppliers_materials_per_1000_batches", "site", "oos_count", "rm_grn_batch_count", PER_THOUSAND, PER_1000_BATCHES_UNIT);
+
+    public static final QaKpiSpec DEVIATIONS_HUMAN_PER_1000_BATCHES = QaKpiSpec.ratio(
+            "agg_tw_deviations_per_1000_batches_human", "site", "deviation_count", "batch_count", PER_THOUSAND, PER_1000_BATCHES_UNIT);
+
+    public static final QaKpiSpec DEVIATIONS_SUPPLIERS_MATERIALS_PER_1000_BATCHES = QaKpiSpec.ratio(
+            "agg_tw_deviations_suppliers_materials_per_1000_batches", "site", "deviation_count", "rm_grn_batch_count", PER_THOUSAND,
+            PER_1000_BATCHES_UNIT);
+
+    public static final QaKpiSpec PM_PLAN_VS_ACTUAL = planVsActualOnTime("PM03");
+
+    public static final QaKpiSpec CALIBRATION_PLAN_VS_ACTUAL = planVsActualOnTime("PM05");
 
     // Doc formula is "1 - batches_with_qms / total_batches", not a bare column ratio - numeratorColumn
     // takes a parenthesized SQL expression here (it's interpolated directly into the SUM/CASE, so an
@@ -130,13 +155,15 @@ public final class QaKpiSpecs {
             "public.agg_tw_repeat_failure_rate", "site", "recurring_count", "resp_dept_slice = 'All'",
             "record_count", "resp_dept_slice = 'All'", 100, "%");
 
-    // "Open Critical Deviations" (original Excel KPI) - currently-open deviations classified
-    // Critical at open - open_count where initial_classification='Critical'. Distinct from the
-    // doc's own "Critical deviations (initial)" KQI, which additionally restricts resp_dept to the
-    // 3 shopfloor departments - that restriction isn't applied here since the original frontend KPI
-    // has no such scoping; flag if that turns out to be wrong.
-    public static final QaKpiSpec OPEN_CRITICAL_DEVIATIONS = QaKpiSpec.countWhere(
-            "agg_tw_deviations_aging", "site", "open_count", "initial_classification = 'Critical'", "deviations");
+    // Both critical-deviation cards read one table, bucketed by close date, as Power BI does. Despite its name, "Open"
+    // counts deviations whose preliminary (initial) classification was Critical. One slice at a time, never summed
+    // across: 'All' unless the department or root-cause filter is picked (see QaController.openCriticalDeviations).
+    public static final String CRITICAL_RESP_DEPT_COLUMN = "resp_dept_slice";
+    public static final String CRITICAL_ROOT_CAUSE_COLUMN = "root_cause_slice";
+    public static final String CRITICAL_SLICE_ALL = "All";
+
+    public static final QaKpiSpec OPEN_CRITICAL_DEVIATIONS = QaKpiSpec.count(
+            "agg_tw_critical_deviations", "site", "critical_initial_count", "deviations");
 
     public static final QaKpiSpec PROCEDURAL_ERROR_DEVIATIONS = QaKpiSpec.count(
             "agg_tw_procedural_error_deviations", "site", "dev_count", "deviations");
@@ -147,10 +174,8 @@ public final class QaKpiSpecs {
     public static final QaKpiSpec OVERDUE_INVESTIGATIONS = QaKpiSpec.count(
             "agg_tw_overdue_investigations", "site", "overdue_count", "investigations");
 
-    // Critical at close (final_classification) - the closed-side counterpart of OPEN_CRITICAL_DEVIATIONS, which reads
-    // the classification at open. dev_count is the period's deviations (by open date); open_count is 0 once closed.
-    public static final QaKpiSpec CLOSED_CRITICAL_DEVIATIONS = QaKpiSpec.countWhere(
-            "agg_tw_deviations_aging", "site", "dev_count", "final_classification = 'Critical'", "deviations");
+    public static final QaKpiSpec CLOSED_CRITICAL_DEVIATIONS = QaKpiSpec.count(
+            "agg_tw_critical_deviations", "site", "critical_final_count", "deviations");
 
     public static final QaKpiSpec EQUIPMENT_ERROR_DEVIATIONS = QaKpiSpec.countWhere(
             "agg_tw_equipment_error_deviations", "site", "dev_count", "root_cause_bucket = 'By Equipment'", "deviations");
@@ -270,8 +295,17 @@ public final class QaKpiSpecs {
     public static final QaKpiSpec OBSERVATIONS_OPEN = QaKpiSpec.count(
             "agg_tw_observations_open", "site", "observation_count", "observations");
 
+    // No grain or date: one all-time count per (material type, block category) slice, 'All' being the exact total.
+    public static final String VENDOR_MATERIAL_TYPE_COLUMN = "material_type_slice";
+    public static final String VENDOR_BLOCK_CATEGORY_COLUMN = "block_category_slice";
+    public static final String VENDOR_SLICE_ALL = "All";
+
     public static final QaKpiSpec VENDOR_BLOCKING_QUALITY_ISSUE = QaKpiSpec.count(
             "agg_vendor_quality_block", "site_name", "quality_blocked_vendors", "vendors");
+
+    public static boolean hasNoGrain(QaKpiSpec spec) {
+        return spec == VENDOR_BLOCKING_QUALITY_ISSUE;
+    }
 
     // Doc: "complaint_count, filter classification" (initial/final) - the frontend KPI is a single
     // card named for criticality itself, so this counts complaints classified Critical at open
@@ -282,12 +316,16 @@ public final class QaKpiSpecs {
     public static final QaKpiSpec REPEAT_COMPLAINTS = QaKpiSpec.ratioNumeratorWhere(
             "agg_tw_market_complaint_master", "site", "complaint_count", "is_recurring = 'Yes'", "complaint_count", 100, "%");
 
-    // The original frontend KPI bundles ack/investigation/closure tracking into one card - this
-    // reads the closure-aging figure (the doc's own distinct "Market complaint closure aging" row)
-    // as the primary value; ack-aging and investigation-aging are separate columns on the same
-    // table, not folded in here - flag if the dashboard needs all three as separate cards instead.
+    // One card, three trends from the same table: closure aging (the primary series, whose limits the card carries),
+    // then investigation and acknowledgement aging. A period with no rows for a stage reads "no data", not 0.
     public static final QaKpiSpec MARKET_COMPLAINTS_TRACKING = QaKpiSpec.average(
             "agg_tw_market_complaint_master", "site", "sum_closure_aging_days", "closure_aging_rows", "days");
+
+    public static final QaKpiSpec MARKET_COMPLAINTS_INVESTIGATION_AGING = QaKpiSpec.average(
+            "agg_tw_market_complaint_master", "site", "sum_investigation_aging_days", "investigation_aging_rows", "days");
+
+    public static final QaKpiSpec MARKET_COMPLAINTS_ACK_AGING = QaKpiSpec.average(
+            "agg_tw_market_complaint_master", "site", "sum_ack_aging_days", "ack_aging_rows", "days");
 
     public static final QaKpiSpec RECALL_EVENT_DENSITY = QaKpiSpec.count(
             "agg_tw_recall_event_density", "site", "recall_count", "recalls");

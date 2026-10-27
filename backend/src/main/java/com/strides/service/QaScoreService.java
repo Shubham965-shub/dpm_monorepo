@@ -109,9 +109,9 @@ public class QaScoreService {
 
                 // ---- Quality Event & Investigation Management ----
                 new KpiSource(qualityEvent, "qa-open-critical-deviations",
-                        (s, g, f, t) -> kpis.fetch(QaKpiSpecs.OPEN_CRITICAL_DEVIATIONS, "qa-open-critical-deviations", "Open Critical Deviations", s, g, f, t)),
+                        (s, g, f, t) -> kpis.fetch(QaKpiSpecs.OPEN_CRITICAL_DEVIATIONS, "qa-open-critical-deviations", "Critical Deviations (Initial)", s, g, f, t)),
                 new KpiSource(qualityEvent, "qa-closed-critical-deviations",
-                        (s, g, f, t) -> kpis.fetch(QaKpiSpecs.CLOSED_CRITICAL_DEVIATIONS, "qa-closed-critical-deviations", "Closed Critical Deviations", s, g, f, t)),
+                        (s, g, f, t) -> kpis.fetch(QaKpiSpecs.CLOSED_CRITICAL_DEVIATIONS, "qa-closed-critical-deviations", "Critical Deviations (Final)", s, g, f, t)),
                 new KpiSource(qualityEvent, "qa-deviations-per-1000-batches-shopfloor",
                         (s, g, f, t) -> kpis.fetch(QaKpiSpecs.DEVIATIONS_SHOPFLOOR, "qa-deviations-per-1000-batches-shopfloor", "Deviations per 1000 Batches - Shopfloor", s, g, f, t)),
                 new KpiSource(qualityEvent, "qa-procedural-error-deviations",

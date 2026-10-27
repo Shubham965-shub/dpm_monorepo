@@ -121,6 +121,7 @@ public class InstrumentHealthTest extends AuthenticatedBaseTest {
     public void verifyBandCardCountMatchesItsOwnHeaderLabel() {
         dashboard.selectSection(SECTION);
         InstrumentHealth page = new InstrumentHealth();
+        page.waitForBandsToSettle(BANDS);
 
         for (String band : BANDS) {
             int actualCount = page.getCardCountInBand(band);
@@ -138,6 +139,7 @@ public class InstrumentHealthTest extends AuthenticatedBaseTest {
     public void verifyHeaderBadgeCountsMatchBandCardCounts() {
         dashboard.selectSection(SECTION);
         InstrumentHealth page = new InstrumentHealth();
+        page.waitForBandsToSettle(BANDS);
 
         for (int i = 0; i < BANDS.size(); i++) {
             Assert.assertEquals(page.getHeaderBadgeCount(BADGE_WORDS.get(i)), page.getCardCountInBand(BANDS.get(i)),

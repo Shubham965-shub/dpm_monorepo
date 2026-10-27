@@ -1,5 +1,6 @@
 import type { KpiVisibilityLens } from './roleAccess'
 import { QA_KPI_VISIBILITY } from './qaKpiVisibility'
+import { adminVisibleKpiIds } from './adminDepartments'
 
 /**
  * Role-visibility, straight from Strides_DPM_KPI_Framework_v1's Analyst/Supervisor/Manager/HOD/CXO
@@ -167,14 +168,15 @@ const CXO_VISIBLE_KPI_IDS = new Set([
  * (every QA id is `qa-`-prefixed - see qaKpiConfig.ts), so a QC domain's `.has()` calls are
  * unaffected by QA's extra entries, and vice versa; this lets SectionSummaryList/DomainSeverityBoard/
  * useDomainTrendKpis/useCardGrain stay untouched for the QA preview instead of threading a second
- * visibility map through every one of them. */
+ * visibility map through every one of them. The admin-only MFG/Engg/SC&P scaffolds (adminDepartments.ts) are
+ * merged the same way - their ids are `mfg-`/`engg-`/`scp-`-prefixed. */
 export const KPI_VISIBILITY: Record<KpiVisibilityLens, Set<string>> = {
-  analyst: new Set([...ANALYST_VISIBLE_KPI_IDS, ...QA_KPI_VISIBILITY.analyst]),
-  supervisor: new Set([...SUPERVISOR_VISIBLE_KPI_IDS, ...QA_KPI_VISIBILITY.supervisor]),
-  leadership: new Set([...LEADERSHIP_VISIBLE_KPI_IDS, ...QA_KPI_VISIBILITY.leadership]),
-  cxo: new Set([...CXO_VISIBLE_KPI_IDS, ...QA_KPI_VISIBILITY.cxo]),
+  analyst: new Set([...ANALYST_VISIBLE_KPI_IDS, ...QA_KPI_VISIBILITY.analyst, ...adminVisibleKpiIds('analyst')]),
+  supervisor: new Set([...SUPERVISOR_VISIBLE_KPI_IDS, ...QA_KPI_VISIBILITY.supervisor, ...adminVisibleKpiIds('supervisor')]),
+  leadership: new Set([...LEADERSHIP_VISIBLE_KPI_IDS, ...QA_KPI_VISIBILITY.leadership, ...adminVisibleKpiIds('leadership')]),
+  cxo: new Set([...CXO_VISIBLE_KPI_IDS, ...QA_KPI_VISIBILITY.cxo, ...adminVisibleKpiIds('cxo')]),
   // QC has no Cluster Head tier (see the DPM role ladder) - reuses its own CXO set rather than
   // leaving 'clusterHead' empty for QC ids. QA's own Cluster Head set is genuinely distinct (see
   // qaKpiVisibility.ts), not a reuse of its cxo entry.
-  clusterHead: new Set([...CXO_VISIBLE_KPI_IDS, ...QA_KPI_VISIBILITY.clusterHead]),
+  clusterHead: new Set([...CXO_VISIBLE_KPI_IDS, ...QA_KPI_VISIBILITY.clusterHead, ...adminVisibleKpiIds('clusterHead')]),
 }
