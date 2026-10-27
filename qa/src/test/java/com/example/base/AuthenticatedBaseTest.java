@@ -62,6 +62,14 @@ public abstract class AuthenticatedBaseTest extends BaseTest {
         getDriver().navigate().refresh();
         WaitUtils.waitForPageLoad();
         new WebDriverWait(getDriver(), SESSION_RESTORE_TIMEOUT).until(driver -> {
+            // Wait for restoreSession() to have actually rotated the token: on a slow link (CI
+            // runner -> India backend) the "Loading..." frame outlasts the settle delay, and saving
+            // the pre-rotation pair makes the next test replay a spent token, which the backend
+            // treats as theft and revokes every session for the account.
+            String currentRefresh = TokenUtils.getRefreshToken();
+            if (currentRefresh == null || currentRefresh.equals(tokens.refreshToken())) {
+                return false;
+            }
             if (!driver.findElements(LOGIN_BUTTON).isEmpty()) {
                 return false;
             }

@@ -123,7 +123,6 @@ jobs:
           console.log('\nCoverage check passed');
           NODE
 
-
       - name: Show Frontend Log
         if: failure()
         run: cat "$RUNNER_TEMP/vite.log" || echo "No vite log found"
@@ -141,10 +140,9 @@ jobs:
 
       - name: Upload QA Coverage Report
         if: ${{always()}}
-        uses: actions/upload-artifact@v4    
+        uses: actions/upload-artifact@v4
         with:
-            name: qa-coverage-report
-            path: qa/target/site/jacoco/
-            if-no-files-found: warn
-            retention-days: 7
-
+          name: qa-coverage-report
+          path: qa/target/site/jacoco/
+          if-no-files-found: warn
+          retention-days: 7

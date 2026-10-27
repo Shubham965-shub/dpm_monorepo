@@ -15,6 +15,8 @@ public class DashboardPageTest extends AuthenticatedBaseTest {
 
     private DashboardPage dashboard;
     private static final Logger LOGGER = Logger.getLogger(DashboardPageTest.class.getName());
+    // FilterBar.tsx: 'default' leaves each KPI on its own cadence and is the initial selection.
+    private static final String DEFAULT_TIMELINE = "Default (per KPI)";
 
     @BeforeMethod(alwaysRun = true)
     public void dashboardSetup() {
@@ -23,7 +25,7 @@ public class DashboardPageTest extends AuthenticatedBaseTest {
 
     @Test(groups = { "sanity" })
     public void verifyTimelineOptions() {
-        List<String> expected = List.of("Daily", "Weekly", "Monthly", "Quarterly", "Yearly");
+        List<String> expected = List.of(DEFAULT_TIMELINE, "Daily", "Weekly", "Monthly", "Quarterly", "Yearly");
         Assert.assertEquals(dashboard.getTimelineValues(), expected, "Timeline values mismatch");
     }
 
@@ -83,7 +85,7 @@ public class DashboardPageTest extends AuthenticatedBaseTest {
         dashboard.resetFilter();
 
         Assert.assertEquals(dashboard.getSelectedSection(), "All sections", "Section should revert to its default");
-        Assert.assertEquals(dashboard.getSelectedTimeline(), "Monthly", "Timeline should revert to its default");
+        Assert.assertEquals(dashboard.getSelectedTimeline(), DEFAULT_TIMELINE, "Timeline should revert to its default");
         Assert.assertFalse(dashboard.isResetFiltersButtonDisplayed(),
                 "Reset filters should hide itself once back at defaults");
     }

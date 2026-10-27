@@ -21,11 +21,18 @@
             <class name="com.example.tests.DashboardPageTest"/>
             <class name="com.example.tests.FavoriteSectionsTest"/>
             <class name="com.example.tests.InstrumentHealthTest"/>
-            <!-- Last on purpose: its happy-path test changes and reverts the real account's
-                 password, which revokes every other outstanding refresh token server-side. -->
             <class name="com.example.tests.ChangePasswordTest"/>
         </classes>
 
+    </test>
+
+    <!-- Framework unit tests: no backend or account, so no group filter. -->
+    <test name="Framework Unit Tests">
+        <classes>
+            <class name="com.example.unit.ConfigReaderTest"/>
+            <class name="com.example.unit.DriverFactoryTest"/>
+            <class name="com.example.unit.BrowserUtilsTest"/>
+        </classes>
     </test>
 
 </suite>
