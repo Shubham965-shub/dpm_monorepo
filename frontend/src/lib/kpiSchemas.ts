@@ -50,6 +50,8 @@ export const kpiCardResponseSchema = z.object({
   // Per-category counts in display order (e.g. observations per severity), shown in the tooltip
   // instead of numerator / denominator - null for every KPI without one.
   breakdown: z.record(z.string(), z.coerce.number()).nullish(),
+  // The bar this row's segment (`name`) stacks into, for a card plotted by category instead of by period.
+  category: z.string().nullish(),
   // nullish, not nullable: a backend deployed before this field existed simply omits it.
   thresholds: kpiThresholdsSchema.nullish(),
   // The period hasn't finished yet, so its value (and colour) is still moving.

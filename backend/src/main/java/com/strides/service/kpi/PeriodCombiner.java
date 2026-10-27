@@ -73,9 +73,15 @@ public final class PeriodCombiner {
                     BigDecimal value = t.denominator() == 0 ? null
                             : BigDecimal.valueOf(t.numerator() * multiplier / t.denominator()).setScale(2, RoundingMode.HALF_UP);
                     return new KpiCardResponse(kpiId, name, value, unit, null, t.grain(), t.periodStart(), note,
-                            BigDecimal.valueOf(t.numerator()), BigDecimal.valueOf(t.denominator()), numeratorLabel, denominatorLabel);
+                            countOf(t.numerator()), countOf(t.denominator()), numeratorLabel, denominatorLabel);
                 })
                 .toList();
+    }
+
+    /** A whole total keeps its integer form (so a count reads 4257, not 4257.0); only a fractional sum (hours,
+     * minutes, quantities) carries decimals. */
+    private static BigDecimal countOf(double total) {
+        return total == Math.rint(total) ? BigDecimal.valueOf((long) total) : BigDecimal.valueOf(total);
     }
 
     /** Same as the 4-arg fromSums, but every period in [from, to] with no row is returned too, with a null

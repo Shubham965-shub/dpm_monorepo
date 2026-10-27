@@ -8,7 +8,7 @@ import { filterRootCauseRowsToDimension, pickMaximalRootCauseDimension } from '@
 import type { KpiVisibilityLens } from '@/lib/roleAccess'
 import { severityFromStatus, type Severity, type TierCounts } from '@/components/dashboard/types'
 import { chartAxisFor, toChartData, type ChartAxis } from '@/components/kpi/KpiChartCard'
-import { coarserGrain, staleSince } from '@/lib/kpiFreshness'
+import { EMPTY_PERIOD_IS_NOT_STALE_KPI_IDS, coarserGrain, staleSince } from '@/lib/kpiFreshness'
 import { toIsoDate } from '@/lib/kpiDateRange'
 import { buildKpiQueryString, fetchKpiCardData, type GlobalKpiFilters } from './useKpiData'
 
@@ -106,7 +106,7 @@ export function deriveKpiMetrics(kpiId: string, rows: KpiCardResponse[], axis?: 
 
   const lastDataStart = valuedRows.at(-1)?.periodStart ?? null
   const asOf = axis ? (axis.to < toIsoDate(new Date()) ? axis.to : toIsoDate(new Date())) : null
-  const stale = axis && asOf ? staleSince(lastDataStart, coarserGrain(axis.grain, axis.frequency), asOf) : null
+  const stale = axis && asOf && !EMPTY_PERIOD_IS_NOT_STALE_KPI_IDS.has(kpiId) ? staleSince(lastDataStart, coarserGrain(axis.grain, axis.frequency), asOf) : null
 
   const severity = stale ? null : severityFromStatus(latestRow?.status)
   const thresholds = primaryRows.findLast((row) => row.thresholds)?.thresholds ?? null

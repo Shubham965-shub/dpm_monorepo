@@ -53,7 +53,12 @@ public class QaKpiThresholdConfigRepository {
 
             // ---- Quality Event & Investigation Management ----
             Map.entry("qa-open-critical-deviations", "KPI-QA-013"),
+            Map.entry("qa-closed-critical-deviations", "KPI-QA-014"),
             Map.entry("qa-deviations-per-1000-batches-shopfloor", "KPI-QA-015"),
+            Map.entry("qa-deviations-per-1000-batches-human", "KPI-QA-016"),
+            Map.entry("qa-deviations-per-1000-tests-qc", "KPI-QA-017"),
+            Map.entry("qa-deviations-due-to-suppliers-materials-1000-batches", "KPI-QA-021"),
+            Map.entry("qa-oos-due-to-suppliers-materials-1000-batches", "KPI-QA-023"),
             Map.entry("qa-procedural-error-deviations", "KPI-QA-018"),
             Map.entry("qa-equipment-error-deviations", "KPI-QA-019"),
             Map.entry("qa-instrument-error-deviations", "KPI-QA-020"),

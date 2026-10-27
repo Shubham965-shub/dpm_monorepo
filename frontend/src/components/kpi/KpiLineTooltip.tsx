@@ -1,4 +1,4 @@
-import { formatNoDataPeriod, formatPeriodLabel } from '@/lib/periodFormat'
+import { formatNoDataPeriod, formatNoDataRange, formatPeriodLabel } from '@/lib/periodFormat'
 import type { Grain } from '@/lib/kpiSchemas'
 
 interface TooltipPayloadEntry {
@@ -60,7 +60,7 @@ export function KpiLineTooltip({
     return (
       <div className="rounded-md border border-border bg-card p-2 text-[11px] shadow-md">
         <span className="text-muted-foreground">
-          {run ? `No data from ${formatNoDataPeriod(run[0], grain)} to ${formatNoDataPeriod(run[1], grain)}` : `No data for ${noDataLabel}`}
+          {run ? `No data ${formatNoDataRange(run[0], run[1], grain)}` : `No data for ${noDataLabel}`}
         </span>
       </div>
     )
